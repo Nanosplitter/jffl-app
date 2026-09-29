@@ -66,6 +66,11 @@ export function buildCup(id: CupId, data: SummaryMap): Cup {
   return {id,name:names[id],rounds,champion:rounds.at(-1)!.matches[0].winner};
 }
 
+export function roundScoreAverage(round: CupRound) {
+  const totals = round.matches.filter(match => match.status !== 'bye').flatMap(match => [match.a.total, match.b.total]).filter((total): total is number => total !== null);
+  return totals.length ? totals.reduce((sum, total) => sum + total, 0) / totals.length : null;
+}
+
 export function regularSeason(data: LeagueSummary) {
   const totals=new Map(data.teams.map(team=>[team.id,{teamId:team.id,wins:0,losses:0,ties:0,points:0,games:0}]));
   for(const matchup of data.weeklyMatchups??[]) {

@@ -34,7 +34,7 @@ current scoring-period lineup. D/ST IDs remain strings, including negative IDs.
 Commissioner's pages:
 
 - `/summary`: searchable standings, points for/against, win percentage, previous-week/start/draft rank movement, league scoring averages, and provisional promotion/relegation bands.
-- `/cups`: all four cups; `/cups/jffl`, `/cups/premier`, `/cups/championship`, `/cups/league-one`: complete interactive brackets, per-week scores, totals, manager highlights, and round selection.
+- `/cups`: all four cups; `/cups/jffl`, `/cups/premier`, `/cups/championship`, `/cups/league-one`: complete interactive brackets, per-week scores, totals, manager highlights, and round selection. Each match opens `/cups/{cup}/match/{id}` with the week-by-week scores and, for the current week, both starting lineups.
 - `/weekly`: current or completed-week scoring leaderboard, 100+ club, scoring extremes, margins, and current starting-player performances.
 - `/history`: 13 current trophy races, historical trophy and JFFL Cup tables, and league timeline.
 

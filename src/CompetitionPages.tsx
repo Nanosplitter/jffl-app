@@ -2,11 +2,15 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useParams } from 'react-router-dom';
 import { ArrowUpRight, Trophy, Search, ArrowUpDown } from 'lucide-react';
 import { useRosters, useSummaries } from './data';
-import { LEAGUES, type LeagueSlug, type LeagueSummary } from './types';
+import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer } from './types';
 import { MANAGERS, TIMELINE, managerFor } from './reference';
-import { buildCup, provisionalZone, regularSeason, type CupId, type CupMatch, type SummaryMap } from './competitions';
+import { buildCup, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
 import { Fresh, points, record } from './ui';
 import { TeamIdentity } from './TeamIdentity';
+import { PlayerIdentity } from './PlayerIdentity';
+
+const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'FLEX', 'D/ST', 'K'];
+const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
 
 const CUP_IDS: CupId[] = ['jffl', 'premier', 'championship', 'league-one'];
 const teamUrl = (slug: string, id: string) => `/league/${slug}/team/${id}`;
@@ -34,24 +38,65 @@ function UpdateStrip({ data }: { data: SummaryMap }) {
   </details>;
 }
 
-function MatchCard({ match, weeks, data, highlighted, index }: { match: CupMatch; weeks: number[]; data: SummaryMap; highlighted: string; index: number }) {
-  const status = { bye:'Bye · advances', waiting:'Upcoming', live:weeks.length > 1 ? 'Live aggregate' : 'Live score', final:'Final', tied:'Awaiting commissioner decision', unavailable:'Waiting for score data' }[match.status];
+function totalShare(left: number | null, right: number | null) {
+  if (left == null || right == null || left + right <= 0) return null;
+  const away = Math.round(left / (left + right) * 100);
+  return { away, home: 100 - away };
+}
+
+function feederLabel(label: string) {
+  const parsed = /^Winner of (.+) (\d+)$/.exec(label);
+  if (!parsed) return label || 'TBD';
+  const round = parsed[1].replace(/^Round /, 'R').replace('Quarterfinals', 'QF').replace('Semifinals', 'SF').replace('First round', 'R1');
+  return `${round} · Match ${parsed[2]}`;
+}
+
+function MatchCard({ match, weeks, data, highlighted, index, layout = 'board', cupId }: { match: CupMatch; weeks: number[]; data: SummaryMap; highlighted: string; index: number; layout?: 'board' | 'slot'; cupId: string }) {
+  const status = { bye:'Bye · advances', waiting:'', live:'', final:'Final', tied:'Awaiting commissioner decision', unavailable:'Waiting for score data' }[match.status];
   const selected = highlighted && [match.a.participant?.key, match.b.participant?.key].includes(highlighted);
-  return <article className={`cup-match ${match.status} ${selected ? 'highlighted' : ''}`}>
-    <header><span>Match {index + 1}</span><span className={`status-tag ${match.status}`}>{status}</span></header>
-    <table><caption className="sr-only">Cup matchup {index + 1}, weeks {weeks.join(' and ')}</caption><thead><tr><th>Team</th>{weeks.map(week => <th key={week}>W{week}</th>)}<th>Total</th></tr></thead><tbody>
-      {[match.a, match.b].map((side, sideIndex) => {
-        const participant = side.participant;
-        const team = participant ? data[participant.slug]?.teams.find(item => item.id === participant.teamId) : null;
-        const winner = participant && participant.key === match.winner?.key;
-        return <tr key={sideIndex} className={winner ? 'cup-winner' : ''}>
-          <td>{participant ? <><Link className="cup-manager" to={teamUrl(participant.slug, participant.teamId)}><span className="cup-seed">{match.id.startsWith('jffl-') ? participant.jfflSeed : participant.leagueSeed}</span>{participant.manager}{winner && <span className="sr-only"> · Advances</span>}</Link><small className="cup-team"><span className="cup-league">{LEAGUES.find(item => item.slug === participant.slug)?.name}</span> · {team ? <TeamIdentity team={team} /> : 'Team data loading'}</small></> : <span className="muted cup-placeholder">{side.label || 'TBD'}</span>}</td>
-          {side.legs.map((score, legIndex) => <td key={legIndex} className="numeric muted">{match.status === 'bye' ? '—' : points(score)}</td>)}
-          <td className="numeric emphasis">{match.status === 'bye' ? '—' : points(side.total)}</td>
-        </tr>;
-      })}
-    </tbody></table>
-  </article>;
+  const share = match.status === 'bye' ? null : totalShare(match.a.total, match.b.total);
+  const sideName = (side: CupMatch['a']) => side.participant?.manager ?? (side.label || 'TBD');
+  const label = `Cup matchup ${index + 1}, weeks ${weeks.join(' and ')}. ${sideName(match.a)} ${match.status === 'bye' ? 'bye' : points(match.a.total)}. ${sideName(match.b)} ${match.status === 'bye' ? 'bye' : points(match.b.total)}.`;
+  if (layout === 'slot') return <Link className={`bracket-node cup-${match.status} ${selected ? 'highlighted' : ''}`} to={matchUrl(cupId, match.id)} aria-label={label}>
+    {[match.a, match.b].map((side, sideIndex) => {
+      const participant = side.participant;
+      const team = participant ? data[participant.slug]?.teams.find(item => item.id === participant.teamId) : null;
+      const winner = participant && participant.key === match.winner?.key;
+      const seed = participant ? (match.id.startsWith('jffl-') ? participant.jfflSeed : participant.leagueSeed) : null;
+      const openSlot = !participant;
+      const name = participant ? participant.manager : match.status === 'bye' ? 'Bye' : feederLabel(side.label);
+      const showScore = !!participant && match.status !== 'bye' && match.status !== 'waiting' && side.total !== null;
+      const detail = participant ? `${LEAGUES.find(item => item.slug === participant.slug)?.name ?? ''} · ${team?.name ?? 'Team data loading'}` : side.label;
+      return <div className={`bracket-row ${winner ? 'winner' : ''} ${openSlot ? 'open-slot' : ''}`} key={sideIndex} title={detail || undefined}>
+        <span className="bracket-seed">{seed ?? ''}</span>
+        {team?.logoUrl ? <img className="bracket-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="bracket-logo" aria-hidden="true" />}
+        <span className="bracket-name">{name}{winner && <span className="sr-only"> · Advances</span>}</span>
+        <span className="bracket-score">{showScore ? points(side.total) : ''}</span>
+      </div>;
+    })}
+  </Link>;
+  return <Link className={`cup-match cup-${match.status} ${selected ? 'highlighted' : ''}`} to={matchUrl(cupId, match.id)} aria-label={label}>
+    <header><span>Match {index + 1}</span>{status && <span className={`status-tag status-${match.status}`}>{status}</span>}</header>
+    <div className="cup-body">
+      <div className="cup-face">
+        {[match.a, match.b].map((side, sideIndex) => {
+          const participant = side.participant;
+          const team = participant ? data[participant.slug]?.teams.find(item => item.id === participant.teamId) : null;
+          const winner = participant && participant.key === match.winner?.key;
+          return <div className={`cup-side ${sideIndex === 1 ? 'home' : 'away'} ${winner ? 'cup-winner' : ''}`} key={sideIndex}>
+            {team?.logoUrl && <img className="matchup-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
+            <div className="cup-side-copy">
+              {participant ? <span className="cup-manager"><span className="cup-seed">{match.id.startsWith('jffl-') ? participant.jfflSeed : participant.leagueSeed}</span>{participant.manager}{winner && <span className="sr-only"> · Advances</span>}</span> : <span className="muted cup-placeholder">{side.label || 'TBD'}</span>}
+              {participant && <small className="cup-team"><span className="cup-league">{LEAGUES.find(item => item.slug === participant.slug)?.name}</span> · {team?.name ?? 'Team data loading'}</small>}
+              <strong className="score">{match.status === 'bye' ? '—' : points(side.total)}</strong>
+              {weeks.length > 1 && match.status !== 'bye' && <small className="proj-line">{weeks.map((week, legIndex) => `W${week} ${points(side.legs[legIndex])}`).join(' · ')}</small>}
+            </div>
+          </div>;
+        })}
+      </div>
+      {share && <div className="win-bar" role="img" aria-label={`${sideName(match.a)} ${share.away} percent of the scored points. ${sideName(match.b)} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
+    </div>
+  </Link>;
 }
 
 export function CupHubPage() {
@@ -61,12 +106,35 @@ export function CupHubPage() {
       const cup = buildCup(id, data);
       const rounds = cup.rounds;
       const active = rounds.find(round => round.matches.some(match => ['live','tied','unavailable'].includes(match.status))) ?? rounds.find(round => round.matches.some(match => match.status === 'waiting')) ?? rounds.at(-1)!;
-      const players = id === 'jffl' ? 30 : 10;
-      return <Link key={id} className={`cup-tile ${id}`} to={`/cups/${id}`}><p className="eyebrow">{players} TEAMS · {id === 'jffl' ? 'TWO-WEEK TIES' : 'SINGLE-WEEK TIES'}</p><h2>{cup.name}</h2><p>{cup.champion ? `${cup.champion.manager} · Champion` : `${active.name} · ${active.weeks.length > 1 ? 'Weeks' : 'Week'} ${active.weeks.join(' + ')}`}</p><span className="tile-link">Open bracket<ArrowUpRight size={17} /></span></Link>;
+      return <Link key={id} className={`cup-tile ${id}`} to={`/cups/${id}`}><p className="eyebrow">{id === 'jffl' ? 'TWO-WEEK TIES' : 'SINGLE-WEEK TIES'}</p><h2>{cup.name}</h2><p>{cup.champion ? `${cup.champion.manager} · Champion` : `${active.name} · ${active.weeks.length > 1 ? 'Weeks' : 'Week'} ${active.weeks.join(' + ')}`}</p><span className="tile-link">Open bracket<ArrowUpRight size={17} /></span></Link>;
     })}</div>
     <details className="explainer"><summary>How the cups work</summary><p>Your ESPN score counts in your regular league matchup and in any cup tie scheduled for that week. JFFL Cup totals combine two weeks; league cups use one week. Scores retain each league’s scoring rules, even when the same NFL player appears on both sides.</p><p>Seeds and bracket positions follow Jason’s 2026 Week 2 PDF. Winners advance only after every scoring leg is final. A tied total waits for the commissioner’s decision.</p></details>
-    <div className="section-heading"><h2>JFFL Cup · opening round</h2><Link className="text-link" to="/cups/jffl">All matchups<ArrowUpRight size={14} /></Link></div><div className="featured-cup-matches">{buildCup('jffl', data).rounds[0].matches.slice(-4).map((match,index) => <MatchCard key={match.id} match={match} weeks={[3,4]} data={data} highlighted="" index={index + 12} />)}</div>
+    <div className="section-heading"><h2>JFFL Cup · opening round</h2><Link className="text-link" to="/cups/jffl">All matchups<ArrowUpRight size={14} /></Link></div><div className="featured-cup-matches">{buildCup('jffl', data).rounds[0].matches.slice(-4).map((match,index) => <MatchCard key={match.id} match={match} weeks={[3,4]} data={data} highlighted="" index={index + 12} cupId="jffl" />)}</div>
   </>;
+}
+
+function ManagerHighlight({ participants, highlighted, onChange }: { participants: { key: string; manager: string }[]; highlighted: string; onChange: (key: string) => void }) {
+  const [query, setQuery] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const selected = participants.find(item => item.key === highlighted);
+  const value = query ?? selected?.manager ?? '';
+  const needle = value.trim().toLowerCase();
+  const matches = [...participants].sort((a, b) => a.manager.localeCompare(b.manager)).filter(item => !query || item.manager.toLowerCase().includes(needle));
+  const choose = (key: string) => { onChange(key); setQuery(null); setOpen(false); };
+  return <div className="manager-highlight" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }}>
+    <label className="search-field">
+      <Search size={16} />
+      <input role="combobox" aria-expanded={open} aria-controls="manager-highlight-list" aria-autocomplete="list" aria-label="Highlight a manager" placeholder="Highlight a manager" value={value} onFocus={event => { setOpen(true); event.currentTarget.select(); }} onChange={event => { setQuery(event.target.value); setOpen(true); setActive(0); if (highlighted) onChange(''); }} onKeyDown={event => {
+        if (event.key === 'ArrowDown') { event.preventDefault(); setOpen(true); setActive(index => Math.min(index + 1, Math.max(matches.length - 1, 0))); }
+        if (event.key === 'ArrowUp') { event.preventDefault(); setActive(index => Math.max(index - 1, 0)); }
+        if (event.key === 'Enter' && open && matches[active]) { event.preventDefault(); choose(matches[active].key); }
+        if (event.key === 'Escape') setOpen(false);
+      }} />
+      {value && <button type="button" className="highlight-clear" aria-label="Clear highlighted manager" onClick={() => { setQuery(''); onChange(''); setOpen(false); }}>Clear</button>}
+    </label>
+    {open && <ul id="manager-highlight-list" className="manager-suggestions" role="listbox">{matches.length ? matches.map((item, index) => <li key={item.key}><button type="button" role="option" aria-selected={item.key === highlighted} className={index === active ? 'active' : ''} onMouseEnter={() => setActive(index)} onClick={() => choose(item.key)}>{item.manager}</button></li>) : <li className="empty-inline">No managers match.</li>}</ul>}
+  </div>;
 }
 
 export function CupPage() {
@@ -74,27 +142,146 @@ export function CupPage() {
   const location = useLocation();
   const { data } = useCompetitionData();
   const [highlighted, setHighlighted] = useState('');
-  const [selectedRound, setSelectedRound] = useState('current');
+  const [selectedRound, setSelectedRound] = useState('all');
   useEffect(() => {
     const requested = new URLSearchParams(location.search).get('manager') ?? '';
     setHighlighted(MANAGERS.some(item => item.key === requested && (cupId === 'jffl' || item.slug === cupId)) ? requested : '');
-    setSelectedRound('current');
   }, [cupId, location.search]);
+  useEffect(() => { setSelectedRound('all'); }, [cupId]);
   if (!CUP_IDS.includes(cupId as CupId)) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
   const cup = buildCup(cupId as CupId, data);
   const participants = MANAGERS.filter(item => cupId === 'jffl' || item.slug === cupId);
-  const activeIndex = cup.rounds.findIndex(round => round.matches.some(match => ['live', 'tied', 'unavailable'].includes(match.status)));
-  const nextIndex = cup.rounds.findIndex(round => round.matches.some(match => match.status === 'waiting'));
-  const currentIndex = activeIndex >= 0 ? activeIndex : nextIndex >= 0 ? nextIndex : cup.rounds.length - 1;
-  const rounds = cup.rounds.filter((_, index) => selectedRound === 'all' || (selectedRound === 'current' ? index === currentIndex : String(index) === selectedRound));
-  return <><Link className="back-link" to="/cups">← All cups</Link><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? '30 teams. Two-week aggregate scores. Jeff and Jason receive first-round byes.' : '10 teams. One-week scores. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className="champion-pill"><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
-    <div className="bracket-controls"><label>Highlight a manager<select aria-label="Highlight a manager" value={highlighted} onChange={event => setHighlighted(event.target.value)}><option value="">All managers</option>{participants.sort((a,b)=>a.manager.localeCompare(b.manager)).map(item => <option key={item.key} value={item.key}>{item.manager}</option>)}</select></label><label>Show rounds<select aria-label="Show rounds" value={selectedRound} onChange={event => setSelectedRound(event.target.value)}><option value="current">Active round</option><option value="all">Full bracket</option>{cup.rounds.map((round,index)=><option key={index} value={index}>{round.name} · W{round.weeks.join('+')}</option>)}</select></label><span className="muted">Final scores advance teams. A live lead is provisional.</span></div>
-    <div className={`bracket-scroll ${selectedRound !== 'all' ? 'single-round' : ''}`} tabIndex={0} role="region" aria-label={selectedRound === 'all' ? `${cup.name} full bracket. Scroll horizontally to see later rounds.` : `${cup.name} selected round`}><div className="bracket-columns">{rounds.map(round => {
-      const scores=round.matches.filter(match=>match.status!=='bye').flatMap(match=>[...match.a.legs,...match.b.legs]).filter((score):score is number=>score!==null);
-      return <section className="bracket-round" key={round.name}><header className="round-heading"><div><p className="eyebrow">{round.weeks.length>1?'WEEKS':'WEEK'} {round.weeks.join(' + ')}</p><h2>{round.name}</h2></div><span>{scores.length?`${points(scores.reduce((sum,score)=>sum+score,0)/scores.length)} avg`:'— avg'}</span></header><div className="round-matches">{round.matches.map((match,index)=><MatchCard key={match.id} match={match} weeks={round.weeks} data={data} highlighted={highlighted} index={index}/>)}</div></section>;
+  const leagueCup = cupId !== 'jffl';
+  const balanced = cup.rounds.every((round, index) => index === 0 || round.matches.length * 2 === cup.rounds[index - 1].matches.length);
+  const tree = selectedRound === 'all' && (balanced || leagueCup);
+  return <><Link className="back-link" to="/cups">← All cups</Link><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. Jeff and Jason receive first-round byes.' : 'One-week scores. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className="champion-pill"><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
+    <div className="bracket-controls"><ManagerHighlight participants={participants} highlighted={highlighted} onChange={setHighlighted} />{selectedRound !== 'all' && <button type="button" className="round-back" onClick={() => setSelectedRound('all')}>Full bracket</button>}</div>
+    <div className={`bracket-scroll ${selectedRound !== 'all' ? 'single-round' : tree ? 'bracket-tree' : 'bracket-flow'}${leagueCup && tree ? ' league-bracket' : ''}`} tabIndex={0} role="region" aria-label={selectedRound === 'all' ? `${cup.name} full bracket. Scroll horizontally to see later rounds.` : `${cup.name} selected round`}><div className="bracket-columns">{cup.rounds.map((round, roundIndex) => {
+      if (selectedRound !== 'all' && String(roundIndex) !== selectedRound) return null;
+      const average = roundScoreAverage(round);
+      return <section className="bracket-round" key={round.name}><header className="round-heading"><div><p className="eyebrow">{round.weeks.length>1?'WEEKS':'WEEK'} {round.weeks.join(' + ')}</p><h2>{selectedRound === 'all' ? <button type="button" className="round-jump" onClick={() => setSelectedRound(String(roundIndex))} aria-label={`Open ${round.name}`}>{round.name}<ArrowUpRight size={16} aria-hidden="true" /></button> : round.name}</h2></div><span>{average == null ? '— avg' : `${points(average)} avg`}</span></header><div className="round-matches">{(leagueCup && tree && roundIndex === 0 ? [round.matches[0] ?? null, null, null, round.matches[1] ?? null] : round.matches).map((match, index) => {
+        if (!match) return <div className="bracket-slot bracket-spacer" key={`spacer-${index}`} aria-hidden="true" />;
+        const matchIndex = leagueCup && roundIndex === 0 ? (index === 0 ? 0 : 1) : index;
+        const card = <MatchCard key={tree ? undefined : match.id} match={match} weeks={round.weeks} data={data} highlighted={highlighted} index={matchIndex} layout={selectedRound === 'all' || match.status === 'waiting' ? 'slot' : 'board'} cupId={cupId} />;
+        return tree ? <div className={`bracket-slot${leagueCup && roundIndex === 0 ? ' play-in' : ''}`} key={match.id}>{card}</div> : card;
+      })}</div></section>;
     })}</div></div>
     <p className="source-note">Bracket source: Jason’s Week 2 PDF. Live and completed leg scores: ESPN, refreshed every three minutes. Missing or future scores remain blank. Ties await commissioner decision.</p>
   </>;
+}
+
+function MatchIdentity({ participant, team, seed, title, align }: { participant: CupMatch['a']['participant']; team: { logoUrl?: string | null; name: string } | null; seed: number | null; title: string; align: 'left' | 'right' }) {
+  return <div className={`match-id ${align}`}>
+    {team?.logoUrl && <img className="matchup-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
+    <div className="match-id-copy">
+      {participant ? <Link className="cup-manager" to={teamUrl(participant.slug, participant.teamId)}><span className="cup-seed">{seed}</span>{participant.manager}</Link> : <span className="muted cup-placeholder">{title}</span>}
+      {participant && <small className="cup-team"><span className="cup-league">{LEAGUES.find(item => item.slug === participant.slug)?.name}</span> · {team?.name ?? 'Team data loading'}</small>}
+    </div>
+  </div>;
+}
+
+function StarterCompare({ sides }: { sides: { title: string; players: RosteredPlayer[]; message: string | null }[] }) {
+  const [left, right] = sides;
+  const count = Math.max(left.players.length, right.players.length);
+  return <div className="starter-compare">
+    <div className="starter-head"><p>{left.title}</p><span /><span /><p>{right.title}</p></div>
+    {(left.message || right.message) && <div className="starter-row starter-status"><p className="empty-inline">{left.message}</p><span /><span /><p className="empty-inline">{right.message}</p></div>}
+    {Array.from({ length: count }, (_, index) => {
+      const a = left.players[index];
+      const b = right.players[index];
+      return <div className="starter-row" key={a?.id ?? b?.id ?? index}>
+        <div className="starter-id">{a && <PlayerIdentity player={a} injury={a.injuryStatus} />}</div>
+        <StarterScore player={a} align="left" />
+        <StarterScore player={b} align="right" />
+        <div className="starter-id right">{b && <PlayerIdentity player={b} injury={b.injuryStatus} />}</div>
+      </div>;
+    })}
+  </div>;
+}
+
+function weeklyAverage(team: { pointsFor: number | null; wins: number | null; losses: number | null; ties: number | null } | null) {
+  if (!team || team.pointsFor == null || team.wins == null || team.losses == null || team.ties == null) return null;
+  const games = team.wins + team.losses + team.ties;
+  return games > 0 ? team.pointsFor / games : null;
+}
+
+function startersFor(players: RosteredPlayer[], teamId: string) {
+  return players.filter(player => player.teamId === teamId && player.group === 'starter').sort((a, b) => {
+    const slot = (player: RosteredPlayer) => { const index = SLOT_ORDER.indexOf(player.slot); return index === -1 ? SLOT_ORDER.length : index; };
+    return slot(a) - slot(b) || a.name.localeCompare(b.name);
+  });
+}
+
+function StarterScore({ player, align }: { player?: RosteredPlayer; align: 'left' | 'right' }) {
+  if (!player) return <span className={`starter-score ${align}`} />;
+  const yet = player.weekPoints == null && player.projectedPoints != null;
+  const projected = player.projectedPoints != null ? points(player.projectedPoints) : null;
+  return <span className={`starter-score ${align}${yet ? ' yet' : ''}`}>
+    <strong>{points(player.weekPoints)}</strong>
+    {projected != null && <small>{align === 'left' ? <>{yet && <span className="yet-label">Yet to play · </span>}proj {projected}</> : <>{projected} proj{yet && <span className="yet-label"> · Yet to play</span>}</>}</small>}
+  </span>;
+}
+
+export function CupMatchPage() {
+  const { cupId = '', matchId = '' } = useParams();
+  const { data } = useCompetitionData();
+  const valid = CUP_IDS.includes(cupId as CupId);
+  const cup = valid ? buildCup(cupId as CupId, data) : null;
+  const located = cup?.rounds.flatMap(round => round.matches.map((match, index) => ({ round, match, index }))).find(item => item.match.id === matchId) ?? null;
+  const lineupSlugs = located && located.match.status !== 'bye'
+    ? [...new Set(located.round.weeks.flatMap(week => (['a', 'b'] as const).flatMap(key => {
+      const participant = located.match[key].participant;
+      return participant && data[participant.slug]?.week === week ? [participant.slug] : [];
+    })))]
+    : [];
+  const rosters = useRosters(lineupSlugs);
+  if (!valid || !cup) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
+  if (!located) return <p className="notice">Match not found. <Link to={`/cups/${cupId}`}>Back to the bracket</Link></p>;
+  const { round, match, index } = located;
+  const status = { bye: 'Bye · advances', waiting: 'Upcoming', live: 'Live', final: 'Final', tied: 'Awaiting commissioner decision', unavailable: 'Waiting for score data' }[match.status];
+  const sideTitle = (side: CupMatch['a']) => side.participant?.manager ?? (match.status === 'bye' ? 'Bye' : feederLabel(side.label));
+  const heading = match.status === 'bye' ? sideTitle(match.a.participant ? match.a : match.b) : `${sideTitle(match.a)} vs ${sideTitle(match.b)}`;
+  const share = match.status === 'bye' ? null : totalShare(match.a.total, match.b.total);
+  const lineupWeek = lineupSlugs.length ? round.weeks.find(week => lineupSlugs.some(slug => data[slug]?.week === week)) ?? null : null;
+  const sideProfile = (side: CupMatch['a']) => {
+    const participant = side.participant;
+    const team = participant ? data[participant.slug]?.teams.find(item => item.id === participant.teamId) ?? null : null;
+    const seed = participant ? (match.id.startsWith('jffl-') ? participant.jfflSeed : participant.leagueSeed) : null;
+    return { participant, team, seed, title: sideTitle(side), leading: side.total != null && (side === match.a ? match.b : match.a).total != null && side.total > (side === match.a ? match.b : match.a).total! };
+  };
+  const left = sideProfile(match.a);
+  const right = sideProfile(match.b);
+  return <div className="match-sheet">
+    <Link className="back-link" to={`/cups/${cupId}`}>← {cup.name}</Link>
+    <section className="page-intro"><div><p className="eyebrow">{cup.name.toUpperCase()} <span>/</span> {round.name.toUpperCase()} <span>/</span> MATCH {index + 1}</p><h1>{heading}</h1><p className="intro-copy">{match.status === 'bye' ? status : `${round.weeks.length > 1 ? `Weeks ${round.weeks.join(' and ')}` : `Week ${round.weeks[0]}`} · ${status}${match.winner ? ` · ${match.winner.manager} advances` : ''}`}</p></div></section>
+    <UpdateStrip data={data} />
+    {match.status === 'bye' ? <p className="source-note">{sideTitle(match.a.participant ? match.a : match.b)} has a bye in {round.name} and advances.</p> : <>
+      <article className="match-board" aria-label={heading}>
+        <div className="match-board-row">
+          <MatchIdentity participant={left.participant} team={left.team} seed={left.seed} title={left.title} align="left" />
+          <div className="match-center-score"><strong className={left.leading ? 'leading' : ''}>{points(match.a.total)}</strong><span aria-hidden="true">–</span><strong className={right.leading ? 'leading' : ''}>{points(match.b.total)}</strong></div>
+          <MatchIdentity participant={right.participant} team={right.team} seed={right.seed} title={right.title} align="right" />
+        </div>
+        {share && <div className="win-bar" role="img" aria-label={`${left.title} ${share.away} percent of the scored points. ${right.title} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
+      </article>
+      <table className="match-compare"><caption className="sr-only">Score and season comparison</caption><thead><tr><th scope="col"><span className="sr-only">Stat</span></th><th scope="col">{left.title}</th><th scope="col">{right.title}</th></tr></thead><tbody>
+        {round.weeks.map((week, legIndex) => <tr key={week}><th scope="row">Week {week}</th><td>{points(match.a.legs[legIndex])}</td><td>{points(match.b.legs[legIndex])}</td></tr>)}
+        {round.weeks.length > 1 && <tr className="match-total"><th scope="row">Cup total</th><td>{points(match.a.total)}</td><td>{points(match.b.total)}</td></tr>}
+        <tr><th scope="row">Record</th><td>{left.team ? record(left.team) : '—'}</td><td>{right.team ? record(right.team) : '—'}</td></tr>
+        <tr><th scope="row">Avg / week</th><td>{points(weeklyAverage(left.team))}</td><td>{points(weeklyAverage(right.team))}</td></tr>
+        <tr><th scope="row">League rank</th><td>{left.team?.rank != null ? `#${left.team.rank}` : '—'}</td><td>{right.team?.rank != null ? `#${right.team.rank}` : '—'}</td></tr>
+      </tbody></table>
+      <p className="source-note">{cupId === 'jffl' ? 'Each leg is that team’s ESPN score for the week. The cup total adds the two weeks.' : 'The cup score is that team’s ESPN score for the week.'} Record, average, and rank are the current season standings. Missing scores stay blank.</p>
+      {lineupWeek != null && <section className="match-lineups" aria-label={`Week ${lineupWeek} starters`}><h2>Week {lineupWeek} starters</h2><StarterCompare sides={([match.a, match.b] as const).map(side => {
+        const participant = side.participant;
+        const roster = participant ? rosters[participant.slug] : null;
+        const current = participant ? data[participant.slug]?.week === lineupWeek : false;
+        const players = current && roster?.data ? startersFor(roster.data.players, participant!.teamId) : [];
+        const message = !participant ? 'Opponent is not set yet.' : !current ? 'This snapshot is another week.' : roster?.loading ? 'Loading starters…' : roster?.error ? 'Starter list is unavailable.' : players.length ? null : 'No starters in this snapshot.';
+        return { title: sideTitle(side), players, message };
+      })} /></section>}
+    </>}
+  </div>;
 }
 
 export function SeasonPage() {
@@ -108,9 +295,7 @@ export function SeasonPage() {
       const summary=data[meta.slug];
       if(!summary) return <section className="surface waiting" key={meta.slug}>{meta.name} data is loading or unavailable.</section>;
       const teams=summary.teams.filter(team=>`${managerFor(meta.slug,team.id)?.manager} ${team.name}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>sort==='points'?(b.pointsFor??-Infinity)-(a.pointsFor??-Infinity):sort==='manager'?(managerFor(meta.slug,a.id)?.manager??a.name).localeCompare(managerFor(meta.slug,b.id)?.manager??b.name):(a.rank??99)-(b.rank??99));
-      const games=summary.teams.reduce((sum,team)=>sum+(team.wins??0)+(team.losses??0)+(team.ties??0),0);
-      const cumulative=summary.teams.reduce((sum,team)=>sum+(team.pointsFor??0),0);
-      return <section className={`surface season-league ${meta.slug}`} key={meta.slug}><div className="surface-heading"><div><p className="eyebrow">{summary.completedWeeks??'—'} COMPLETED WEEKS</p><h2 className={`league-label ${meta.slug}`}>{meta.name}</h2></div><span className="muted">{games?points(cumulative/games):'—'} season avg / team / week</span></div><div className="table-scroll" tabIndex={0} role="region" aria-label={`${meta.name} detailed standings`}><table className="commissioner-table"><thead><tr><th>#</th><th>Manager / team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th><th>Week Δ</th><th>Start Δ</th><th>Draft Δ</th><th>Current zone</th></tr></thead><tbody>{teams.map(team=>{
+      return <section className={`surface season-league ${meta.slug}`} key={meta.slug}><div className="surface-heading"><h2 className={`league-label ${meta.slug}`}>{meta.name}</h2></div><div className="table-scroll" tabIndex={0} role="region" aria-label={`${meta.name} detailed standings`}><table className="commissioner-table"><thead><tr><th>#</th><th>Manager / team</th><th>Record</th><th>Win %</th><th>PF</th><th>PA</th><th>Week Δ</th><th>Start Δ</th><th>Draft Δ</th><th>Current zone</th></tr></thead><tbody>{teams.map(team=>{
         const profile=managerFor(meta.slug,team.id);
         const rank=team.rank;
         const played=(team.wins??0)+(team.losses??0)+(team.ties??0);
@@ -141,9 +326,9 @@ export function WeeklyPage() {
   const allFinal=matchups.length===15&&matchups.every(matchup=>matchup.status==='final');
   const standouts=LEAGUES.flatMap(meta=>(states[meta.slug]?.data?.players??[]).filter(player=>player.group==='starter'&&player.weekPoints!==null).map(player=>({...player,slug:meta.slug}))).sort((a,b)=>b.weekPoints!-a.weekPoints!).slice(0,12);
   return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p></div><label className="week-picker">Choose week<select aria-label="Choose week" value={selectedWeek} onChange={event=>setSelectedWeek(Number(event.target.value))}><option value={0}>Current week</option>{Array.from({length:currentWeek},(_,index)=><option key={index} value={index+1}>Week {index+1}</option>)}</select></label></section><UpdateStrip data={data}/>
-    <div className="recap-metrics"><article><p className="eyebrow">HIGH SCORER</p><strong>{describe(scores[0])}</strong><span>{scores[0]?LEAGUES.find(meta=>meta.slug===scores[0].slug)?.name:'Awaiting scores'}</span></article><article><p className="eyebrow">100+ CLUB</p><strong>{hundred.length} teams</strong><span>{scores.length} scores reported</span></article><article><p className="eyebrow">SMALLEST {allFinal?'WINNING MARGIN':'MARGIN'}</p><strong>{margins[0]?`${points(margins[0].margin)} points`:'—'}</strong><span>{matchupName(margins[0])}</span></article><article><p className="eyebrow">LARGEST {allFinal?'BLOWOUT':'LEAD'}</p><strong>{margins.at(-1)?`${points(margins.at(-1)!.margin)} points`:'—'}</strong><span>{matchupName(margins.at(-1))}</span></article><article><p className="eyebrow">LOWEST {allFinal?'WINNER':'LEADING SCORE'}</p><strong>{describe(winners[0])}</strong></article><article><p className="eyebrow">HIGHEST {allFinal?'LOSER':'TRAILING SCORE'}</p><strong>{describe(losers[0])}</strong></article></div>
-    <section className="surface"><div className="surface-heading"><h2>Scoring leaderboard</h2><span className="muted">League-specific points</span></div><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly scoring leaderboard"><table><thead><tr><th>#</th><th>Manager</th><th>League</th><th>Points</th><th>Matchup</th></tr></thead><tbody>{scores.map((row,index)=><tr key={`${row.slug}-${row.id}`}><td className="rank">{index+1}</td><td><Link className="manager-link" to={teamUrl(row.slug,row.id)}>{managerFor(row.slug,row.id)?.manager??'Team'}</Link></td><td><span className={`league-label ${row.slug}`}>{LEAGUES.find(meta=>meta.slug===row.slug)?.name}</span></td><td className="numeric emphasis">{points(row.score)}{row.score>=100&&<span className="hundred-tag">100+</span>}</td><td className="muted">{row.opponent===null?'—':row.score===row.opponent?row.final?'Tie':'Level':row.score>row.opponent?row.final?'Won':'Leading':row.final?'Lost':'Trailing'}</td></tr>)}</tbody></table></div></section>
-    {week===currentWeek&&<section className="surface standouts"><div className="surface-heading"><h2>Top starting-player performances</h2><span className="muted">Current rosters · current week</span></div><div className="table-scroll"><table><thead><tr><th>Player</th><th>Manager</th><th>League</th><th>Points</th></tr></thead><tbody>{standouts.map(player=><tr key={`${player.slug}-${player.id}`}><td><strong>{player.name}</strong><small className="team-subline muted">{player.proTeam} · {player.position}</small></td><td><Link to={teamUrl(player.slug,player.teamId)}>{managerFor(player.slug,player.teamId)?.manager}</Link></td><td className={`league-label ${player.slug}`}>{LEAGUES.find(meta=>meta.slug===player.slug)?.name}</td><td className="numeric emphasis">{points(player.weekPoints)}</td></tr>)}</tbody></table></div></section>}
+    <div className="recap-metrics"><article><p className="eyebrow">HIGH SCORER</p><strong>{describe(scores[0])}</strong><span>{scores[0]?LEAGUES.find(meta=>meta.slug===scores[0].slug)?.name:'Awaiting scores'}</span></article><article><p className="eyebrow">100+ CLUB</p><strong>{hundred.length} teams</strong></article><article><p className="eyebrow">SMALLEST {allFinal?'WINNING MARGIN':'MARGIN'}</p><strong>{margins[0]?`${points(margins[0].margin)} points`:'—'}</strong><span>{matchupName(margins[0])}</span></article><article><p className="eyebrow">LARGEST {allFinal?'BLOWOUT':'LEAD'}</p><strong>{margins.at(-1)?`${points(margins.at(-1)!.margin)} points`:'—'}</strong><span>{matchupName(margins.at(-1))}</span></article><article><p className="eyebrow">LOWEST {allFinal?'WINNER':'LEADING SCORE'}</p><strong>{describe(winners[0])}</strong></article><article><p className="eyebrow">HIGHEST {allFinal?'LOSER':'TRAILING SCORE'}</p><strong>{describe(losers[0])}</strong></article></div>
+    <section className="surface"><div className="surface-heading"><h2>Scoring leaderboard</h2></div><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly scoring leaderboard"><table><thead><tr><th>#</th><th>Manager</th><th>League</th><th>Points</th><th>Matchup</th></tr></thead><tbody>{scores.map((row,index)=><tr key={`${row.slug}-${row.id}`}><td className="rank">{index+1}</td><td><Link className="manager-link" to={teamUrl(row.slug,row.id)}>{managerFor(row.slug,row.id)?.manager??'Team'}</Link></td><td><span className={`league-label ${row.slug}`}>{LEAGUES.find(meta=>meta.slug===row.slug)?.name}</span></td><td className="numeric emphasis">{points(row.score)}{row.score>=100&&<span className="hundred-tag">100+</span>}</td><td className="muted">{row.opponent===null?'—':row.score===row.opponent?row.final?'Tie':'Level':row.score>row.opponent?row.final?'Won':'Leading':row.final?'Lost':'Trailing'}</td></tr>)}</tbody></table></div></section>
+    {week===currentWeek&&<section className="surface standouts"><div className="surface-heading"><h2>Top starting-player performances</h2></div><div className="table-scroll"><table><thead><tr><th>Player</th><th>Manager</th><th>League</th><th>Points</th></tr></thead><tbody>{standouts.map(player=><tr key={`${player.slug}-${player.id}`}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td><td><Link to={teamUrl(player.slug,player.teamId)}>{managerFor(player.slug,player.teamId)?.manager}</Link></td><td className={`league-label ${player.slug}`}>{LEAGUES.find(meta=>meta.slug===player.slug)?.name}</td><td className="numeric emphasis">{points(player.weekPoints)}</td></tr>)}</tbody></table></div></section>}
     {week===2&&week!==currentWeek&&<section className="surface explainer"><h2>Week 2 player highlights · reported by Jason</h2><p>Josh Allen: 39 points; Jaxon Smith-Njigba: 33; Davante Adams: 31. These three historical player highlights come from the supplied email. The team leaderboard above uses ESPN’s current official historical scores, including corrections.</p></section>}
     <p className="source-note">The smallest margin excludes tied games. Completed weeks use ESPN’s corrected scores; live-week winners and losers are shown as leaders and trailers.</p>
   </>;

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { buildCup, scoreFor, type SummaryMap } from '../src/competitions.ts';
+import { buildCup, roundScoreAverage, scoreFor, type CupRound, type SummaryMap } from '../src/competitions.ts';
 import { MANAGERS, managerFor } from '../src/reference.ts';
 
 // Fixed public Week 3 scores keep this suite independent of ESPN and live updates.
@@ -76,4 +76,21 @@ test('a missing league or score cannot manufacture a cup winner or a zero',()=>{
   const match=buildCup('jffl',data).rounds[0].matches.find(item=>item.b.participant?.manager==='RonniColin')!;
   assert.equal(match.b.total,null);
   assert.equal(match.winner,null);
+});
+
+test('a round average is the mean of playing totals and leaves byes out',()=>{
+  const round: CupRound = {
+    name: 'Round 1',
+    weeks: [3, 4],
+    matches: [
+      { id: 'bye', status: 'bye', winner: null, a: { participant: null, label: '', legs: [90, 0], total: 90 }, b: { participant: null, label: 'Bye', legs: [null, null], total: null } },
+      { id: 'live', status: 'live', winner: null, a: { participant: null, label: '', legs: [61, 0], total: 61 }, b: { participant: null, label: '', legs: [55, 0], total: 55 } },
+    ],
+  };
+  assert.equal(roundScoreAverage(round), 58);
+  const cup = buildCup('jffl', fixture());
+  const playing = cup.rounds[0].matches.filter(match => match.status !== 'bye').flatMap(match => [match.a.total, match.b.total]).filter((total): total is number => total !== null);
+  assert.ok(cup.rounds[0].matches.some(match => match.status === 'bye' && match.a.total !== null));
+  assert.equal(roundScoreAverage(cup.rounds[0]), playing.reduce((sum, total) => sum + total, 0) / playing.length);
+  assert.equal(roundScoreAverage(cup.rounds[1]), null);
 });
