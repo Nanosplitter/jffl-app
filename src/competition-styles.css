@@ -116,8 +116,9 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .match-sheet .source-note { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; }
 .match-lineups { margin-top: 8px; width: 100%; }
 .match-lineups h2 { font-size: 1.35rem; margin-bottom: 16px; }
-.starter-compare { position: relative; }
-.starter-compare::before {
+.starter-compare { display: flex; flex-direction: column; }
+.starter-body { position: relative; }
+.starter-body::before {
   content: '';
   position: absolute;
   left: 50%;

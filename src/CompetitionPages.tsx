@@ -186,17 +186,19 @@ function StarterCompare({ sides }: { sides: { title: string; players: RosteredPl
   const count = Math.max(left.players.length, right.players.length);
   return <div className="starter-compare">
     <div className="starter-head"><p>{left.title}</p><span /><span /><p>{right.title}</p></div>
-    {(left.message || right.message) && <div className="starter-row starter-status"><p className="empty-inline">{left.message}</p><span /><span /><p className="empty-inline">{right.message}</p></div>}
-    {Array.from({ length: count }, (_, index) => {
-      const a = left.players[index];
-      const b = right.players[index];
-      return <div className="starter-row" key={a?.id ?? b?.id ?? index}>
-        <div className="starter-id">{a && <PlayerIdentity player={a} injury={a.injuryStatus} />}</div>
-        <StarterScore player={a} align="left" />
-        <StarterScore player={b} align="right" />
-        <div className="starter-id right">{b && <PlayerIdentity player={b} injury={b.injuryStatus} />}</div>
-      </div>;
-    })}
+    <div className="starter-body">
+      {(left.message || right.message) && <div className="starter-row starter-status"><p className="empty-inline">{left.message}</p><span /><span /><p className="empty-inline">{right.message}</p></div>}
+      {Array.from({ length: count }, (_, index) => {
+        const a = left.players[index];
+        const b = right.players[index];
+        return <div className="starter-row" key={a?.id ?? b?.id ?? index}>
+          <div className="starter-id">{a && <PlayerIdentity player={a} injury={a.injuryStatus} />}</div>
+          <StarterScore player={a} align="left" />
+          <StarterScore player={b} align="right" />
+          <div className="starter-id right">{b && <PlayerIdentity player={b} injury={b.injuryStatus} />}</div>
+        </div>;
+      })}
+    </div>
   </div>;
 }
 
