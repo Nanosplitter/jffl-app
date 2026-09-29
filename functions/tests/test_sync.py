@@ -2,7 +2,7 @@ import copy
 from types import SimpleNamespace
 
 import pytest
-from espn_adapter import BoundedRequests, normalize_player, validate_snapshot, weekly_matchups
+from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, normalize_player, validate_snapshot, weekly_matchups
 from sync_service import sync_leagues
 
 
@@ -62,6 +62,14 @@ def test_lineup_and_missing_values(slot, group):
     assert result["projectedPoints"] is None
     assert result["seasonPoints"] is None
     assert result["weekPoints"] is None
+
+
+def test_scoring_rules_name_the_yardage_bundles_and_field_goal_ranges():
+    assert SCORING_STAT_NAMES["8"] == "Every 25 pass yards"
+    assert SCORING_STAT_NAMES["28"] == "Every 10 rush yards"
+    assert SCORING_STAT_NAMES["48"] == "Every 10 rec yards"
+    assert SCORING_STAT_NAMES["198"] == "Field goals 50-59"
+    assert SCORING_STAT_NAMES["209"] == "1-pt safety"
 
 
 def test_stat_ids_do_not_confuse_yards_and_yards_per_game():

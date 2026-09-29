@@ -22,6 +22,17 @@ STAT_NAMES = {
     "98": "Safeties", "99": "Sacks", "120": "Points allowed", "127": "Yards allowed",
 }
 
+# Scoring-rule ids that are not player counting stats. Kept separate so a
+# 25-yard passing bundle does not show up as a player stat.
+SCORING_STAT_NAMES = {
+    "8": "Every 25 pass yards", "19": "Pass 2-pt conversion",
+    "26": "Rush 2-pt conversion", "28": "Every 10 rush yards",
+    "44": "Rec 2-pt conversion", "48": "Every 10 rec yards",
+    "77": "Field goals 40-49", "80": "Field goals under 40",
+    "198": "Field goals 50-59", "201": "Field goals 60+",
+    "205": "Defensive 2-pt return", "206": "2-pt return", "209": "1-pt safety",
+}
+
 
 def number(value):
     if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value):
@@ -249,7 +260,7 @@ def fetch_league(slug):
             value = number(item.get("points"))
             if value is not None and value != 0:
                 stat_id = str(item["statId"])
-                label = STAT_NAMES.get(stat_id, PLAYER_STATS_MAP.get(int(stat_id), f"ESPN stat {stat_id}"))
+                label = SCORING_STAT_NAMES.get(stat_id) or STAT_NAMES.get(stat_id) or PLAYER_STATS_MAP.get(int(stat_id), f"ESPN stat {stat_id}")
                 scoring.append({"name": label, "points": value})
         summary = {**common, "teams": sorted(teams, key=lambda t: t["rank"]), "matchups": matchups, "scoring": scoring,
                    'weeklyMatchups': weekly_matchups(boundary, week), 'completedWeeks': completed}
