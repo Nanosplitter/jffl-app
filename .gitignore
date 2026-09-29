@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env.local
+.firebase/
+*-debug.log
+*.log
+.firebaserc
+functions/venv/
+functions/.venv/
+__pycache__/
+.pytest_cache/
+functions/.env.local
+functions/local-data.json
+.tools/
+tsconfig.tsbuildinfo
+tmp/

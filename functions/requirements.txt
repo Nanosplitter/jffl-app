@@ -1,0 +1,4 @@
+firebase-functions>=0.5,<1
+firebase-admin>=6.6,<8
+espn-api==0.46.0
+requests>=2.32.4,<3

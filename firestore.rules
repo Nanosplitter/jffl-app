@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function publishedLeague(slug) {
+      return slug in ['premier', 'championship', 'league-one'];
+    }
+    match /publicLeagues/{slug} {
+      allow get: if publishedLeague(slug);
+      allow list, write: if false;
+    }
+    match /publicRosters/{slug} {
+      allow get: if publishedLeague(slug);
+      allow list, write: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

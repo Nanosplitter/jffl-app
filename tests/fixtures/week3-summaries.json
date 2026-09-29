@@ -1,0 +1,1472 @@
+{
+  "premier": {
+    "schemaVersion": 1,
+    "leagueId": "831337",
+    "slug": "premier",
+    "leagueName": "Premier League",
+    "season": 2026,
+    "week": 3,
+    "updatedAt": "2026-09-29T01:04:33.384911+00:00",
+    "lastAttemptAt": "2026-09-29T01:04:33.384911+00:00",
+    "refreshStatus": "ok",
+    "teams": [
+      {
+        "id": "16",
+        "name": "Hot Machete",
+        "abbreviation": "JAY",
+        "rank": 1,
+        "wins": 2,
+        "losses": 0,
+        "ties": 0,
+        "pointsFor": 231,
+        "pointsAgainst": 185,
+        "rosterCount": 16,
+        "previousRank": 1,
+        "draftRank": 5,
+        "regularSeasonRank": 1,
+        "finalStanding": null
+      },
+      {
+        "id": "34",
+        "name": "Hockeytown ",
+        "abbreviation": "HNB",
+        "rank": 2,
+        "wins": 2,
+        "losses": 0,
+        "ties": 0,
+        "pointsFor": 219,
+        "pointsAgainst": 178,
+        "rosterCount": 16,
+        "previousRank": 2,
+        "draftRank": 3,
+        "regularSeasonRank": 2,
+        "finalStanding": null
+      },
+      {
+        "id": "30",
+        "name": "Glass City Stone Throwers",
+        "abbreviation": "THRO",
+        "rank": 3,
+        "wins": 2,
+        "losses": 0,
+        "ties": 0,
+        "pointsFor": 168,
+        "pointsAgainst": 125,
+        "rosterCount": 16,
+        "previousRank": 4,
+        "draftRank": 9,
+        "regularSeasonRank": 3,
+        "finalStanding": null
+      },
+      {
+        "id": "44",
+        "name": "Trenton Tryhards",
+        "abbreviation": "TT",
+        "rank": 4,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 211,
+        "pointsAgainst": 186,
+        "rosterCount": 16,
+        "previousRank": 3,
+        "draftRank": 1,
+        "regularSeasonRank": 4,
+        "finalStanding": null
+      },
+      {
+        "id": "38",
+        "name": "Midland Mediocrity ",
+        "abbreviation": "MM",
+        "rank": 5,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 187,
+        "pointsAgainst": 176,
+        "rosterCount": 18,
+        "previousRank": 8,
+        "draftRank": 7,
+        "regularSeasonRank": 5,
+        "finalStanding": null
+      },
+      {
+        "id": "45",
+        "name": "Ryan's Rowdy Team",
+        "abbreviation": "RRT",
+        "rank": 6,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 160,
+        "pointsAgainst": 171,
+        "rosterCount": 18,
+        "previousRank": 10,
+        "draftRank": 6,
+        "regularSeasonRank": 6,
+        "finalStanding": null
+      },
+      {
+        "id": "42",
+        "name": "Millennium Falcons ",
+        "abbreviation": "MFrs",
+        "rank": 7,
+        "wins": 0,
+        "losses": 1,
+        "ties": 1,
+        "pointsFor": 177,
+        "pointsAgainst": 190,
+        "rosterCount": 16,
+        "previousRank": 5,
+        "draftRank": 4,
+        "regularSeasonRank": 7,
+        "finalStanding": null
+      },
+      {
+        "id": "46",
+        "name": "BMidd ",
+        "abbreviation": "BBT",
+        "rank": 8,
+        "wins": 0,
+        "losses": 1,
+        "ties": 1,
+        "pointsFor": 170,
+        "pointsAgainst": 212,
+        "rosterCount": 16,
+        "previousRank": 6,
+        "draftRank": 8,
+        "regularSeasonRank": 8,
+        "finalStanding": null
+      },
+      {
+        "id": "43",
+        "name": "DC Destroyers",
+        "abbreviation": "DCD",
+        "rank": 9,
+        "wins": 0,
+        "losses": 2,
+        "ties": 0,
+        "pointsFor": 185,
+        "pointsAgainst": 236,
+        "rosterCount": 18,
+        "previousRank": 7,
+        "draftRank": 2,
+        "regularSeasonRank": 9,
+        "finalStanding": null
+      },
+      {
+        "id": "47",
+        "name": "Allison's Astounding Team",
+        "abbreviation": "AAT",
+        "rank": 10,
+        "wins": 0,
+        "losses": 2,
+        "ties": 0,
+        "pointsFor": 166,
+        "pointsAgainst": 215,
+        "rosterCount": 16,
+        "previousRank": 9,
+        "draftRank": 10,
+        "regularSeasonRank": 10,
+        "finalStanding": null
+      }
+    ],
+    "matchups": [
+      {
+        "id": "3-0",
+        "homeTeamId": "46",
+        "awayTeamId": "44",
+        "homeScore": 98,
+        "awayScore": 85,
+        "homeProjected": 102.46,
+        "awayProjected": 102.24
+      },
+      {
+        "id": "3-1",
+        "homeTeamId": "34",
+        "awayTeamId": "16",
+        "homeScore": 112,
+        "awayScore": 79,
+        "homeProjected": 112,
+        "awayProjected": 79
+      },
+      {
+        "id": "3-2",
+        "homeTeamId": "38",
+        "awayTeamId": "30",
+        "homeScore": 106,
+        "awayScore": 79,
+        "homeProjected": 106,
+        "awayProjected": 80.86
+      },
+      {
+        "id": "3-3",
+        "homeTeamId": "47",
+        "awayTeamId": "45",
+        "homeScore": 59,
+        "awayScore": 91,
+        "homeProjected": 72.46,
+        "awayProjected": 97.94
+      },
+      {
+        "id": "3-4",
+        "homeTeamId": "42",
+        "awayTeamId": "43",
+        "homeScore": 126,
+        "awayScore": 55,
+        "homeProjected": 126,
+        "awayProjected": 55
+      }
+    ],
+    "scoring": [
+      {
+        "name": "ESPN stat 8",
+        "points": 1
+      },
+      {
+        "name": "defensive2PtReturns",
+        "points": 2
+      },
+      {
+        "name": "Rush TD",
+        "points": 6
+      },
+      {
+        "name": "ESPN stat 209",
+        "points": 1
+      },
+      {
+        "name": "Fumbles lost",
+        "points": -2
+      },
+      {
+        "name": "defensiveBlockedKickForTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "passing2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "Rec TD",
+        "points": 6
+      },
+      {
+        "name": "puntReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "Pass TD",
+        "points": 4
+      },
+      {
+        "name": "Interceptions",
+        "points": -2
+      },
+      {
+        "name": "interceptionReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "kickoffReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "fumbleRecoveredForTD",
+        "points": 6
+      },
+      {
+        "name": "madeFieldGoalsFromUnder40",
+        "points": 3
+      },
+      {
+        "name": "fumbleReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "rushing2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "madeFieldGoalsFrom40To49",
+        "points": 4
+      },
+      {
+        "name": "ESPN stat 48",
+        "points": 1
+      },
+      {
+        "name": "missedFieldGoals",
+        "points": -1
+      },
+      {
+        "name": "Extra points",
+        "points": 1
+      },
+      {
+        "name": "ESPN stat 28",
+        "points": 1
+      },
+      {
+        "name": "receiving2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "madeFieldGoalsFrom60Plus",
+        "points": 5
+      },
+      {
+        "name": "ESPN stat 198",
+        "points": 5
+      }
+    ],
+    "weeklyMatchups": [
+      {
+        "id": "1-1",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "38",
+        "homeScore": 84,
+        "homeProjected": null,
+        "awayTeamId": "44",
+        "awayScore": 115,
+        "awayProjected": null
+      },
+      {
+        "id": "1-2",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "47",
+        "homeScore": 82,
+        "homeProjected": null,
+        "awayTeamId": "34",
+        "awayScore": 117,
+        "awayProjected": null
+      },
+      {
+        "id": "1-3",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "42",
+        "homeScore": 109,
+        "homeProjected": null,
+        "awayTeamId": "46",
+        "awayScore": 109,
+        "awayProjected": null
+      },
+      {
+        "id": "1-4",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "43",
+        "homeScore": 101,
+        "homeProjected": null,
+        "awayTeamId": "16",
+        "awayScore": 133,
+        "awayProjected": null
+      },
+      {
+        "id": "1-5",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "45",
+        "homeScore": 57,
+        "homeProjected": null,
+        "awayTeamId": "30",
+        "awayScore": 87,
+        "awayProjected": null
+      },
+      {
+        "id": "2-10",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "45",
+        "homeScore": 103,
+        "homeProjected": null,
+        "awayTeamId": "43",
+        "awayScore": 84,
+        "awayProjected": null
+      },
+      {
+        "id": "2-6",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "44",
+        "homeScore": 96,
+        "homeProjected": null,
+        "awayTeamId": "34",
+        "awayScore": 102,
+        "awayProjected": null
+      },
+      {
+        "id": "2-7",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "46",
+        "homeScore": 61,
+        "homeProjected": null,
+        "awayTeamId": "38",
+        "awayScore": 103,
+        "awayProjected": null
+      },
+      {
+        "id": "2-8",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "16",
+        "homeScore": 98,
+        "homeProjected": null,
+        "awayTeamId": "47",
+        "awayScore": 84,
+        "awayProjected": null
+      },
+      {
+        "id": "2-9",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "30",
+        "homeScore": 81,
+        "homeProjected": null,
+        "awayTeamId": "42",
+        "awayScore": 68,
+        "awayProjected": null
+      },
+      {
+        "id": "3-11",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "46",
+        "homeScore": 98,
+        "homeProjected": 102.46,
+        "awayTeamId": "44",
+        "awayScore": 85,
+        "awayProjected": 102.24
+      },
+      {
+        "id": "3-12",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "34",
+        "homeScore": 112,
+        "homeProjected": 112,
+        "awayTeamId": "16",
+        "awayScore": 79,
+        "awayProjected": 79
+      },
+      {
+        "id": "3-13",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "38",
+        "homeScore": 106,
+        "homeProjected": 106,
+        "awayTeamId": "30",
+        "awayScore": 79,
+        "awayProjected": 80.86
+      },
+      {
+        "id": "3-14",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "47",
+        "homeScore": 59,
+        "homeProjected": 72.46,
+        "awayTeamId": "45",
+        "awayScore": 91,
+        "awayProjected": 97.94
+      },
+      {
+        "id": "3-15",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "42",
+        "homeScore": 126,
+        "homeProjected": 126,
+        "awayTeamId": "43",
+        "awayScore": 55,
+        "awayProjected": 55
+      }
+    ],
+    "completedWeeks": 2
+  },
+  "championship": {
+    "schemaVersion": 1,
+    "leagueId": "50597",
+    "slug": "championship",
+    "leagueName": "Championship",
+    "season": 2026,
+    "week": 3,
+    "updatedAt": "2026-09-29T01:04:34.224092+00:00",
+    "lastAttemptAt": "2026-09-29T01:04:34.224092+00:00",
+    "refreshStatus": "ok",
+    "teams": [
+      {
+        "id": "71",
+        "name": "Toad Liquors",
+        "abbreviation": "Lick",
+        "rank": 1,
+        "wins": 2,
+        "losses": 0,
+        "ties": 0,
+        "pointsFor": 249,
+        "pointsAgainst": 159,
+        "rosterCount": 18,
+        "previousRank": 1,
+        "draftRank": 5,
+        "regularSeasonRank": 1,
+        "finalStanding": null
+      },
+      {
+        "id": "75",
+        "name": "Perrysburg Phantoms",
+        "abbreviation": "PRGP",
+        "rank": 2,
+        "wins": 2,
+        "losses": 0,
+        "ties": 0,
+        "pointsFor": 206,
+        "pointsAgainst": 183,
+        "rosterCount": 16,
+        "previousRank": 4,
+        "draftRank": 2,
+        "regularSeasonRank": 2,
+        "finalStanding": null
+      },
+      {
+        "id": "74",
+        "name": "EZ PZ",
+        "abbreviation": "PPT",
+        "rank": 3,
+        "wins": 1,
+        "losses": 0,
+        "ties": 1,
+        "pointsFor": 182,
+        "pointsAgainst": 150,
+        "rosterCount": 18,
+        "previousRank": 5,
+        "draftRank": 1,
+        "regularSeasonRank": 3,
+        "finalStanding": null
+      },
+      {
+        "id": "72",
+        "name": "Yo Yo's",
+        "abbreviation": "SST",
+        "rank": 4,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 214,
+        "pointsAgainst": 213,
+        "rosterCount": 17,
+        "previousRank": 2,
+        "draftRank": 9,
+        "regularSeasonRank": 4,
+        "finalStanding": null
+      },
+      {
+        "id": "1",
+        "name": "Jasmin's Team",
+        "abbreviation": "JR",
+        "rank": 5,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 184,
+        "pointsAgainst": 126,
+        "rosterCount": 16,
+        "previousRank": 3,
+        "draftRank": 3,
+        "regularSeasonRank": 5,
+        "finalStanding": null
+      },
+      {
+        "id": "61",
+        "name": "Rosholt Hunterz",
+        "abbreviation": "GR8T",
+        "rank": 6,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 164,
+        "pointsAgainst": 195,
+        "rosterCount": 16,
+        "previousRank": 10,
+        "draftRank": 6,
+        "regularSeasonRank": 6,
+        "finalStanding": null
+      },
+      {
+        "id": "76",
+        "name": "Brad's Brilliant Team",
+        "abbreviation": "BBT",
+        "rank": 7,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 156,
+        "pointsAgainst": 173,
+        "rosterCount": 16,
+        "previousRank": 8,
+        "draftRank": 7,
+        "regularSeasonRank": 7,
+        "finalStanding": null
+      },
+      {
+        "id": "73",
+        "name": "Joshua's Scary Team",
+        "abbreviation": "JST",
+        "rank": 8,
+        "wins": 0,
+        "losses": 1,
+        "ties": 1,
+        "pointsFor": 193,
+        "pointsAgainst": 198,
+        "rosterCount": 16,
+        "previousRank": 6,
+        "draftRank": 10,
+        "regularSeasonRank": 8,
+        "finalStanding": null
+      },
+      {
+        "id": "78",
+        "name": "Bicentennial Bandits",
+        "abbreviation": "76Rs",
+        "rank": 9,
+        "wins": 0,
+        "losses": 2,
+        "ties": 0,
+        "pointsFor": 157,
+        "pointsAgainst": 216,
+        "rosterCount": 16,
+        "previousRank": 7,
+        "draftRank": 4,
+        "regularSeasonRank": 9,
+        "finalStanding": null
+      },
+      {
+        "id": "77",
+        "name": "Rebecca's Team",
+        "abbreviation": "RRT",
+        "rank": 10,
+        "wins": 0,
+        "losses": 2,
+        "ties": 0,
+        "pointsFor": 155,
+        "pointsAgainst": 247,
+        "rosterCount": 16,
+        "previousRank": 9,
+        "draftRank": 8,
+        "regularSeasonRank": 10,
+        "finalStanding": null
+      }
+    ],
+    "matchups": [
+      {
+        "id": "3-0",
+        "homeTeamId": "77",
+        "awayTeamId": "1",
+        "homeScore": 85,
+        "awayScore": 75,
+        "homeProjected": 95.28,
+        "awayProjected": 75
+      },
+      {
+        "id": "3-1",
+        "homeTeamId": "76",
+        "awayTeamId": "73",
+        "homeScore": 52,
+        "awayScore": 98,
+        "homeProjected": 65.46,
+        "awayProjected": 103.88
+      },
+      {
+        "id": "3-2",
+        "homeTeamId": "61",
+        "awayTeamId": "72",
+        "homeScore": 82,
+        "awayScore": 63,
+        "homeProjected": 82,
+        "awayProjected": 84.17
+      },
+      {
+        "id": "3-3",
+        "homeTeamId": "75",
+        "awayTeamId": "78",
+        "homeScore": 99,
+        "awayScore": 71,
+        "homeProjected": 99,
+        "awayProjected": 71
+      },
+      {
+        "id": "3-4",
+        "homeTeamId": "71",
+        "awayTeamId": "74",
+        "homeScore": 83,
+        "awayScore": 89,
+        "homeProjected": 87.39,
+        "awayProjected": 89
+      }
+    ],
+    "scoring": [
+      {
+        "name": "ESPN stat 8",
+        "points": 1
+      },
+      {
+        "name": "defensive2PtReturns",
+        "points": 2
+      },
+      {
+        "name": "Rush TD",
+        "points": 6
+      },
+      {
+        "name": "ESPN stat 209",
+        "points": 1
+      },
+      {
+        "name": "Fumbles lost",
+        "points": -2
+      },
+      {
+        "name": "defensiveBlockedKickForTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "passing2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "Rec TD",
+        "points": 6
+      },
+      {
+        "name": "puntReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "Pass TD",
+        "points": 4
+      },
+      {
+        "name": "Interceptions",
+        "points": -2
+      },
+      {
+        "name": "interceptionReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "kickoffReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "fumbleRecoveredForTD",
+        "points": 6
+      },
+      {
+        "name": "madeFieldGoalsFromUnder40",
+        "points": 3
+      },
+      {
+        "name": "fumbleReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "rushing2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "madeFieldGoalsFrom40To49",
+        "points": 4
+      },
+      {
+        "name": "ESPN stat 48",
+        "points": 1
+      },
+      {
+        "name": "missedFieldGoals",
+        "points": -1
+      },
+      {
+        "name": "Extra points",
+        "points": 1
+      },
+      {
+        "name": "ESPN stat 28",
+        "points": 1
+      },
+      {
+        "name": "receiving2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "madeFieldGoalsFrom60Plus",
+        "points": 5
+      },
+      {
+        "name": "ESPN stat 198",
+        "points": 5
+      }
+    ],
+    "weeklyMatchups": [
+      {
+        "id": "1-1",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "61",
+        "homeScore": 54,
+        "homeProjected": null,
+        "awayTeamId": "1",
+        "awayScore": 113,
+        "awayProjected": null
+      },
+      {
+        "id": "1-2",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "75",
+        "homeScore": 102,
+        "homeProjected": null,
+        "awayTeamId": "76",
+        "awayScore": 84,
+        "awayProjected": null
+      },
+      {
+        "id": "1-3",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "71",
+        "homeScore": 137,
+        "homeProjected": null,
+        "awayTeamId": "77",
+        "awayScore": 73,
+        "awayProjected": null
+      },
+      {
+        "id": "1-4",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "74",
+        "homeScore": 94,
+        "homeProjected": null,
+        "awayTeamId": "73",
+        "awayScore": 94,
+        "awayProjected": null
+      },
+      {
+        "id": "1-5",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "78",
+        "homeScore": 101,
+        "homeProjected": null,
+        "awayTeamId": "72",
+        "awayScore": 128,
+        "awayProjected": null
+      },
+      {
+        "id": "2-10",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "78",
+        "homeScore": 56,
+        "homeProjected": null,
+        "awayTeamId": "74",
+        "awayScore": 88,
+        "awayProjected": null
+      },
+      {
+        "id": "2-6",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "1",
+        "homeScore": 71,
+        "homeProjected": null,
+        "awayTeamId": "76",
+        "awayScore": 72,
+        "awayProjected": null
+      },
+      {
+        "id": "2-7",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "77",
+        "homeScore": 82,
+        "homeProjected": null,
+        "awayTeamId": "61",
+        "awayScore": 110,
+        "awayProjected": null
+      },
+      {
+        "id": "2-8",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "73",
+        "homeScore": 99,
+        "homeProjected": null,
+        "awayTeamId": "75",
+        "awayScore": 104,
+        "awayProjected": null
+      },
+      {
+        "id": "2-9",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "72",
+        "homeScore": 86,
+        "homeProjected": null,
+        "awayTeamId": "71",
+        "awayScore": 112,
+        "awayProjected": null
+      },
+      {
+        "id": "3-11",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "77",
+        "homeScore": 85,
+        "homeProjected": 95.28,
+        "awayTeamId": "1",
+        "awayScore": 75,
+        "awayProjected": 75
+      },
+      {
+        "id": "3-12",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "76",
+        "homeScore": 52,
+        "homeProjected": 65.46,
+        "awayTeamId": "73",
+        "awayScore": 98,
+        "awayProjected": 103.88
+      },
+      {
+        "id": "3-13",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "61",
+        "homeScore": 82,
+        "homeProjected": 82,
+        "awayTeamId": "72",
+        "awayScore": 63,
+        "awayProjected": 84.17
+      },
+      {
+        "id": "3-14",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "75",
+        "homeScore": 99,
+        "homeProjected": 99,
+        "awayTeamId": "78",
+        "awayScore": 71,
+        "awayProjected": 71
+      },
+      {
+        "id": "3-15",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "71",
+        "homeScore": 83,
+        "homeProjected": 87.39,
+        "awayTeamId": "74",
+        "awayScore": 89,
+        "awayProjected": 89
+      }
+    ],
+    "completedWeeks": 2
+  },
+  "league-one": {
+    "schemaVersion": 1,
+    "leagueId": "2035286513",
+    "slug": "league-one",
+    "leagueName": "League One",
+    "season": 2026,
+    "week": 3,
+    "updatedAt": "2026-09-29T01:04:35.210042+00:00",
+    "lastAttemptAt": "2026-09-29T01:04:35.210042+00:00",
+    "refreshStatus": "ok",
+    "teams": [
+      {
+        "id": "29",
+        "name": "The Sonic Screwdrivers",
+        "abbreviation": "TSS",
+        "rank": 1,
+        "wins": 2,
+        "losses": 0,
+        "ties": 0,
+        "pointsFor": 219,
+        "pointsAgainst": 152,
+        "rosterCount": 17,
+        "previousRank": 1,
+        "draftRank": 3,
+        "regularSeasonRank": 1,
+        "finalStanding": null
+      },
+      {
+        "id": "12",
+        "name": "Tastes Like Chicken",
+        "abbreviation": "CHIX",
+        "rank": 2,
+        "wins": 2,
+        "losses": 0,
+        "ties": 0,
+        "pointsFor": 177,
+        "pointsAgainst": 171,
+        "rosterCount": 16,
+        "previousRank": 5,
+        "draftRank": 6,
+        "regularSeasonRank": 2,
+        "finalStanding": null
+      },
+      {
+        "id": "25",
+        "name": "gabriel's Great Team",
+        "abbreviation": "GGT",
+        "rank": 3,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 206,
+        "pointsAgainst": 199,
+        "rosterCount": 16,
+        "previousRank": 2,
+        "draftRank": 1,
+        "regularSeasonRank": 3,
+        "finalStanding": null
+      },
+      {
+        "id": "28",
+        "name": "Zealand Alps New Yutes",
+        "abbreviation": "ZANY",
+        "rank": 4,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 194,
+        "pointsAgainst": 163,
+        "rosterCount": 16,
+        "previousRank": 10,
+        "draftRank": 4,
+        "regularSeasonRank": 4,
+        "finalStanding": null
+      },
+      {
+        "id": "27",
+        "name": "FloRunning",
+        "abbreviation": "FR",
+        "rank": 5,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 183,
+        "pointsAgainst": 187,
+        "rosterCount": 16,
+        "previousRank": 3,
+        "draftRank": 2,
+        "regularSeasonRank": 5,
+        "finalStanding": null
+      },
+      {
+        "id": "15",
+        "name": "Jimmys Johns",
+        "abbreviation": "JJ",
+        "rank": 6,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 179,
+        "pointsAgainst": 181,
+        "rosterCount": 16,
+        "previousRank": 4,
+        "draftRank": 9,
+        "regularSeasonRank": 6,
+        "finalStanding": null
+      },
+      {
+        "id": "22",
+        "name": "jason's Finest Team",
+        "abbreviation": "JFT",
+        "rank": 7,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 177,
+        "pointsAgainst": 181,
+        "rosterCount": 16,
+        "previousRank": 6,
+        "draftRank": 10,
+        "regularSeasonRank": 7,
+        "finalStanding": null
+      },
+      {
+        "id": "26",
+        "name": "Roseville Berserkers",
+        "abbreviation": "ROSE",
+        "rank": 8,
+        "wins": 1,
+        "losses": 1,
+        "ties": 0,
+        "pointsFor": 151,
+        "pointsAgainst": 127,
+        "rosterCount": 16,
+        "previousRank": 8,
+        "draftRank": 7,
+        "regularSeasonRank": 8,
+        "finalStanding": null
+      },
+      {
+        "id": "18",
+        "name": "Team Reyes",
+        "abbreviation": "REYS",
+        "rank": 9,
+        "wins": 0,
+        "losses": 2,
+        "ties": 0,
+        "pointsFor": 143,
+        "pointsAgainst": 204,
+        "rosterCount": 16,
+        "previousRank": 9,
+        "draftRank": 8,
+        "regularSeasonRank": 9,
+        "finalStanding": null
+      },
+      {
+        "id": "1",
+        "name": "Lavender Dragons",
+        "abbreviation": "LAV",
+        "rank": 10,
+        "wins": 0,
+        "losses": 2,
+        "ties": 0,
+        "pointsFor": 131,
+        "pointsAgainst": 195,
+        "rosterCount": 16,
+        "previousRank": 7,
+        "draftRank": 5,
+        "regularSeasonRank": 10,
+        "finalStanding": null
+      }
+    ],
+    "matchups": [
+      {
+        "id": "3-0",
+        "homeTeamId": "25",
+        "awayTeamId": "12",
+        "homeScore": 117,
+        "awayScore": 59,
+        "homeProjected": 117,
+        "awayProjected": 59
+      },
+      {
+        "id": "3-1",
+        "homeTeamId": "15",
+        "awayTeamId": "1",
+        "homeScore": 92,
+        "awayScore": 33,
+        "homeProjected": 107.32,
+        "awayProjected": 47.3
+      },
+      {
+        "id": "3-2",
+        "homeTeamId": "28",
+        "awayTeamId": "22",
+        "homeScore": 79,
+        "awayScore": 88,
+        "homeProjected": 79,
+        "awayProjected": 88
+      },
+      {
+        "id": "3-3",
+        "homeTeamId": "26",
+        "awayTeamId": "27",
+        "homeScore": 57,
+        "awayScore": 121,
+        "homeProjected": 63.95,
+        "awayProjected": 121
+      },
+      {
+        "id": "3-4",
+        "homeTeamId": "18",
+        "awayTeamId": "29",
+        "homeScore": 61,
+        "awayScore": 112,
+        "homeProjected": 61,
+        "awayProjected": 118.94
+      }
+    ],
+    "scoring": [
+      {
+        "name": "ESPN stat 8",
+        "points": 1
+      },
+      {
+        "name": "defensive2PtReturns",
+        "points": 2
+      },
+      {
+        "name": "Rush TD",
+        "points": 6
+      },
+      {
+        "name": "ESPN stat 209",
+        "points": 1
+      },
+      {
+        "name": "Fumbles lost",
+        "points": -2
+      },
+      {
+        "name": "defensiveBlockedKickForTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "passing2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "Rec TD",
+        "points": 6
+      },
+      {
+        "name": "Interceptions",
+        "points": -2
+      },
+      {
+        "name": "Pass TD",
+        "points": 4
+      },
+      {
+        "name": "puntReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "interceptionReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "fumbleRecoveredForTD",
+        "points": 6
+      },
+      {
+        "name": "kickoffReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "madeFieldGoalsFromUnder40",
+        "points": 3
+      },
+      {
+        "name": "rushing2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "fumbleReturnTouchdowns",
+        "points": 6
+      },
+      {
+        "name": "madeFieldGoalsFrom40To49",
+        "points": 4
+      },
+      {
+        "name": "ESPN stat 48",
+        "points": 1
+      },
+      {
+        "name": "missedFieldGoals",
+        "points": -1
+      },
+      {
+        "name": "Extra points",
+        "points": 1
+      },
+      {
+        "name": "receiving2PtConversions",
+        "points": 2
+      },
+      {
+        "name": "ESPN stat 28",
+        "points": 1
+      },
+      {
+        "name": "madeFieldGoalsFrom60Plus",
+        "points": 6
+      },
+      {
+        "name": "ESPN stat 198",
+        "points": 5
+      }
+    ],
+    "weeklyMatchups": [
+      {
+        "id": "1-1",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "28",
+        "homeScore": 74,
+        "homeProjected": null,
+        "awayTeamId": "12",
+        "awayScore": 76,
+        "awayProjected": null
+      },
+      {
+        "id": "1-2",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "26",
+        "homeScore": 80,
+        "homeProjected": null,
+        "awayTeamId": "15",
+        "awayScore": 82,
+        "awayProjected": null
+      },
+      {
+        "id": "1-3",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "18",
+        "homeScore": 79,
+        "homeProjected": null,
+        "awayTeamId": "25",
+        "awayScore": 119,
+        "awayProjected": null
+      },
+      {
+        "id": "1-4",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "29",
+        "homeScore": 124,
+        "homeProjected": null,
+        "awayTeamId": "1",
+        "awayScore": 86,
+        "awayProjected": null
+      },
+      {
+        "id": "1-5",
+        "week": 1,
+        "status": "final",
+        "homeTeamId": "27",
+        "homeScore": 117,
+        "homeProjected": null,
+        "awayTeamId": "22",
+        "awayScore": 92,
+        "awayProjected": null
+      },
+      {
+        "id": "2-10",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "27",
+        "homeScore": 66,
+        "homeProjected": null,
+        "awayTeamId": "29",
+        "awayScore": 95,
+        "awayProjected": null
+      },
+      {
+        "id": "2-6",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "12",
+        "homeScore": 101,
+        "homeProjected": null,
+        "awayTeamId": "15",
+        "awayScore": 97,
+        "awayProjected": null
+      },
+      {
+        "id": "2-7",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "25",
+        "homeScore": 87,
+        "homeProjected": null,
+        "awayTeamId": "28",
+        "awayScore": 120,
+        "awayProjected": null
+      },
+      {
+        "id": "2-8",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "1",
+        "homeScore": 45,
+        "homeProjected": null,
+        "awayTeamId": "26",
+        "awayScore": 71,
+        "awayProjected": null
+      },
+      {
+        "id": "2-9",
+        "week": 2,
+        "status": "final",
+        "homeTeamId": "22",
+        "homeScore": 85,
+        "homeProjected": null,
+        "awayTeamId": "18",
+        "awayScore": 64,
+        "awayProjected": null
+      },
+      {
+        "id": "3-11",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "25",
+        "homeScore": 117,
+        "homeProjected": 117,
+        "awayTeamId": "12",
+        "awayScore": 59,
+        "awayProjected": 59
+      },
+      {
+        "id": "3-12",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "15",
+        "homeScore": 92,
+        "homeProjected": 107.32,
+        "awayTeamId": "1",
+        "awayScore": 33,
+        "awayProjected": 47.3
+      },
+      {
+        "id": "3-13",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "28",
+        "homeScore": 79,
+        "homeProjected": 79,
+        "awayTeamId": "22",
+        "awayScore": 88,
+        "awayProjected": 88
+      },
+      {
+        "id": "3-14",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "26",
+        "homeScore": 57,
+        "homeProjected": 63.95,
+        "awayTeamId": "27",
+        "awayScore": 121,
+        "awayProjected": 121
+      },
+      {
+        "id": "3-15",
+        "week": 3,
+        "status": "live",
+        "homeTeamId": "18",
+        "homeScore": 61,
+        "homeProjected": 61,
+        "awayTeamId": "29",
+        "awayScore": 112,
+        "awayProjected": 118.94
+      }
+    ],
+    "completedWeeks": 2
+  }
+}

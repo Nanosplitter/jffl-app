@@ -1,0 +1,10 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {"collectionGroup":"publicLeagues","fieldPath":"teams","indexes":[]},
+    {"collectionGroup":"publicLeagues","fieldPath":"matchups","indexes":[]},
+    {"collectionGroup":"publicLeagues","fieldPath":"weeklyMatchups","indexes":[]},
+    {"collectionGroup":"publicLeagues","fieldPath":"scoring","indexes":[]},
+    {"collectionGroup":"publicRosters","fieldPath":"players","indexes":[]}
+  ]
+}

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#030405" />
+    <meta name="description" content="Three leagues. One JFFL. Follow Premier League, Championship, and League One standings, matchups, teams, and players." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>JFFL · The leagues</title>
+  </head>
+  <body>
+    <script>try { document.documentElement.dataset.theme = localStorage.getItem('jffl-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); } catch { document.documentElement.dataset.theme = 'light'; }</script>
+    <div id="root"></div><script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
