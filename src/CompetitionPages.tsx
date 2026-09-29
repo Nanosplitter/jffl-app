@@ -273,7 +273,6 @@ export function CupMatchPage() {
         <tr><th scope="row">Avg / week</th><td>{points(weeklyAverage(left.team))}</td><td>{points(weeklyAverage(right.team))}</td></tr>
         <tr><th scope="row">League rank</th><td>{left.team?.rank != null ? `#${left.team.rank}` : '—'}</td><td>{right.team?.rank != null ? `#${right.team.rank}` : '—'}</td></tr>
       </tbody></table>
-      <p className="source-note">{cupId === 'jffl' ? 'Each leg is that team’s ESPN score for the week. The cup total adds the two weeks.' : 'The cup score is that team’s ESPN score for the week.'} Record, average, and rank are the current season standings. Missing scores stay blank.</p>
       {round.weeks.map(week => <section className="match-lineups" key={week} aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={([match.a, match.b] as const).map(side => {
         const participant = side.participant;
         const roster = participant ? rosters[participant.slug] : null;
