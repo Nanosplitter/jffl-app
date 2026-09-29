@@ -169,7 +169,48 @@ function TeamPage() {
   const matchup = data.matchups.find(item => item.homeTeamId === teamId || item.awayTeamId === teamId);
   const players = roster?.data?.players.filter(player => player.teamId === teamId) ?? [];
   const mismatched = roster?.data && roster.data.updatedAt !== data.updatedAt;
-  return <><Link className="back-link" to={`/league/${slug}`}><ChevronLeft size={16} />{meta.name}</Link><section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> TEAM</p><h1 className="team-page-name"><TeamIdentity team={team} /></h1></div><span className="big-rank">#{team.rank ?? '—'}</span></section>{profile && <div className="manager-profile"><strong>Manager: {profile.manager}</strong><span>{profile.seasons} {profile.seasons === 1 ? 'season' : 'seasons'} · {profile.trophies} historical trophies</span><Link to={`/cups/jffl?manager=${encodeURIComponent(profile.key)}`}>JFFL Cup · seed {profile.jfflSeed}<ArrowUpRight size={14}/></Link><Link to={`/cups/${meta.slug}?manager=${encodeURIComponent(profile.key)}`}>League Cup · seed {profile.leagueSeed}<ArrowUpRight size={14}/></Link></div>}<div className="team-metrics"><Metric label="Record" value={record(team)} /><Metric label="Points for" value={points(team.pointsFor)} /><Metric label="Points against" value={points(team.pointsAgainst)} /><Metric label="Roster spots" value={String(team.rosterCount)} /></div>{matchup && <section className="team-matchup"><div className="section-heading"><div><h2>Week {data.week} matchup</h2></div><Fresh data={data} error={summaryState.error} /></div><MatchupCard matchup={matchup} data={data} /></section>}<div className="section-heading"><h2>Roster</h2>{roster?.data && <Fresh data={roster.data} error={roster.error || !!mismatched} />}</div>{roster?.data ? <>{mismatched && <p className="notice">Roster and scoreboard snapshots are catching up. Their update times are shown separately.</p>}{(['starter', 'bench', 'ir'] as const).map(group => { const entries = players.filter(player => player.group === group); return <section className="surface roster-section" key={group}><div className="surface-heading"><h3>{group === 'starter' ? 'Starters' : group === 'bench' ? 'Bench' : 'Injured reserve'}</h3></div>{entries.length ? <PlayerTable players={entries} slug={meta.slug} /> : <p className="empty-inline">No players in this section.</p>}</section>; })}</> : <Waiting error={roster?.error} />}</>;
+  return <>
+    <Link className="back-link" to={`/league/${slug}`}><ChevronLeft size={16} />{meta.name}</Link>
+    <section className="page-intro">
+      <div>
+        <p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> TEAM</p>
+        <h1 className="team-page-name"><TeamIdentity team={team} /></h1>
+      </div>
+      <span className="big-rank">#{team.rank ?? '—'}</span>
+    </section>
+    <div className="team-page">
+      <p className="team-fresh"><Fresh data={data} error={summaryState.error || !!roster?.error || !!mismatched} /></p>
+      {profile && <div className="manager-profile">
+        <strong>Manager: {profile.manager}</strong>
+        <span>{profile.seasons} {profile.seasons === 1 ? 'season' : 'seasons'} · {profile.trophies} historical trophies</span>
+        <Link to={`/cups/jffl?manager=${encodeURIComponent(profile.key)}`}>JFFL Cup · seed {profile.jfflSeed}<ArrowUpRight size={14}/></Link>
+        <Link to={`/cups/${meta.slug}?manager=${encodeURIComponent(profile.key)}`}>League Cup · seed {profile.leagueSeed}<ArrowUpRight size={14}/></Link>
+      </div>}
+      <div className="team-metrics">
+        <Metric label="Record" value={record(team)} />
+        <Metric label="Points for" value={points(team.pointsFor)} />
+        <Metric label="Points against" value={points(team.pointsAgainst)} />
+        <Metric label="Roster spots" value={String(team.rosterCount)} />
+      </div>
+      {matchup && <section className="team-matchup">
+        <div className="section-heading"><h2>Week {data.week} matchup</h2></div>
+        <MatchupCard matchup={matchup} data={data} />
+      </section>}
+      <div className="team-roster">
+        <div className="section-heading"><h2>Roster</h2></div>
+        {roster?.data ? <>
+          {mismatched && <p className="notice">Roster and scoreboard snapshots are catching up. Their update times are shown separately.</p>}
+          {(['starter', 'bench', 'ir'] as const).map(group => {
+            const entries = players.filter(player => player.group === group);
+            return <section className="surface roster-section" key={group}>
+              <div className="surface-heading"><h3>{group === 'starter' ? 'Starters' : group === 'bench' ? 'Bench' : 'Injured reserve'}</h3></div>
+              {entries.length ? <PlayerTable players={entries} slug={meta.slug} /> : <p className="empty-inline">No players in this section.</p>}
+            </section>;
+          })}
+        </> : <Waiting error={roster?.error} />}
+      </div>
+    </div>
+  </>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div className="metric"><span>{label}</span><strong>{value}</strong></div>; }
