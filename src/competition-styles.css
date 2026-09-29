@@ -116,6 +116,17 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .match-sheet .source-note { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; }
 .match-lineups { margin-top: 8px; width: 100%; }
 .match-lineups h2 { font-size: 1.35rem; margin-bottom: 16px; }
+.starter-compare { position: relative; }
+.starter-compare::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--line);
+  pointer-events: none;
+}
 .starter-head, .starter-row { display: grid; grid-template-columns: minmax(0, 1fr) 11rem 11rem minmax(0, 1fr); column-gap: 20px; align-items: center; }
 .starter-head { margin-bottom: 8px; }
 .starter-head p { margin: 0; font-size: .85rem; font-weight: 600; }
@@ -127,11 +138,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .starter-id.right .player-name, .starter-id.right .player-meta { justify-content: flex-end; }
 .starter-score { min-width: 0; }
 .starter-score.left { text-align: right; padding-right: 16px; }
-.starter-score.right { text-align: left; border-left: 1px solid var(--line); padding-left: 16px; }
-.starter-head > span:nth-child(2),
-.starter-status > span:nth-child(2) { padding-right: 16px; }
-.starter-head > span:nth-child(3),
-.starter-status > span:nth-child(3) { border-left: 1px solid var(--line); padding-left: 16px; align-self: stretch; }
+.starter-score.right { text-align: left; padding-left: 16px; }
 .starter-score strong { display: block; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .starter-score small { display: block; margin-top: 2px; color: var(--muted); font-size: .6rem; line-height: 1.35; }
 .starter-score.yet small { color: var(--accent-ink); }
@@ -310,8 +317,8 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
   .tile-link svg { width: 22px; height: 22px; }
   .featured-cup-matches, .single-round .round-matches { grid-template-columns: 1fr; }
   .starter-head, .starter-row { grid-template-columns: minmax(0, 1fr) 4.4rem 4.4rem minmax(0, 1fr); column-gap: 8px; }
-  .starter-score.left, .starter-head > span:nth-child(2), .starter-status > span:nth-child(2) { padding-right: 8px; }
-  .starter-score.right, .starter-head > span:nth-child(3), .starter-status > span:nth-child(3) { padding-left: 8px; }
+  .starter-score.left { padding-right: 8px; }
+  .starter-score.right { padding-left: 8px; }
   .starter-score .yet-label { display: none; }
   .match-lineups .injury { display: none; }
   .match-lineups .player-headshot, .match-lineups .nfl-portrait { display: none; }
@@ -350,7 +357,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 }
 @media(max-width:400px) {
   .starter-head, .starter-row { grid-template-columns: minmax(0, 1fr) 3.5rem 3.5rem minmax(0, 1fr); column-gap: 6px; }
-  .starter-score.left, .starter-head > span:nth-child(2), .starter-status > span:nth-child(2) { padding-right: 6px; }
-  .starter-score.right, .starter-head > span:nth-child(3), .starter-status > span:nth-child(3) { padding-left: 6px; }
+  .starter-score.left { padding-right: 6px; }
+  .starter-score.right { padding-left: 6px; }
   .starter-score strong { font-size: 1rem; }
 }
