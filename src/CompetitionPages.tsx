@@ -8,6 +8,7 @@ import { buildCup, provisionalZone, regularSeason, roundScoreAverage, type CupId
 import { Fresh, points, record } from './ui';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity } from './PlayerIdentity';
+import { historicalStarters } from './lineups';
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'FLEX', 'D/ST', 'K'];
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
@@ -229,12 +230,12 @@ export function CupMatchPage() {
   const cup = valid ? buildCup(cupId as CupId, data) : null;
   const located = cup?.rounds.flatMap(round => round.matches.map((match, index) => ({ round, match, index }))).find(item => item.match.id === matchId) ?? null;
   const lineupSlugs = located && located.match.status !== 'bye'
-    ? [...new Set(located.round.weeks.flatMap(week => (['a', 'b'] as const).flatMap(key => {
+    ? [...new Set((['a', 'b'] as const).flatMap(key => {
       const participant = located.match[key].participant;
-      return participant && data[participant.slug]?.week === week ? [participant.slug] : [];
-    })))]
+      return participant ? [participant.slug] : [];
+    }))]
     : [];
-  const rosters = useRosters(lineupSlugs);
+  const rosters = useRosters(lineupSlugs as LeagueSlug[]);
   if (!valid || !cup) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
   if (!located) return <p className="notice">Match not found. <Link to={`/cups/${cupId}`}>Back to the bracket</Link></p>;
   const { round, match, index } = located;
@@ -242,7 +243,6 @@ export function CupMatchPage() {
   const sideTitle = (side: CupMatch['a']) => side.participant?.manager ?? (match.status === 'bye' ? 'Bye' : feederLabel(side.label));
   const heading = match.status === 'bye' ? sideTitle(match.a.participant ? match.a : match.b) : `${sideTitle(match.a)} vs ${sideTitle(match.b)}`;
   const share = match.status === 'bye' ? null : totalShare(match.a.total, match.b.total);
-  const lineupWeek = lineupSlugs.length ? round.weeks.find(week => lineupSlugs.some(slug => data[slug]?.week === week)) ?? null : null;
   const sideProfile = (side: CupMatch['a']) => {
     const participant = side.participant;
     const team = participant ? data[participant.slug]?.teams.find(item => item.id === participant.teamId) ?? null : null;
@@ -272,14 +272,15 @@ export function CupMatchPage() {
         <tr><th scope="row">League rank</th><td>{left.team?.rank != null ? `#${left.team.rank}` : '—'}</td><td>{right.team?.rank != null ? `#${right.team.rank}` : '—'}</td></tr>
       </tbody></table>
       <p className="source-note">{cupId === 'jffl' ? 'Each leg is that team’s ESPN score for the week. The cup total adds the two weeks.' : 'The cup score is that team’s ESPN score for the week.'} Record, average, and rank are the current season standings. Missing scores stay blank.</p>
-      {lineupWeek != null && <section className="match-lineups" aria-label={`Week ${lineupWeek} starters`}><h2>Week {lineupWeek} starters</h2><StarterCompare sides={([match.a, match.b] as const).map(side => {
+      {round.weeks.map(week => <section className="match-lineups" key={week} aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={([match.a, match.b] as const).map(side => {
         const participant = side.participant;
         const roster = participant ? rosters[participant.slug] : null;
-        const current = participant ? data[participant.slug]?.week === lineupWeek : false;
-        const players = current && roster?.data ? startersFor(roster.data.players, participant!.teamId) : [];
-        const message = !participant ? 'Opponent is not set yet.' : !current ? 'This snapshot is another week.' : roster?.loading ? 'Loading starters…' : roster?.error ? 'Starter list is unavailable.' : players.length ? null : 'No starters in this snapshot.';
+        const current = participant ? data[participant.slug]?.week === week : false;
+        const historical = !current && participant && roster?.data ? historicalStarters(roster.data.weeklyLineups, participant.teamId, week) : null;
+        const players = current && roster?.data ? startersFor(roster.data.players, participant!.teamId) : historical ?? [];
+        const message = !participant ? 'Opponent is not set yet.' : roster?.loading && !roster.data ? 'Loading starters…' : roster?.error && !roster.data ? 'Starter list is unavailable.' : !current && historical === null ? 'Starter scores for this week are not in the latest snapshot yet.' : players.length ? null : 'No starters in this snapshot.';
         return { title: sideTitle(side), players, message };
-      })} /></section>}
+      })} /></section>)}
     </>}
   </div>;
 }

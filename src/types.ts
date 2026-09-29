@@ -34,4 +34,8 @@ export interface RosteredPlayer {
   projectedPoints: number | null; seasonPoints: number | null; averagePoints: number | null;
   weekStats: Record<string, number>; seasonStats: Record<string, number>;
 }
-export interface LeagueRosterSnapshot extends Freshness { players: RosteredPlayer[] }
+export interface WeekLineupPlayer {
+  id: string; name: string; position: string; proTeam: string; slot: string; points: number | null;
+}
+export interface WeekLineup { week: number; teamId: string; players: WeekLineupPlayer[] }
+export interface LeagueRosterSnapshot extends Freshness { players: RosteredPlayer[]; weeklyLineups?: WeekLineup[] }

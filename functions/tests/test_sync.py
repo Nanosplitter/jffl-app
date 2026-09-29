@@ -2,7 +2,7 @@ import copy
 from types import SimpleNamespace
 
 import pytest
-from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, normalize_player, validate_snapshot, weekly_matchups
+from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, normalize_player, validate_snapshot, week_lineups, weekly_matchups
 from sync_service import sync_leagues
 
 
@@ -70,6 +70,41 @@ def test_scoring_rules_name_the_yardage_bundles_and_field_goal_ranges():
     assert SCORING_STAT_NAMES["48"] == "Every 10 rec yards"
     assert SCORING_STAT_NAMES["198"] == "Field goals 50-59"
     assert SCORING_STAT_NAMES["209"] == "1-pt safety"
+
+
+def test_week_lineups_keep_starters_and_leave_missing_points_blank():
+    played = {"seasonId": 2026, "scoringPeriodId": 2, "statSourceId": 0, "statSplitTypeId": 0, "appliedTotal": 21.5}
+    silent = {"seasonId": 2026, "scoringPeriodId": 2, "statSourceId": 0, "statSplitTypeId": 0, "appliedTotal": 0}
+    schedule = [{"home": {"teamId": 7, "rosterForCurrentScoringPeriod": {"entries": [
+        {"lineupSlotId": 0, "playerPoolEntry": {"player": {"id": 1, "fullName": "Quarterback", "defaultPositionId": 0, "proTeamId": 2, "stats": [played]}}},
+        {"lineupSlotId": 16, "playerPoolEntry": {"player": {"id": -16016, "fullName": "Vikings D/ST", "defaultPositionId": 16, "proTeamId": 16, "stats": []}}},
+        {"lineupSlotId": 20, "playerPoolEntry": {"player": {"id": 9, "fullName": "Benched", "defaultPositionId": 2, "proTeamId": 2, "stats": [played]}}},
+        {"lineupSlotId": 17, "playerPoolEntry": {"player": {"id": 3, "fullName": "Kicker", "defaultPositionId": 17, "proTeamId": 1, "stats": [silent]}}},
+    ]}}, "away": {}}]
+    rows = week_lineups(schedule, 2)
+    assert len(rows) == 1
+    assert rows[0]["teamId"] == "7"
+    assert [player["name"] for player in rows[0]["players"]] == ["Quarterback", "Vikings D/ST", "Kicker"]
+    assert rows[0]["players"][1]["id"] == "-16016"
+    assert rows[0]["players"][1]["points"] is None
+    assert rows[0]["players"][2]["points"] == 0
+
+
+def test_past_week_fetch_does_not_replace_the_season_schedule():
+    boundary = BoundedRequests(1, 2026)
+    boundary.raw_schedule = {"9": {"id": 9, "home": {"pointsByScoringPeriod": {"1": 10}}}}
+    boundary.raw_matchups = [{"id": 9}]
+
+    def fake_get(params=None, headers=None, extend=""):
+        boundary._capture({"schedule": [{"id": 2, "home": {"teamId": 1, "rosterForCurrentScoringPeriod": {"entries": []}}}]})
+        return {"schedule": [{"id": 2, "home": {"teamId": 1}}]}
+
+    boundary.league_get = fake_get
+    schedule = boundary.scoring_period_schedule(2, 2)
+    assert schedule[0]["id"] == 2
+    assert boundary.raw_schedule["9"]["home"]["pointsByScoringPeriod"]["1"] == 10
+    assert boundary.raw_matchups == [{"id": 9}]
+    boundary.session.close()
 
 
 def test_stat_ids_do_not_confuse_yards_and_yards_per_game():

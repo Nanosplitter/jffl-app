@@ -7,7 +7,7 @@ from urllib.parse import urlsplit
 
 import requests
 from espn_api.football import League
-from espn_api.football.constant import PLAYER_STATS_MAP
+from espn_api.football.constant import PLAYER_STATS_MAP, POSITION_MAP, PRO_TEAM_MAP
 from espn_api.requests.espn_requests import EspnFantasyRequests
 
 from league_config import LEAGUES, SEASON
@@ -131,6 +131,19 @@ class BoundedRequests(EspnFantasyRequests):
     def league_get(self, params=None, headers=None, extend=""):
         return self._request(self.LEAGUE_ENDPOINT + extend, params, headers, league_response=True)
 
+    def scoring_period_schedule(self, week, matchup_period):
+        """One matchup request for a past week. The season schedule used for team scores stays intact."""
+        params = {"view": ["mMatchupScore", "mScoreboard"], "scoringPeriodId": week}
+        filters = {"schedule": {"filterMatchupPeriodIds": {"value": [matchup_period]}}}
+        saved_matchups, saved_schedule = self.raw_matchups, dict(self.raw_schedule)
+        try:
+            data = self.league_get(params=params, headers={"x-fantasy-filter": json.dumps(filters)})
+        finally:
+            self.raw_matchups = saved_matchups
+            self.raw_schedule = saved_schedule
+        schedule = data.get("schedule") if isinstance(data, dict) else None
+        return schedule if isinstance(schedule, list) else []
+
     def get(self, params=None, headers=None, extend=""):
         return self._request(self.ENDPOINT + extend, params, headers)
 
@@ -204,6 +217,49 @@ def weekly_matchups(boundary, current_week):
     return sorted(result, key=lambda row: (row['week'], row['id']))
 
 
+BENCH_SLOTS = {"BE", "IR", ""}
+LINEUP_ORDER = ["QB", "RB", "WR", "TE", "RB/WR/TE", "D/ST", "K"]
+
+
+def matchup_period_for(league, week):
+    periods = getattr(league.settings, "matchup_periods", {}) or {}
+    for matchup_id, weeks in periods.items():
+        if week in weeks:
+            return matchup_id
+    return None
+
+
+def week_lineups(schedule, week):
+    """Starters for one scoring period. Missing points stay absent, including a player who did not play."""
+    rows = []
+    for matchup in schedule:
+        for side in ("home", "away"):
+            team = matchup.get(side) or {}
+            if "teamId" not in team:
+                continue
+            players = []
+            for entry in team.get("rosterForCurrentScoringPeriod", {}).get("entries", []):
+                raw = entry.get("playerPoolEntry", {}).get("player") or entry.get("player") or {}
+                if "id" not in raw or not raw.get("fullName"):
+                    continue
+                slot = POSITION_MAP.get(entry.get("lineupSlotId"), "BE")
+                if slot in BENCH_SLOTS:
+                    continue
+                actual = source_stat(raw, week, 0)
+                players.append({
+                    "id": str(raw["id"]),
+                    "name": raw["fullName"],
+                    "position": POSITION_MAP.get(raw.get("defaultPositionId"), slot),
+                    "proTeam": PRO_TEAM_MAP.get(raw.get("proTeamId"), "None"),
+                    "slot": slot,
+                    "points": number(actual.get("appliedTotal")),
+                })
+            players.sort(key=lambda player: (LINEUP_ORDER.index(player["slot"]) if player["slot"] in LINEUP_ORDER else len(LINEUP_ORDER), player["name"]))
+            if players:
+                rows.append({"week": week, "teamId": str(team["teamId"]), "players": players})
+    return rows
+
+
 def fetch_league(slug):
     config = LEAGUES[slug]
     league = League(league_id=config["id"], year=SEASON, fetch_league=False)
@@ -212,7 +268,18 @@ def fetch_league(slug):
     try:
         league.fetch_league()
         week = league.current_week
+        lineups = []
+        for past in range(1, week):
+            period = matchup_period_for(league, past)
+            if period is None:
+                continue
+            try:
+                schedule = boundary.scoring_period_schedule(past, period)
+            except TimeoutError:
+                break
+            lineups.extend(week_lineups(schedule, past))
         boxes = league.box_scores(week)
+        lineups.extend(week_lineups(boundary.raw_matchups, week))
         ranks = {team.team_id: index + 1 for index, team in enumerate(league.standings())}
         completed = min((team.wins + team.losses + team.ties for team in league.teams), default=0)
         # This operates on already-fetched schedules and adds no ESPN requests.
@@ -264,7 +331,7 @@ def fetch_league(slug):
                 scoring.append({"name": label, "points": value})
         summary = {**common, "teams": sorted(teams, key=lambda t: t["rank"]), "matchups": matchups, "scoring": scoring,
                    'weeklyMatchups': weekly_matchups(boundary, week), 'completedWeeks': completed}
-        roster = {**common, "players": players}
+        roster = {**common, "players": players, "weeklyLineups": lineups}
         validate_snapshot(summary, roster)
         return summary, roster
     finally:
