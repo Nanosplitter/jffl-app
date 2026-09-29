@@ -33,10 +33,7 @@ function UpdateStrip({ data }: { data: SummaryMap }) {
   const loaded = Object.values(data).filter((summary): summary is LeagueSummary => !!summary);
   const oldest = loaded.slice().sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt))[0];
   const hasIssue = LEAGUES.some(meta => states[meta.slug].error || data[meta.slug]?.refreshStatus === 'error');
-  return <details className="competition-updates" open={hasIssue || undefined}>
-    <summary>{oldest ? <Fresh data={oldest} error={hasIssue} /> : <span className="muted">Loading scores…</span>}<span>League updates{loaded.length < 3 && loaded.length > 0 ? ` · ${loaded.length} of 3 loaded` : ''}</span></summary>
-    <div>{LEAGUES.map(meta => <span key={meta.slug}><b>{meta.name}</b>{data[meta.slug] ? <Fresh data={data[meta.slug]!} error={states[meta.slug].error} /> : <span className="muted">{states[meta.slug].error ? 'Unavailable' : 'Loading…'}</span>}</span>)}</div>
-  </details>;
+  return <p className="competition-updates">{oldest ? <Fresh data={oldest} error={hasIssue} /> : <span className="muted">Loading scores…</span>}</p>;
 }
 
 function totalShare(left: number | null, right: number | null) {
