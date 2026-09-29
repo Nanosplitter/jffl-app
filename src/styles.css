@@ -271,7 +271,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 .lineup li.yet-to-play .lineup-points small { color: var(--accent-ink); }
 .player-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .player-identity-copy { min-width: 0; }
-.player-headshot, .nfl-portrait { width: 36px; height: 36px; flex: 0 0 36px; background: var(--surface-muted); }
+.player-headshot, .nfl-portrait { width: 36px; height: 36px; flex: 0 0 36px; background: transparent; }
 .player-headshot { object-fit: cover; object-position: center top; }
 .nfl-portrait { object-fit: contain; }
 .player-identity small { display: flex; align-items: center; gap: 4px; margin-top: 2px; }
