@@ -266,13 +266,15 @@ export function CupMatchPage() {
         </div>
         {share && <div className="win-bar" role="img" aria-label={`${left.title} ${share.away} percent of the scored points. ${right.title} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
       </article>
-      <table className="match-compare"><caption className="sr-only">Score and season comparison</caption><thead><tr><th scope="col"><span className="sr-only">Stat</span></th><th scope="col">{left.title}</th><th scope="col">{right.title}</th></tr></thead><tbody>
-        {round.weeks.map((week, legIndex) => <tr key={week}><th scope="row">Week {week}</th><td>{points(match.a.legs[legIndex])}</td><td>{points(match.b.legs[legIndex])}</td></tr>)}
-        {round.weeks.length > 1 && <tr className="match-total"><th scope="row">Cup total</th><td>{points(match.a.total)}</td><td>{points(match.b.total)}</td></tr>}
-        <tr><th scope="row">Record</th><td>{left.team ? record(left.team) : '—'}</td><td>{right.team ? record(right.team) : '—'}</td></tr>
-        <tr><th scope="row">Avg / week</th><td>{points(weeklyAverage(left.team))}</td><td>{points(weeklyAverage(right.team))}</td></tr>
-        <tr><th scope="row">League rank</th><td>{left.team?.rank != null ? `#${left.team.rank}` : '—'}</td><td>{right.team?.rank != null ? `#${right.team.rank}` : '—'}</td></tr>
-      </tbody></table>
+      <section className="match-stats" aria-label="Score and season comparison">
+        <table className="match-compare"><caption className="sr-only">Score and season comparison</caption><thead><tr><th scope="col"><span className="sr-only">Stat</span></th><th scope="col">{left.title}</th><th scope="col">{right.title}</th></tr></thead><tbody>
+          {round.weeks.map((week, legIndex) => <tr key={week}><th scope="row">Week {week}</th><td>{points(match.a.legs[legIndex])}</td><td>{points(match.b.legs[legIndex])}</td></tr>)}
+          {round.weeks.length > 1 && <tr className="match-total"><th scope="row">Cup total</th><td>{points(match.a.total)}</td><td>{points(match.b.total)}</td></tr>}
+          <tr><th scope="row">Record</th><td>{left.team ? record(left.team) : '—'}</td><td>{right.team ? record(right.team) : '—'}</td></tr>
+          <tr><th scope="row">Avg / week</th><td>{points(weeklyAverage(left.team))}</td><td>{points(weeklyAverage(right.team))}</td></tr>
+          <tr><th scope="row">League rank</th><td>{left.team?.rank != null ? `#${left.team.rank}` : '—'}</td><td>{right.team?.rank != null ? `#${right.team.rank}` : '—'}</td></tr>
+        </tbody></table>
+      </section>
       {round.weeks.map(week => <section className="match-lineups" key={week} aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={([match.a, match.b] as const).map(side => {
         const participant = side.participant;
         const roster = participant ? rosters[participant.slug] : null;
