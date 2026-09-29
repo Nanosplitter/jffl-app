@@ -248,7 +248,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 }
 :root[data-theme=dark] .cup-match,
 :root[data-theme=dark] .bracket-node,
-:root[data-theme=dark] .match-board { border-radius: var(--panel-radius); }
+:root[data-theme=dark] .match-board { border: 0; border-radius: var(--panel-radius); }
 :root[data-theme=dark] .recap-metrics > article,
 :root[data-theme=dark] .trophy-race { border-top: 0; position: relative; }
 :root[data-theme=dark] .recap-metrics,
