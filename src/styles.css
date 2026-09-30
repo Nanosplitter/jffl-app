@@ -249,11 +249,13 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 .directory-rosters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; }
 .directory-roster { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
 .directory-table .directory-roster small { display: inline; margin: 0; }
+.league-label-short { display: none; }
 .directory-rosters .directory-team { display: inline-flex; align-items: center; margin: 0; max-width: none; }
 .directory-team { display: block; margin-top: 5px; font-size: .7rem; color: var(--muted); max-width: 190px; }
 .player-page-name .player-identity { align-items: center; }
 .player-page-name .player-headshot, .player-page-name .nfl-portrait { width: 72px; height: 72px; flex-basis: 72px; }
 .player-page-name .player-name { font-size: inherit; font-weight: inherit; letter-spacing: inherit; }
+.player-page-injury { margin-top: 8px; font-size: .72rem; }
 .player-page-name small { font-family: Inter, Arial, sans-serif; text-transform: none; letter-spacing: 0; font-weight: 400; }
 .player-ownership { margin: 28px 0; }
 .player-rosters { list-style: none; margin: 0; padding: 8px 0 4px; display: grid; gap: 14px; }
@@ -389,13 +391,24 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
   .player-table th, .directory-table th { padding: 11px 8px; }
   .player-table td:first-child, .directory-table td:first-child, .player-table th:first-child, .directory-table th:first-child { padding-left: 0; min-width: 0; }
   .player-table td:first-child, .player-table th:first-child { width: 46%; }
-  .directory-table { table-layout: fixed; }
-  .directory-table th:first-child, .directory-table td:first-child { width: 34%; }
-  .directory-table th:nth-child(2), .directory-table td:nth-child(2) { width: 24%; }
+  .directory-table thead { display: none; }
+  .directory-table, .directory-table tbody, .directory-table tr { display: block; width: 100%; }
+  .directory-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 14px; row-gap: 6px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .directory-table td { display: block; width: auto; max-width: none; overflow: visible; border: 0; padding: 0; }
+  .directory-table td:first-child { grid-column: 1; grid-row: 1; }
+  .directory-table td:nth-child(2) { grid-column: 1; grid-row: 2; overflow-wrap: normal; }
+  .directory-table td:nth-child(3) { grid-column: 2; grid-row: 1 / span 2; }
+  .directory-table td:nth-child(4) { grid-column: 3; grid-row: 1 / span 2; }
+  .directory-table td:nth-child(3)::before, .directory-table td:nth-child(4)::before { content: "Week"; display: block; margin-bottom: 2px; color: var(--muted); font-size: .58rem; font-weight: 500; text-align: right; }
+  .directory-table td:nth-child(4)::before { content: "Proj"; }
   .directory-table th, .player-table th { white-space: normal; line-height: 1.25; }
   .player-identity, .player-identity-copy, .directory-team, .directory-team .team-identity { min-width: 0; max-width: 100%; }
   .player-identity small, .player-meta { flex-wrap: wrap; min-width: 0; }
-  .directory-table td:nth-child(2), .directory-table .league-label { overflow-wrap: anywhere; }
+  .directory-rosters { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .directory-roster { flex-wrap: wrap; gap: 4px 6px; max-width: 100%; }
+  .directory-roster .league-label-full { display: none; }
+  .directory-roster .league-label-short { display: inline; white-space: nowrap; }
+  .directory-rosters .team-identity > span { overflow: visible; text-overflow: unset; white-space: normal; }
   .directory-table th:nth-child(n+3), .directory-table td:nth-child(n+3),
   .player-table th:nth-child(n+3), .player-table td:nth-child(n+3) { padding-left: 4px; padding-right: 2px; font-size: .72rem; }
   .player-table th:nth-child(2), .player-table td:nth-child(2),
@@ -403,7 +416,11 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
   .player-table th:nth-child(6), .player-table td:nth-child(6),
   .directory-table th:nth-child(5), .directory-table td:nth-child(5),
   .directory-table th:nth-child(6), .directory-table td:nth-child(6) { display: none; }
-  .player-name { display: block; min-width: 0; overflow-wrap: anywhere; }
+  .directory-player { min-width: 0; max-width: 100%; }
+  .directory-player .player-identity { width: 100%; }
+  .directory-player .player-name { display: flex; flex-wrap: wrap; gap: 1px 6px; min-width: 0; overflow-wrap: normal; }
+  .directory-player .injury { flex-basis: 100%; }
+  .player-name { display: block; min-width: 0; overflow-wrap: normal; }
   .directory-team { max-width: none; }
   .icon-link { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-right: -12px; }
   .matchup-toggle { justify-self: stretch; padding: 14px 8px; }
