@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useParams } from 'react-router-dom';
 import { ArrowUpRight, Trophy, Search, ArrowUpDown } from 'lucide-react';
 import { useRosters, useSummaries } from './data';
-import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer } from './types';
+import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
 import { MANAGERS, TIMELINE, managerFor } from './reference';
 import { buildCup, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
 import { Fresh, points, record } from './ui';
@@ -364,6 +364,17 @@ function pointShare(left: number | null, right: number | null) {
   return { left: share, right: 100 - share };
 }
 
+export function LeagueStandingsCard({ meta, teams, updated, error = false }: { meta: (typeof LEAGUES)[number]; teams: Team[]; updated?: LeagueSummary; error?: boolean }) {
+  return <section className={`surface season-league ${meta.slug}`}><div className="surface-heading"><h2 className={`league-label ${meta.slug}`}><Link to={`/league/${meta.slug}`}>{meta.name}</Link></h2>{updated && <Fresh data={updated} error={error} />}</div><div className="table-scroll" tabIndex={0} role="region" aria-label={`${meta.name} detailed standings`}><table className="commissioner-table"><thead><tr><th>#</th><th>Manager / team</th><th>Record</th><th>Points</th><th>Per week</th><th>P. Against</th><th>Week Δ</th><th>Start Δ</th><th>Draft Δ</th><th>Current zone</th></tr></thead><tbody>{teams.map(team=>{
+    const profile=managerFor(meta.slug,team.id);
+    const rank=team.rank;
+    const weekChange=team.previousRank&&rank?team.previousRank-rank:null;
+    const startChange=profile&&rank?profile.leagueSeed-rank:null;
+    const draftChange=(team.draftRank??profile?.draftRank)&&rank?(team.draftRank??profile!.draftRank)-rank:null;
+    return <tr key={team.id}><td className="rank">{rank??'—'}</td><td><Link className="manager-link" to={teamUrl(meta.slug,team.id)}>{profile?.manager??team.name}</Link><span className="muted team-subline"><TeamIdentity team={team}/></span></td><td className="numeric">{record(team)}</td><td className="numeric emphasis">{points(team.pointsFor)}</td><td className="numeric">{points(weeklyAverage(team))}</td><td className="numeric muted">{points(team.pointsAgainst)}</td>{[weekChange,startChange,draftChange].map((change,index)=><td key={index} className={`numeric rank-change ${change!==null&&change>0?'up':change!==null&&change<0?'down':''}`}>{delta(change)}</td>)}<td><span className={`zone-badge ${provisionalZone(meta.slug,rank).includes('Relegation')?'danger':provisionalZone(meta.slug,rank).includes('promotion')?'promotion':''}`}>{provisionalZone(meta.slug,rank)}</span></td></tr>;
+  })}</tbody></table></div>{!teams.length&&<p className="empty-inline">No teams match your search.</p>}</section>;
+}
+
 export function SeasonPage() {
   const { data } = useCompetitionData();
   const [league, setLeague] = useState('all');
@@ -375,15 +386,7 @@ export function SeasonPage() {
       const summary=data[meta.slug];
       if(!summary) return <section className="surface waiting" key={meta.slug}>{meta.name} data is loading or unavailable.</section>;
       const teams=summary.teams.filter(team=>`${managerFor(meta.slug,team.id)?.manager} ${team.name}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>sort==='points'?(b.pointsFor??-Infinity)-(a.pointsFor??-Infinity):sort==='manager'?(managerFor(meta.slug,a.id)?.manager??a.name).localeCompare(managerFor(meta.slug,b.id)?.manager??b.name):(a.rank??99)-(b.rank??99));
-      return <section className={`surface season-league ${meta.slug}`} key={meta.slug}><div className="surface-heading"><h2 className={`league-label ${meta.slug}`}>{meta.name}</h2></div><div className="table-scroll" tabIndex={0} role="region" aria-label={`${meta.name} detailed standings`}><table className="commissioner-table"><thead><tr><th>#</th><th>Manager / team</th><th>Record</th><th>Win %</th><th>Points</th><th>Per week</th><th>Allowed</th><th>Week Δ</th><th>Start Δ</th><th>Draft Δ</th><th>Current zone</th></tr></thead><tbody>{teams.map(team=>{
-        const profile=managerFor(meta.slug,team.id);
-        const rank=team.rank;
-        const played=(team.wins??0)+(team.losses??0)+(team.ties??0);
-        const weekChange=team.previousRank&&rank?team.previousRank-rank:null;
-        const startChange=profile&&rank?profile.leagueSeed-rank:null;
-        const draftChange=(team.draftRank??profile?.draftRank)&&rank?(team.draftRank??profile!.draftRank)-rank:null;
-        return <tr key={team.id}><td className="rank">{rank??'—'}</td><td><Link className="manager-link" to={teamUrl(meta.slug,team.id)}>{profile?.manager??team.name}</Link><span className="muted team-subline"><TeamIdentity team={team}/></span></td><td className="numeric">{record(team)}</td><td className="numeric muted">{played?`${points(((team.wins??0)+(team.ties??0)/2)/played*100)}%`:'—'}</td><td className="numeric emphasis">{points(team.pointsFor)}</td><td className="numeric">{points(weeklyAverage(team))}</td><td className="numeric muted">{points(team.pointsAgainst)}</td>{[weekChange,startChange,draftChange].map((change,index)=><td key={index} className={`numeric rank-change ${change!==null&&change>0?'up':change!==null&&change<0?'down':''}`}>{delta(change)}</td>)}<td><span className={`zone-badge ${provisionalZone(meta.slug,rank).includes('Relegation')?'danger':provisionalZone(meta.slug,rank).includes('promotion')?'promotion':''}`}>{provisionalZone(meta.slug,rank)}</span></td></tr>;
-      })}</tbody></table></div>{!teams.length&&<p className="empty-inline">No teams match your search.</p>}</section>;
+      return <LeagueStandingsCard key={meta.slug} meta={meta} teams={teams} />;
     })}
     <details className="explainer"><summary>Rank movement, promotion & relegation</summary><p>Week Δ compares the latest completed standings with the previous completed week. Start Δ compares today’s rank with the starting order in Jason’s PDF. Draft Δ compares it with ESPN’s draft-day rank. Positive numbers mean a climb.</p><p>Promotion and relegation bands are provisional: Premier’s top six are in the safety zone; Championship and League One’s top four occupy promotion bands; Premier and Championship’s bottom four occupy relegation bands. Trophy-based automatic promotions and saved relegations can change the final allocation. Jason confirms those exceptions.</p></details>
   </>;

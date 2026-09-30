@@ -4,9 +4,9 @@ import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search
 import { localPreview, useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
 import { Fresh, points, record } from './ui';
-import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
+import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, LeagueStandingsCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
 import { managerFor } from './reference';
-import { buildCup, currentCupMatchesForTeam, provisionalZone, type CupId, type SummaryMap } from './competitions';
+import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from './competitions';
 import { projectedWinChance } from './projections';
 import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
@@ -25,17 +25,7 @@ function Waiting({ error = false }: { error?: boolean }) {
 }
 
 function Standings({ data, compact = false }: { data: LeagueSummary; compact?: boolean }) {
-  return <div className="table-scroll" tabIndex={0} role="region" aria-label={`${data.leagueName} standings`}><table className={`standings ${compact ? 'compact' : ''}`}><caption className="sr-only">{data.leagueName} standings</caption><thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col">W–L</th><th scope="col">Points</th>{!compact && <th scope="col">Allowed</th>}</tr></thead><tbody>{data.teams.map(team => <tr key={team.id}><td className={team.rank === 1 ? 'rank first' : 'rank'}>{team.rank ?? '—'}</td><td><Link to={teamLink(data.slug, team.id)}><TeamIdentity team={team} /></Link></td><td className="numeric">{record(team)}</td><td className="numeric">{points(team.pointsFor)}</td>{!compact && <td className="numeric muted">{points(team.pointsAgainst)}</td>}</tr>)}</tbody></table></div>;
-}
-
-function HomeStandings({ data }: { data: LeagueSummary }) {
-  return <div className="table-scroll" tabIndex={0} role="region" aria-label={`${data.leagueName} standings`}><table className="standings compact board-standings"><caption className="sr-only">{data.leagueName} standings</caption><thead><tr><th scope="col">#</th><th scope="col">Manager</th><th scope="col">W–L</th><th scope="col">Points</th><th scope="col"><abbr title="Rank change since last week">Δ</abbr></th></tr></thead><tbody>{data.teams.map(team => {
-    const profile = managerFor(data.slug, team.id);
-    const zone = provisionalZone(data.slug, team.rank);
-    const zoneClass = zone.includes('Relegation') ? 'zone-relegation' : zone.includes('promotion') ? 'zone-promotion' : '';
-    const change = team.previousRank && team.rank ? team.previousRank - team.rank : null;
-    return <tr key={team.id} className={zoneClass}><td className={team.rank === 1 ? 'rank first' : 'rank'}><span className="rank-mark"><span className="zone-mark" title={zoneClass ? zone : undefined}>{zoneClass && <span className="sr-only">{zone}</span>}</span>{team.rank ?? '—'}</span></td><td><Link className="board-team" to={teamLink(data.slug, team.id)}><span className="board-manager">{profile?.manager ?? team.name}</span><TeamIdentity team={team} /></Link></td><td className="numeric">{record(team)}</td><td className="numeric">{points(team.pointsFor)}</td><td className={`numeric rank-change ${change !== null && change > 0 ? 'up' : change !== null && change < 0 ? 'down' : ''}`}>{change === null ? '—' : change > 0 ? `+${change}` : String(change)}</td></tr>;
-  })}</tbody></table></div>;
+  return <div className="table-scroll" tabIndex={0} role="region" aria-label={`${data.leagueName} standings`}><table className={`standings ${compact ? 'compact' : ''}`}><caption className="sr-only">{data.leagueName} standings</caption><thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col">W–L</th><th scope="col">Points</th>{!compact && <th scope="col">P. Against</th>}</tr></thead><tbody>{data.teams.map(team => <tr key={team.id}><td className={team.rank === 1 ? 'rank first' : 'rank'}>{team.rank ?? '—'}</td><td><Link to={teamLink(data.slug, team.id)}><TeamIdentity team={team} /></Link></td><td className="numeric">{record(team)}</td><td className="numeric">{points(team.pointsFor)}</td>{!compact && <td className="numeric muted">{points(team.pointsAgainst)}</td>}</tr>)}</tbody></table></div>;
 }
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'FLEX', 'D/ST', 'K'];
@@ -134,7 +124,7 @@ function Overview() {
     <WeekPulse loaded={loaded} />
     <nav className="overview-links" aria-label="More from JFFL"><Link to="/weekly">Weekly roundup<ArrowUpRight size={14}/></Link><Link to="/history">Trophies & history<ArrowUpRight size={14}/></Link></nav>
     {loaded.length > 0 && <CupStrip data={board} />}
-    <div className="overview-grid">{LEAGUES.map(meta => { const state = summaries[meta.slug]; const roster = rosters[meta.slug]; return <div className={`league-column ${meta.slug}`} key={meta.slug}><section className="league-panel"><header className="league-panel-header"><LeagueMark slug={meta.slug} size="large" /><div><p className="eyebrow">DIVISION {String(meta.tier).padStart(2, '0')}</p><h2><Link to={`/league/${meta.slug}`}>{meta.name}</Link></h2></div><Link className="icon-link" to={`/league/${meta.slug}`} aria-label={`Open ${meta.name}`}><ArrowUpRight size={22} /></Link></header>{state.data ? <><div className="panel-section-title"><h3>Standings</h3></div><HomeStandings data={state.data} /><footer className="panel-footer"><Fresh data={state.data} error={state.error} /><Link to={`/league/${meta.slug}`}>League details</Link></footer></> : <Waiting error={state.error} />}</section>{state.data && <div className="mini-matchups">{state.data.matchups.map(matchup => { const key = `${meta.slug}:${matchup.id}`; const open = openKey === key; return <MatchupCard key={matchup.id} matchup={matchup} data={state.data!} compact board to={`/league/${meta.slug}/match/${matchup.id}`} expanded={open} onToggle={() => setOpenKey(open ? null : key)} lineup={open ? { players: roster?.data?.players ?? null, loading: roster?.loading ?? true, error: roster?.error ?? false } : undefined} />; })}</div>}</div>; })}</div>
+    <div className="home-leagues">{LEAGUES.map(meta => { const state = summaries[meta.slug]; const roster = rosters[meta.slug]; const teams = state.data ? state.data.teams.slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)) : []; return <section className={`home-league ${meta.slug}`} key={meta.slug}>{state.data ? <LeagueStandingsCard meta={meta} teams={teams} updated={state.data} error={state.error} /> : <Waiting error={state.error} />}{state.data && <div className="mini-matchups">{state.data.matchups.map(matchup => { const key = `${meta.slug}:${matchup.id}`; const open = openKey === key; return <MatchupCard key={matchup.id} matchup={matchup} data={state.data!} compact board to={`/league/${meta.slug}/match/${matchup.id}`} expanded={open} onToggle={() => setOpenKey(open ? null : key)} lineup={open ? { players: roster?.data?.players ?? null, loading: roster?.loading ?? true, error: roster?.error ?? false } : undefined} />; })}</div>}</section>; })}</div>
   </>;
 }
 

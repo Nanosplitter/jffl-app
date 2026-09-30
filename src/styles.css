@@ -91,16 +91,9 @@ main { max-width: 1620px; margin: auto; padding: 48px 40px 72px; min-height: cal
 .overview-links a:hover { color: var(--text); }
 .overview-links svg { width: 12px; }
 
-/* Tables and score rows carry the layout instead of nested cards. */
-.overview-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 0; border-top: 1px solid var(--line); }
-.league-column { min-width: 0; padding: 0 24px; border-right: 1px solid var(--line); }
-.league-column:first-child { padding-left: 0; }
-.league-column:last-child { padding-right: 0; border-right: 0; }
-.league-panel { min-width: 0; }
-.league-panel-header { display: flex; align-items: center; gap: 12px; padding: 24px 0 22px; }
-.league-panel-header .league-mark { display: none; }
-.league-panel-header .eyebrow { font-size: .6rem; margin-bottom: 6px; }
-.league-panel-header h2 { font-size: 1.9rem; }
+/* Each league is the same standings card as the standings page, then its matchups. */
+.home-league .season-league { margin-bottom: 14px; }
+.home-league .mini-matchups { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 28px; }
 .icon-link { margin-left: auto; color: var(--muted); }
 .icon-link svg { width: 18px; }
 .panel-section-title { display: flex; justify-content: space-between; align-items: center; padding: 0 0 12px; }
@@ -275,13 +268,6 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 .home-cup svg { flex: 0 0 auto; width: 16px; height: 16px; color: var(--accent-ink); }
 .home-cup span { display: block; color: var(--muted); font-size: .68rem; line-height: 1.45; }
 .board-manager { display: block; font-weight: 600; line-height: 1.3; }
-.board-team { display: block; }
-.board-team .team-identity { color: var(--muted); font-size: .68rem; font-weight: 400; margin-top: 2px; }
-.board-standings .rank { width: auto; white-space: nowrap; }
-.rank-mark { display: inline-flex; align-items: center; gap: 6px; vertical-align: middle; }
-.zone-mark { width: 5px; height: 5px; border-radius: 50%; flex: 0 0 5px; background: transparent; }
-.zone-promotion .zone-mark { background: color-mix(in srgb, var(--accent-ink) 65%, var(--muted)); }
-.zone-relegation .zone-mark { background: color-mix(in srgb, var(--warning) 70%, var(--muted)); }
 .proj-line { display: block; margin-top: 3px; color: var(--muted); font-size: .62rem; }
 .win-bar { display: flex; height: 8px; width: 100%; background: var(--line); }
 .win-bar span { display: block; height: 100%; flex: none; background: var(--muted); }
@@ -307,10 +293,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 
 @media(max-width:1100px) {
   .header-season { display: none; }
-  .overview-grid { grid-template-columns: 1fr; }
-  .league-column, .league-column:first-child, .league-column:last-child { padding: 0; border-right: 0; border-bottom: 1px solid var(--line); margin-bottom: 30px; }
   .mini-matchups { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 28px; }
-  .league-panel .panel-footer { margin-bottom: 24px; }
   .league-layout { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .board-main, .board-side { display: contents; }
   .league-layout .slot-2 { order: 3; }
@@ -357,7 +340,6 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
   .intro-copy { font-size: .77rem; margin-top: 11px; }
   .overview-links { gap: 20px; margin-bottom: 25px; }
   .overview-links a { font-size: .69rem; }
-  .league-panel-header h2 { font-size: 1.9rem; }
   .mini-matchups, .week-pulse, .home-cup-row { grid-template-columns: 1fr; }
   .player-headshot, .nfl-portrait { width: 30px; height: 30px; flex-basis: 30px; }
   .league-title h1 { font-size: 3rem; }
@@ -427,7 +409,6 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 }
 
 /* Dark mode keeps a black page. The large blocks sit on a grey field so the type has an edge. */
-:root[data-theme=dark] .league-panel,
 :root[data-theme=dark] .surface,
 :root[data-theme=dark] .week-pulse,
 :root[data-theme=dark] .home-cups,
@@ -440,10 +421,6 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
   border-radius: var(--panel-radius);
   padding: 8px 22px 18px;
 }
-:root[data-theme=dark] .overview-grid { gap: 18px; border-top: 0; }
-:root[data-theme=dark] .league-column,
-:root[data-theme=dark] .league-column:first-child,
-:root[data-theme=dark] .league-column:last-child { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 :root[data-theme=dark] .mini-matchups .matchup,
 :root[data-theme=dark] .league-layout .matchup {
   background: var(--surface);
