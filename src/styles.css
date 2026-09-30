@@ -409,11 +409,12 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
   .directory-rosters .team-identity > span { overflow: visible; text-overflow: unset; white-space: normal; }
   .directory-table th:nth-child(n+3), .directory-table td:nth-child(n+3),
   .player-table th:nth-child(n+3), .player-table td:nth-child(n+3) { padding-left: 4px; padding-right: 2px; font-size: .72rem; }
-  .player-table th:nth-child(2), .player-table td:nth-child(2),
-  .player-table th:nth-child(5), .player-table td:nth-child(5),
-  .player-table th:nth-child(6), .player-table td:nth-child(6),
+  .player-table > thead > tr > th:nth-child(2), .player-table > tbody > tr > td:nth-child(2),
+  .player-table > thead > tr > th:nth-child(5), .player-table > tbody > tr > td:nth-child(5),
+  .player-table > thead > tr > th:nth-child(6), .player-table > tbody > tr > td:nth-child(6),
   .directory-table th:nth-child(5), .directory-table td:nth-child(5),
   .directory-table th:nth-child(6), .directory-table td:nth-child(6) { display: none; }
+  .player-table .stat-panel th, .player-table .stat-panel td { display: table-cell; width: auto; }
   .directory-player { min-width: 0; max-width: 100%; }
   .directory-player .player-identity { width: 100%; }
   .directory-player .player-name { display: flex; flex-wrap: wrap; gap: 1px 6px; min-width: 0; overflow-wrap: normal; }
