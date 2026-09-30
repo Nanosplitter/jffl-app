@@ -100,6 +100,10 @@ export function MatchCard({ match, weeks, data, highlighted, index, layout = 'bo
 
 export function CupHubPage() {
   const { data } = useCompetitionData();
+  const jffl = buildCup('jffl', data);
+  const live = jffl.rounds.flatMap(round => round.matches.flatMap((match, index) => match.status === 'live' ? [{ match, index, weeks: round.weeks, roundName: round.name }] : []));
+  const roundNames = [...new Set(live.map(item => item.roundName))];
+  const liveTitle = roundNames.length === 1 ? `JFFL Cup · ${roundNames[0] === 'Round 1' ? 'opening round' : roundNames[0]}` : 'JFFL Cup · live';
   return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 TOURNAMENTS</p><h1>The cups</h1><p className="intro-copy">Four brackets. One set of live JFFL scores.</p></div></section><UpdateStrip data={data} />
     <div className="cup-tiles">{CUP_IDS.map(id => {
       const cup = buildCup(id, data);
@@ -108,7 +112,7 @@ export function CupHubPage() {
       return <Link key={id} className={`cup-tile ${id}`} to={`/cups/${id}`}><p className="eyebrow">{id === 'jffl' ? 'TWO-WEEK TIES' : 'SINGLE-WEEK TIES'}</p><h2>{cup.name}</h2><p>{cup.champion ? `${cup.champion.manager} · Champion` : `${active.name} · ${active.weeks.length > 1 ? 'Weeks' : 'Week'} ${active.weeks.join(' + ')}`}</p><span className="tile-link">Open bracket<ArrowUpRight size={17} /></span></Link>;
     })}</div>
     <details className="explainer"><summary>How the cups work</summary><p>Your ESPN score counts in your regular league matchup and in any cup tie scheduled for that week. JFFL Cup totals combine two weeks; league cups use one week. Scores retain each league’s scoring rules, even when the same NFL player appears on both sides.</p><p>Seeds and bracket positions follow Jason’s 2026 Week 2 PDF. Winners advance only after every scoring leg is final. A tied total waits for the commissioner’s decision.</p></details>
-    <div className="section-heading"><h2>JFFL Cup · opening round</h2><Link className="text-link" to="/cups/jffl">All matchups<ArrowUpRight size={14} /></Link></div><div className="featured-cup-matches">{buildCup('jffl', data).rounds[0].matches.slice(-4).map((match,index) => <MatchCard key={match.id} match={match} weeks={[3,4]} data={data} highlighted="" index={index + 12} cupId="jffl" />)}</div>
+    {live.length > 0 && <><div className="section-heading"><h2>{liveTitle}</h2><Link className="text-link" to="/cups/jffl">All matchups<ArrowUpRight size={14} /></Link></div><div className="featured-cup-matches">{live.map(({ match, index, weeks }) => <MatchCard key={match.id} match={match} weeks={weeks} data={data} highlighted="" index={index} cupId="jffl" />)}</div></>}
   </>;
 }
 
