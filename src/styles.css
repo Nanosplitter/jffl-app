@@ -394,7 +394,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
     position: sticky; left: 0; z-index: 2; background: var(--canvas);
   }
   .commissioner-table th:nth-child(2), .commissioner-table td:nth-child(2) {
-    position: sticky; left: 1.5rem; z-index: 2; background: var(--canvas);
+    position: sticky; left: 2rem; z-index: 2; background: var(--canvas);
     box-shadow: 8px 0 8px -8px color-mix(in srgb, var(--text) 40%, transparent);
   }
   .commissioner-table thead th:first-child,
