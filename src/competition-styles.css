@@ -11,9 +11,8 @@
 .cup-tiles { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 28px; margin-bottom: 32px; border-top: 1px solid var(--line); }
 .cup-tile { display: flex; flex-direction: column; padding: 24px 0; border-bottom: 1px solid var(--line); min-width: 0; }
 .cup-tile:hover { color: var(--text); text-decoration: none; }
-.cup-tile:hover h2 { color: var(--accent-ink); }
 .cup-tile .eyebrow { font-size: .56rem; }
-.cup-tile h2 { font-size: 1.9rem; margin-bottom: 12px; }
+.cup-tile h2 { width: fit-content; max-width: 100%; font-size: 1.9rem; margin-bottom: 12px; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 5px; }
 .cup-tile p:not(.eyebrow) { color: var(--muted); font-size: .74rem; line-height: 1.7; margin-bottom: 22px; }
 .tile-link { display: flex; justify-content: space-between; align-items: center; padding-top: 12px; margin-top: auto; font-size: .7rem; color: var(--muted); }
 .explainer { margin: 28px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 16px 0; }
