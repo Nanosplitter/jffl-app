@@ -104,7 +104,7 @@ export function CupHubPage() {
   const live = jffl.rounds.flatMap(round => round.matches.flatMap((match, index) => match.status === 'live' ? [{ match, index, weeks: round.weeks, roundName: round.name }] : []));
   const roundNames = [...new Set(live.map(item => item.roundName))];
   const liveTitle = roundNames.length === 1 ? `JFFL Cup · ${roundNames[0] === 'Round 1' ? 'opening round' : roundNames[0]}` : 'JFFL Cup · live';
-  return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 TOURNAMENTS</p><h1>The cups</h1><p className="intro-copy">Four brackets. One set of live JFFL scores.</p></div></section><UpdateStrip data={data} />
+  return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 TOURNAMENTS</p><h1>The cups</h1><p className="intro-copy">The JFFL Cup, plus a cup in each league.</p></div></section><UpdateStrip data={data} />
     <div className="cup-tiles">{CUP_IDS.map(id => {
       const cup = buildCup(id, data);
       const rounds = cup.rounds;
