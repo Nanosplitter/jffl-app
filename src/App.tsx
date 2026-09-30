@@ -92,6 +92,7 @@ function WeekPulse({ loaded }: { loaded: LeagueSummary[] }) {
     matchup.awayTeamId != null && matchup.awayScore != null ? { slug: matchup.slug, id: matchup.awayTeamId, score: matchup.awayScore } : null,
   ].filter((row): row is { slug: LeagueSlug; id: string; score: number } => row !== null)).sort((a, b) => b.score - a.score);
   const margins = matchups.filter(matchup => matchup.homeScore != null && matchup.awayScore != null && matchup.homeScore !== matchup.awayScore).map(matchup => ({ ...matchup, margin: Math.abs(matchup.homeScore! - matchup.awayScore!) })).sort((a, b) => a.margin - b.margin);
+  if (!scores.some(row => row.score > 0)) return null;
   const high = scores[0];
   const close = margins[0];
   const hundred = scores.filter(row => row.score >= 100).length;
