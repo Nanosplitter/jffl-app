@@ -95,6 +95,7 @@ main { max-width: 1620px; margin: auto; padding: 48px 40px 72px; min-height: cal
 .home-league .season-league { margin-bottom: 14px; }
 .home-league .mini-matchups { display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 16px; margin-bottom: 28px; }
 .home-league .mini-matchups > .matchup { flex: 0 0 calc((100% - 32px) / 3); width: calc((100% - 32px) / 3); max-width: calc((100% - 32px) / 3); align-content: start; }
+.home-league .mini-matchups .matchup-club { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; line-height: 1.35; min-height: 2.7em; max-height: 2.7em; }
 .icon-link { margin-left: auto; color: var(--muted); }
 .icon-link svg { width: 18px; }
 .panel-section-title { display: flex; justify-content: space-between; align-items: center; padding: 0 0 12px; }
