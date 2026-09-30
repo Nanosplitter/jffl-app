@@ -3,7 +3,7 @@ import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-rout
 import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search, Shield, Sun, Moon } from 'lucide-react';
 import { localPreview, useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
-import { Fresh, points, record } from './ui';
+import { Fresh, points, record, weeklyAverage } from './ui';
 import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, LeagueStandingsCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
 import { managerFor } from './reference';
 import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from './competitions';
@@ -182,7 +182,7 @@ function TeamPage() {
         <Metric label="Record" value={record(team)} />
         <Metric label="Points for" value={points(team.pointsFor)} />
         <Metric label="Points against" value={points(team.pointsAgainst)} />
-        <Metric label="Roster spots" value={String(team.rosterCount)} />
+        <Metric label="Per week" value={points(weeklyAverage(team))} />
       </div>
       {(matchup || cupMatches.length > 0) && <section className="team-matchup">
         <div className="section-heading"><h2>Matches</h2></div>

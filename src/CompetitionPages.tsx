@@ -5,7 +5,7 @@ import { useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
 import { MANAGERS, TIMELINE, managerFor } from './reference';
 import { buildCup, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
-import { Fresh, points, record } from './ui';
+import { Fresh, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity } from './PlayerIdentity';
@@ -207,12 +207,6 @@ function StarterCompare({ sides }: { sides: { title: string; players: RosteredPl
       })}
     </div>
   </div>;
-}
-
-function weeklyAverage(team: { pointsFor: number | null; wins: number | null; losses: number | null; ties: number | null } | null) {
-  if (!team || team.pointsFor == null || team.wins == null || team.losses == null || team.ties == null) return null;
-  const games = team.wins + team.losses + team.ties;
-  return games > 0 ? team.pointsFor / games : null;
 }
 
 function startersFor(players: RosteredPlayer[], teamId: string) {

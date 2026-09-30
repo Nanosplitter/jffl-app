@@ -3,6 +3,11 @@ import type { Freshness, Team } from './types';
 
 export const points = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString('en-US', { maximumFractionDigits: 2 });
 export const record = (team: Team) => team.wins == null || team.losses == null ? '—' : `${team.wins}–${team.losses}${team.ties ? `–${team.ties}` : ''}`;
+export const weeklyAverage = (team: Pick<Team, 'pointsFor' | 'wins' | 'losses' | 'ties'> | null) => {
+  if (!team || team.pointsFor == null || team.wins == null || team.losses == null || team.ties == null) return null;
+  const games = team.wins + team.losses + team.ties;
+  return games > 0 ? team.pointsFor / games : null;
+};
 
 export function Fresh({ data, error = false }: { data: Freshness; error?: boolean }) {
   const [now, setNow] = useState(Date.now());
