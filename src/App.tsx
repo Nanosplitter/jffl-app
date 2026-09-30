@@ -10,7 +10,7 @@ import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from 
 import { projectedWinChance } from './projections';
 import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
-import { PlayerIdentity } from './PlayerIdentity';
+import { PlayerIdentity, injuryLabel, injuryName } from './PlayerIdentity';
 
 const leagueMeta = (slug: string) => LEAGUES.find(league => league.slug === slug);
 const teamLink = (slug: string, id: string) => `/league/${slug}/team/${id}`;
@@ -338,7 +338,7 @@ function PlayerPage() {
       <div>
         <p className="eyebrow">2026 SEASON <span>/</span> PLAYER</p>
         <h1 className="player-page-name"><PlayerIdentity player={player} /></h1>
-        {player.injuryStatus && !['ACTIVE', 'NORMAL', 'Active'].includes(player.injuryStatus) && <p className="injury player-page-injury">{player.injuryStatus}</p>}
+        {injuryLabel(player.injuryStatus) && <p className="injury player-page-injury" title={injuryName(player.injuryStatus)}>{injuryLabel(player.injuryStatus)}</p>}
       </div>
     </section>
     <div className="team-metrics">
