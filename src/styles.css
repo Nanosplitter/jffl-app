@@ -93,7 +93,7 @@ main { max-width: 1620px; margin: auto; padding: 48px 40px 72px; min-height: cal
 
 /* Each league is the same standings card as the standings page, then its matchups. */
 .home-league .season-league { margin-bottom: 14px; }
-.home-league .mini-matchups { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 28px; }
+.home-league .mini-matchups { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-bottom: 28px; }
 .icon-link { margin-left: auto; color: var(--muted); }
 .icon-link svg { width: 18px; }
 .panel-section-title { display: flex; justify-content: space-between; align-items: center; padding: 0 0 12px; }
@@ -293,7 +293,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 
 @media(max-width:1100px) {
   .header-season { display: none; }
-  .mini-matchups { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 0 28px; }
+  .mini-matchups, .home-league .mini-matchups { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
   .league-layout { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .board-main, .board-side { display: contents; }
   .league-layout .slot-2 { order: 3; }
@@ -340,7 +340,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
   .intro-copy { font-size: .77rem; margin-top: 11px; }
   .overview-links { gap: 20px; margin-bottom: 25px; }
   .overview-links a { font-size: .69rem; }
-  .mini-matchups, .week-pulse, .home-cup-row { grid-template-columns: 1fr; }
+  .mini-matchups, .home-league .mini-matchups, .week-pulse, .home-cup-row { grid-template-columns: 1fr; }
   .player-headshot, .nfl-portrait { width: 30px; height: 30px; flex-basis: 30px; }
   .league-title h1 { font-size: 3rem; }
   .league-intro { flex-wrap: wrap; }
