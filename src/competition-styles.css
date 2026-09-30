@@ -303,12 +303,15 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 }
 @media(max-width:580px) {
   .commissioner-table { border-collapse: separate; border-spacing: 0; }
-  .commissioner-table th:first-child, .commissioner-table td:first-child { width: 2.4rem; min-width: 2.4rem; max-width: 2.4rem; padding-left: 0; padding-right: 4px; }
-  .commissioner-table th:nth-child(2), .commissioner-table td:nth-child(2) { width: 7.6rem; min-width: 7.6rem; max-width: 7.6rem; padding-left: 8px; padding-right: 10px; }
-  .commissioner-table td:nth-child(2) .manager-link,
-  .commissioner-table td:nth-child(2) .team-subline { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .commissioner-table td:nth-child(2) .team-identity { display: flex; min-width: 0; max-width: 100%; }
-  .commissioner-table td:nth-child(2) .team-identity > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .commissioner-table th:first-child, .commissioner-table td:first-child { width: 1.5rem; min-width: 1.5rem; max-width: 1.5rem; padding-left: 0; padding-right: 0; }
+  .commissioner-table th:nth-child(2), .commissioner-table td:nth-child(2) { width: 7.6rem; min-width: 7.6rem; max-width: 7.6rem; padding-left: 4px; padding-right: 8px; }
+  .commissioner-table td:nth-child(2) { display: grid; grid-template-columns: 18px minmax(0, 1fr); column-gap: 6px; row-gap: 1px; align-items: center; }
+  .commissioner-table td:nth-child(2) .team-subline,
+  .commissioner-table td:nth-child(2) .team-identity { display: contents; }
+  .commissioner-table td:nth-child(2) .team-logo { grid-column: 1; grid-row: 1; width: 18px; height: 18px; }
+  .commissioner-table td:nth-child(2) .manager-link { grid-column: 1 / -1; grid-row: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .commissioner-table td:nth-child(2):has(.team-logo:not([hidden])) .manager-link { grid-column: 2; }
+  .commissioner-table td:nth-child(2) .team-identity > span { grid-column: 1 / -1; grid-row: 2; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .commissioner-table th:nth-child(n+3), .commissioner-table td:nth-child(n+3) { padding-left: 10px; padding-right: 10px; }
   .section-nav { gap: 22px; margin-top: -9px; }
   .section-nav a { font-size: .67rem; }

@@ -409,7 +409,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
     position: sticky; left: 0; z-index: 2; background: var(--canvas);
   }
   .commissioner-table th:nth-child(2), .commissioner-table td:nth-child(2) {
-    position: sticky; left: 2.4rem; z-index: 2; background: var(--canvas);
+    position: sticky; left: 1.5rem; z-index: 2; background: var(--canvas);
     box-shadow: 8px 0 8px -8px color-mix(in srgb, var(--text) 40%, transparent);
   }
   .commissioner-table thead th:first-child,
@@ -537,5 +537,5 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 :root[data-theme=dark] .commissioner-table th:first-child,
 :root[data-theme=dark] .commissioner-table td:first-child,
 :root[data-theme=dark] .commissioner-table th:nth-child(2),
-:root[data-theme=dark] .commissioner-table td:nth-child(2) { background: color-mix(in srgb, #2c2c2c 44%, var(--canvas)); }
+:root[data-theme=dark] .commissioner-table td:nth-child(2) { background: color-mix(in srgb, #2c2c2c 44%, var(--canvas)); box-shadow: none; }
 @media(prefers-reduced-motion:reduce) { * { scroll-behavior: auto !important; } }
