@@ -109,7 +109,7 @@ function CupStrip({ data }: { data: SummaryMap }) {
     const detail = focus ? `${focus.a.participant?.manager ?? 'TBD'} ${points(focus.a.total)} · ${focus.b.participant?.manager ?? 'TBD'} ${points(focus.b.total)}` : cup.champion ? `${cup.champion.manager} · Champion` : 'Bracket';
     return { cup, round, detail };
   });
-  return <section className="home-cups"><div className="panel-section-title"><h3>Cups</h3><Link to="/cups">All brackets</Link></div><div className="home-cup-row">{cups.map(({ cup, round, detail }) => <Link key={cup.id} className="home-cup" to={`/cups/${cup.id}`}><p className="eyebrow">{round.name} · {round.weeks.length > 1 ? `Weeks ${round.weeks.join('+')}` : `Week ${round.weeks[0]}`}</p><strong>{cup.name}<ArrowUpRight size={15} aria-hidden="true" /></strong><span>{detail}</span></Link>)}</div></section>;
+  return <section className="home-cups"><div className="panel-section-title"><h3>Cups</h3><Link to="/cups">All brackets</Link></div><div className="home-cup-row">{cups.map(({ cup, round, detail }) => <Link key={cup.id} className="home-cup" to={`/cups/${cup.id}`}><p className="eyebrow">{round.name} · {round.weeks.length > 1 ? `Weeks ${round.weeks.join('+')}` : `Week ${round.weeks[0]}`}</p><strong><span className="home-cup-name">{cup.name}</span><ArrowUpRight size={15} aria-hidden="true" /></strong><span>{detail}</span></Link>)}</div></section>;
 }
 
 function Overview() {
