@@ -28,8 +28,10 @@ controls are configured in Firebase and Google Cloud consoles, not in this repo.
 
 Overview `/`; team `/league/:slug/team/:teamId`; league match `/league/:slug/match/:matchId`; rostered players `/players`; player `/players/:playerId`.
 Player fantasy totals and projections are scoped to the corresponding league's
-scoring. Missing numbers display as a dash. Starters, bench, and IR follow the
-current scoring-period lineup. D/ST IDs remain strings, including negative IDs.
+scoring. The player page keeps each played week's counting stats; a week with
+no captured line stays blank. Missing numbers display as a dash. Starters,
+bench, and IR follow the current scoring-period lineup. D/ST IDs remain
+strings, including negative IDs.
 
 Commissioner's pages:
 

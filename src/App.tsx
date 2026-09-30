@@ -284,6 +284,40 @@ function TeamMatchSheet({ label, status, to, sides, bar }: {
 
 function Metric({ label, value }: { label: string; value: string }) { return <div className="metric"><span>{label}</span><strong>{value}</strong></div>; }
 
+const STAT_ORDER = ['Pass attempts', 'Completions', 'Pass yards', 'Pass TD', 'Interceptions', 'Rush attempts', 'Rush yards', 'Rush TD', 'Receptions', 'Rec yards', 'Rec TD', 'Targets', 'Fumbles', 'Fumbles lost', 'Field goals', 'Extra points', 'Defensive TD', 'Defensive INT', 'Fumble recoveries', 'Safeties', 'Sacks', 'Points allowed', 'Yards allowed'];
+
+function playerWeeks(playerId: string, spots: { player: RosteredPlayer; slug: LeagueSlug }[], rosters: ReturnType<typeof useRosters>) {
+  const byWeek = new Map<number, { week: number; points: number | null; stats: Record<string, number> }>();
+  const column = (week: number) => {
+    const existing = byWeek.get(week);
+    if (existing) return existing;
+    const created = { week, points: null as number | null, stats: {} as Record<string, number> };
+    byWeek.set(week, created);
+    return created;
+  };
+  for (const spot of spots) {
+    for (const row of spot.player.weeklyStats ?? []) {
+      const week = column(row.week);
+      if (week.points == null && row.points != null) week.points = row.points;
+      for (const [key, value] of Object.entries(row.stats ?? {})) if (week.stats[key] == null && value != null) week.stats[key] = value;
+    }
+    const roster = rosters[spot.slug]?.data;
+    for (const lineup of roster?.weeklyLineups ?? []) {
+      const played = lineup.players.find(item => item.id === playerId);
+      if (played?.points != null) {
+        const week = column(lineup.week);
+        if (week.points == null) week.points = played.points;
+      }
+    }
+    if (roster?.week) {
+      const week = column(roster.week);
+      if (week.points == null && spot.player.weekPoints != null) week.points = spot.player.weekPoints;
+      for (const [key, value] of Object.entries(spot.player.weekStats)) if (week.stats[key] == null && value != null) week.stats[key] = value;
+    }
+  }
+  return [...byWeek.values()].sort((a, b) => a.week - b.week);
+}
+
 function PlayerPage() {
   const { playerId = '' } = useParams();
   const rosters = useRosters(LEAGUES.map(meta => meta.slug));
@@ -293,7 +327,11 @@ function PlayerPage() {
   const player = spots.find(spot => spot.player.seasonPoints != null)?.player ?? spots[0]?.player;
   useEffect(() => { document.title = `${player?.name ?? 'Player'} · JFFL`; }, [player?.name]);
   if (!player) return loading ? <Waiting /> : <NotFound />;
-  const keys = [...new Set([...Object.keys(player.weekStats), ...Object.keys(player.seasonStats)])];
+  const weeks = playerWeeks(player.id, spots, rosters);
+  const statNames = [...new Set([...Object.keys(player.seasonStats), ...weeks.flatMap(week => Object.keys(week.stats))])].sort((a, b) => {
+    const rank = (name: string) => { const index = STAT_ORDER.indexOf(name); return index === -1 ? STAT_ORDER.length : index; };
+    return rank(a) - rank(b) || a.localeCompare(b);
+  });
   return <>
     <Link className="back-link" to="/players"><ChevronLeft size={16} />Players</Link>
     <section className="page-intro">
@@ -310,7 +348,7 @@ function PlayerPage() {
       <Metric label="Average" value={points(player.averagePoints)} />
     </div>
     <section className="surface player-ownership"><div className="surface-heading"><h2>Rostered by</h2></div><ul className="player-rosters">{spots.map(spot => { const team = summaries[spot.slug].data?.teams.find(item => item.id === spot.player.teamId); return <li key={`${spot.slug}-${spot.player.teamId}`}><span className={`league-label ${spot.slug}`}>{leagueMeta(spot.slug)?.name}</span><Link to={teamLink(spot.slug, spot.player.teamId)}>{team ? <TeamIdentity team={team} /> : 'Team'}</Link><span className="slot">{spot.player.slot === 'BE' ? 'Bench' : spot.player.slot}</span></li>; })}</ul></section>
-    <section className="surface"><div className="surface-heading"><h2>Statistics</h2><span className="muted">Eligible: {player.eligibleSlots.filter(slot => slot !== 'BE' && slot !== 'IR').join(', ') || '—'}</span></div>{keys.length ? <div className="table-scroll"><table className="player-stat-table"><thead><tr><th>Statistic</th><th>Week</th><th>Season</th></tr></thead><tbody>{keys.map(key => <tr key={key}><th>{key}</th><td className="numeric">{points(player.weekStats[key])}</td><td className="numeric">{points(player.seasonStats[key])}</td></tr>)}</tbody></table></div> : <p className="empty-inline">Stats are not available yet.</p>}</section>
+    <section className="surface"><div className="surface-heading"><h2>Statistics</h2><span className="muted">Eligible: {player.eligibleSlots.filter(slot => slot !== 'BE' && slot !== 'IR').join(', ') || '—'}</span></div>{weeks.length || statNames.length ? <div className="table-scroll" tabIndex={0} role="region" aria-label={`${player.name} statistics by week`}><table className="player-stat-table"><thead><tr><th>Statistic</th>{weeks.map(week => <th key={week.week}>W{week.week}</th>)}<th>Season</th></tr></thead><tbody><tr><th>Fantasy points</th>{weeks.map(week => <td key={week.week} className="numeric">{points(week.points)}</td>)}<td className="numeric">{points(player.seasonPoints)}</td></tr>{statNames.map(key => <tr key={key}><th>{key}</th>{weeks.map(week => <td key={week.week} className="numeric">{points(week.stats[key])}</td>)}<td className="numeric">{points(player.seasonStats[key])}</td></tr>)}</tbody></table></div> : <p className="empty-inline">Stats are not available yet.</p>}</section>
   </>;
 }
 

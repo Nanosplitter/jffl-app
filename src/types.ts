@@ -33,6 +33,7 @@ export interface RosteredPlayer {
   injuryStatus: string | null; weekPoints: number | null;
   projectedPoints: number | null; seasonPoints: number | null; averagePoints: number | null;
   weekStats: Record<string, number>; seasonStats: Record<string, number>;
+  weeklyStats?: { week: number; points?: number | null; stats: Record<string, number> }[];
 }
 export interface WeekLineupPlayer {
   id: string; name: string; position: string; proTeam: string; slot: string; points: number | null;

@@ -107,6 +107,24 @@ def test_past_week_fetch_does_not_replace_the_season_schedule():
     boundary.session.close()
 
 
+def test_weekly_stats_keep_played_weeks_and_skip_missing_ones():
+    player = SimpleNamespace(playerId=1, name="Player", position="QB", proTeam="BUF",
+                             eligibleSlots=["QB"], lineupSlot="QB")
+    raw = {"stats": [
+        {"seasonId": 2026, "scoringPeriodId": 1, "statSourceId": 0, "statSplitTypeId": 0, "appliedTotal": 18.4, "stats": {"3": 250, "4": 2}},
+        {"seasonId": 2026, "scoringPeriodId": 2, "statSourceId": 1, "statSplitTypeId": 0, "appliedTotal": 99, "stats": {"3": 400}},
+        {"seasonId": 2026, "scoringPeriodId": 3, "statSourceId": 0, "statSplitTypeId": 0, "appliedTotal": 10, "stats": {"3": 180}},
+        {"seasonId": 2026, "scoringPeriodId": 0, "statSourceId": 0, "statSplitTypeId": 0, "appliedTotal": 40, "stats": {"3": 430, "4": 2}},
+    ]}
+    result = normalize_player(player, 1, 3, raw)
+    assert [row["week"] for row in result["weeklyStats"]] == [1, 3]
+    assert result["weeklyStats"][0]["points"] == 18.4
+    assert result["weeklyStats"][0]["stats"]["Pass yards"] == 250
+    assert result["weeklyStats"][0]["stats"]["Pass TD"] == 2
+    assert result["weekStats"]["Pass yards"] == 180
+    assert result["seasonStats"]["Pass yards"] == 430
+
+
 def test_stat_ids_do_not_confuse_yards_and_yards_per_game():
     player = SimpleNamespace(playerId=1, name="Player", position="RB", proTeam="BAL",
                              eligibleSlots=["RB"], lineupSlot="RB")

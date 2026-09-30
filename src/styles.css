@@ -262,7 +262,8 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 .player-rosters li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .player-rosters .league-label { min-width: 8.5rem; }
 .player-stat-table { width: auto; min-width: 320px; }
-.player-stat-table th:first-child { text-align: left; }
+.player-stat-table th:first-child, .player-stat-table td:first-child { text-align: left; }
+.player-stat-table th:not(:first-child), .player-stat-table td:not(:first-child) { text-align: right; white-space: nowrap; }
 .league-label { font-weight: 500; color: var(--muted); }
 .pagination { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 20px 0; border-top: 1px solid var(--line); font-size: .7rem; color: var(--muted); }
 .pagination > div { display: flex; align-items: center; gap: 14px; }

@@ -159,6 +159,22 @@ def breakdown(stat):
             if key in stat.get("stats", {}) and number(stat["stats"][key]) is not None}
 
 
+def weekly_stats(raw, through_week):
+    """Counting stats already captured for each played week. A missing week stays absent."""
+    rows = []
+    for period in range(1, through_week + 1):
+        actual = source_stat(raw, period, 0)
+        stats = breakdown(actual)
+        points = number(actual.get("appliedTotal"))
+        if points is None and not stats:
+            continue
+        row = {"week": period, "stats": stats}
+        if points is not None:
+            row["points"] = points
+        rows.append(row)
+    return rows
+
+
 def normalize_player(player, team_id, week, raw, box_player=None):
     actual = source_stat(raw, week, 0)
     projected = source_stat(raw, week, 1)
@@ -174,6 +190,7 @@ def normalize_player(player, team_id, week, raw, box_player=None):
         "seasonPoints": number(season.get("appliedTotal")),
         "averagePoints": number(season.get("appliedAverage")),
         "weekStats": breakdown(actual), "seasonStats": breakdown(season),
+        "weeklyStats": weekly_stats(raw, week),
     }
 
 
