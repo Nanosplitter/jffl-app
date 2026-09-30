@@ -49,7 +49,7 @@ function feederLabel(label: string) {
   return `${round} · Match ${parsed[2]}`;
 }
 
-function MatchCard({ match, weeks, data, highlighted, index, layout = 'board', cupId }: { match: CupMatch; weeks: number[]; data: SummaryMap; highlighted: string; index: number; layout?: 'board' | 'slot'; cupId: string }) {
+export function MatchCard({ match, weeks, data, highlighted, index, layout = 'board', cupId }: { match: CupMatch; weeks: number[]; data: SummaryMap; highlighted: string; index: number; layout?: 'board' | 'slot'; cupId: string }) {
   const status = { bye:'Bye · advances', waiting:'', live:'', final:'Final', tied:'Awaiting commissioner decision', unavailable:'Waiting for score data' }[match.status];
   const selected = highlighted && [match.a.participant?.key, match.b.participant?.key].includes(highlighted);
   const share = match.status === 'bye' ? null : totalShare(match.a.total, match.b.total);

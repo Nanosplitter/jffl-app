@@ -4,9 +4,9 @@ import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search
 import { localPreview, useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
 import { Fresh, points, record } from './ui';
-import { CupHubPage, CupMatchPage, CupPage, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
+import { CupHubPage, CupMatchPage, CupPage, MatchCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
 import { managerFor } from './reference';
-import { buildCup, provisionalZone, type CupId, type SummaryMap } from './competitions';
+import { buildCup, currentCupMatchesForTeam, provisionalZone, type CupId, type SummaryMap } from './competitions';
 import { projectedWinChance } from './projections';
 import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
@@ -167,6 +167,9 @@ function TeamPage() {
   if (!team) return <NotFound />;
   const profile = managerFor(meta.slug, teamId);
   const matchup = data.matchups.find(item => item.homeTeamId === teamId || item.awayTeamId === teamId);
+  const board: SummaryMap = {};
+  for (const league of LEAGUES) if (summaries[league.slug].data) board[league.slug] = summaries[league.slug].data!;
+  const cupMatches = currentCupMatchesForTeam(board, meta.slug, teamId);
   const players = roster?.data?.players.filter(player => player.teamId === teamId) ?? [];
   const mismatched = roster?.data && roster.data.updatedAt !== data.updatedAt;
   return <>
@@ -192,9 +195,18 @@ function TeamPage() {
         <Metric label="Points against" value={points(team.pointsAgainst)} />
         <Metric label="Roster spots" value={String(team.rosterCount)} />
       </div>
-      {matchup && <section className="team-matchup">
-        <div className="section-heading"><h2>Week {data.week} matchup</h2></div>
-        <MatchupCard matchup={matchup} data={data} />
+      {(matchup || cupMatches.length > 0) && <section className="team-matchup">
+        <div className="section-heading"><h2>Matches</h2></div>
+        <div className="team-match-list">
+          {matchup && <div className="team-match-item">
+            <p className="eyebrow">Week {data.week} · League</p>
+            <MatchupCard matchup={matchup} data={data} />
+          </div>}
+          {cupMatches.map(item => <div className="team-match-item" key={`${item.cupId}-${item.match.id}`}>
+            <p className="eyebrow">{item.cupName} · {item.roundName}</p>
+            <MatchCard match={item.match} weeks={item.weeks} data={board} highlighted="" index={item.matchIndex} cupId={item.cupId} />
+          </div>)}
+        </div>
       </section>}
       <div className="team-roster">
         <div className="section-heading"><h2>Roster</h2></div>

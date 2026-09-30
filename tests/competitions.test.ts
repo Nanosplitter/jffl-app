@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { buildCup, roundScoreAverage, scoreFor, type CupRound, type SummaryMap } from '../src/competitions.ts';
+import { buildCup, currentCupMatchesForTeam, roundScoreAverage, scoreFor, type CupRound, type SummaryMap } from '../src/competitions.ts';
 import { MANAGERS, managerFor } from '../src/reference.ts';
 
 // Fixed public Week 3 scores keep this suite independent of ESPN and live updates.
@@ -76,6 +76,23 @@ test('a missing league or score cannot manufacture a cup winner or a zero',()=>{
   const match=buildCup('jffl',data).rounds[0].matches.find(item=>item.b.participant?.manager==='RonniColin')!;
   assert.equal(match.b.total,null);
   assert.equal(match.winner,null);
+});
+
+test('team pages surface the furthest JFFL and league-cup ties for a manager',()=>{
+  const wayne=managerFor('premier','38')!;
+  const appearances=currentCupMatchesForTeam(fixture(),wayne.slug,wayne.teamId);
+  assert.deepEqual(appearances.map(item=>item.cupId),['jffl','premier']);
+  assert.equal(appearances[0].roundName,'Round 1');
+  assert.equal(appearances[0].match.b.participant?.manager,'RonniColin');
+  assert.equal(appearances[1].roundName,'Quarterfinals');
+  assert.equal(appearances[1].match.a.participant?.manager,'Wayne');
+  assert.equal(appearances[1].match.b.participant?.manager,'Jeff');
+  const josh=managerFor('championship','73')!;
+  assert.equal(currentCupMatchesForTeam(fixture(),josh.slug,josh.teamId).find(item=>item.cupId==='championship')?.roundName,'Quarterfinals');
+  const seanH=MANAGERS.find(item=>item.manager==='SeanH')!;
+  const eliminated=currentCupMatchesForTeam(fixture(),seanH.slug,seanH.teamId).find(item=>item.cupId==='championship')!;
+  assert.equal(eliminated.roundName,'First round');
+  assert.equal(eliminated.match.winner?.manager,'Josh');
 });
 
 test('a round average is the mean of playing totals and leaves byes out',()=>{
