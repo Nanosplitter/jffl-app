@@ -9,9 +9,8 @@ import { Fresh, points, record } from './ui';
 import { projectedWinChance } from './projections';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity } from './PlayerIdentity';
-import { historicalStarters } from './lineups';
+import { compareByLineup, historicalStarters } from './lineups';
 
-const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'FLEX', 'D/ST', 'K'];
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
 
 const CUP_IDS: CupId[] = ['jffl', 'premier', 'championship', 'league-one'];
@@ -217,10 +216,7 @@ function weeklyAverage(team: { pointsFor: number | null; wins: number | null; lo
 }
 
 function startersFor(players: RosteredPlayer[], teamId: string) {
-  return players.filter(player => player.teamId === teamId && player.group === 'starter').sort((a, b) => {
-    const slot = (player: RosteredPlayer) => { const index = SLOT_ORDER.indexOf(player.slot); return index === -1 ? SLOT_ORDER.length : index; };
-    return slot(a) - slot(b) || a.name.localeCompare(b.name);
-  });
+  return players.filter(player => player.teamId === teamId && player.group === 'starter').sort(compareByLineup);
 }
 
 function StarterScore({ player, align }: { player?: RosteredPlayer; align: 'left' | 'right' }) {

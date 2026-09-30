@@ -235,7 +235,7 @@ def weekly_matchups(boundary, current_week):
 
 
 BENCH_SLOTS = {"BE", "IR", ""}
-LINEUP_ORDER = ["QB", "RB", "WR", "TE", "RB/WR/TE", "D/ST", "K"]
+LINEUP_ORDER = ["QB", "RB", "WR", "TE", "RB/WR/TE", "FLEX", "D/ST", "K"]
 
 
 def matchup_period_for(league, week):
