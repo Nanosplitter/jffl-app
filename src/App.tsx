@@ -284,6 +284,35 @@ function TeamMatchSheet({ label, status, to, sides, bar }: {
 
 function Metric({ label, value }: { label: string; value: string }) { return <div className="metric"><span>{label}</span><strong>{value}</strong></div>; }
 
+function PlayerPage() {
+  const { playerId = '' } = useParams();
+  const rosters = useRosters(LEAGUES.map(meta => meta.slug));
+  const summaries = useSummaries();
+  const spots = LEAGUES.flatMap(meta => (rosters[meta.slug]?.data?.players ?? []).filter(player => player.id === playerId).map(player => ({ player, slug: meta.slug })));
+  const loading = LEAGUES.some(meta => rosters[meta.slug]?.loading && !rosters[meta.slug]?.data);
+  const player = spots.find(spot => spot.player.seasonPoints != null)?.player ?? spots[0]?.player;
+  useEffect(() => { document.title = `${player?.name ?? 'Player'} · JFFL`; }, [player?.name]);
+  if (!player) return loading ? <Waiting /> : <NotFound />;
+  const keys = [...new Set([...Object.keys(player.weekStats), ...Object.keys(player.seasonStats)])];
+  return <>
+    <Link className="back-link" to="/players"><ChevronLeft size={16} />Players</Link>
+    <section className="page-intro">
+      <div>
+        <p className="eyebrow">2026 SEASON <span>/</span> PLAYER</p>
+        <h1 className="player-page-name"><PlayerIdentity player={player} injury={player.injuryStatus} /></h1>
+      </div>
+    </section>
+    <div className="team-metrics">
+      <Metric label="Week pts" value={points(player.weekPoints)} />
+      <Metric label="Projected" value={points(player.projectedPoints)} />
+      <Metric label="Season" value={points(player.seasonPoints)} />
+      <Metric label="Average" value={points(player.averagePoints)} />
+    </div>
+    <section className="surface player-ownership"><div className="surface-heading"><h2>Rostered by</h2></div><ul className="player-rosters">{spots.map(spot => { const team = summaries[spot.slug].data?.teams.find(item => item.id === spot.player.teamId); return <li key={`${spot.slug}-${spot.player.teamId}`}><span className={`league-label ${spot.slug}`}>{leagueMeta(spot.slug)?.name}</span><Link to={teamLink(spot.slug, spot.player.teamId)}>{team ? <TeamIdentity team={team} /> : 'Team'}</Link><span className="slot">{spot.player.slot === 'BE' ? 'Bench' : spot.player.slot}</span></li>; })}</ul></section>
+    <section className="surface"><div className="surface-heading"><h2>Statistics</h2><span className="muted">Eligible: {player.eligibleSlots.filter(slot => slot !== 'BE' && slot !== 'IR').join(', ') || '—'}</span></div>{keys.length ? <div className="table-scroll"><table className="player-stat-table"><thead><tr><th>Statistic</th><th>Week</th><th>Season</th></tr></thead><tbody>{keys.map(key => <tr key={key}><th>{key}</th><td className="numeric">{points(player.weekStats[key])}</td><td className="numeric">{points(player.seasonStats[key])}</td></tr>)}</tbody></table></div> : <p className="empty-inline">Stats are not available yet.</p>}</section>
+  </>;
+}
+
 function PlayersPage() {
   const location = useLocation();
   const initial = new URLSearchParams(location.search).get('league');
@@ -300,13 +329,19 @@ function PlayersPage() {
   const states = useRosters(selected.map(meta => meta.slug));
   const summaries = useSummaries();
   const rows = selected.flatMap(meta => (states[meta.slug]?.data?.players ?? []).map(player => ({ player, slug: meta.slug })));
-  const filtered = rows.filter(({ player }) => (position === 'all' || player.position === position) && player.name.toLowerCase().includes(search.trim().toLowerCase())).sort((a, b) => (b.player.seasonPoints ?? -Infinity) - (a.player.seasonPoints ?? -Infinity) || a.player.name.localeCompare(b.player.name));
+  const grouped = [...rows.reduce((groups, row) => {
+    const spots = groups.get(row.player.id) ?? [];
+    spots.push(row);
+    groups.set(row.player.id, spots);
+    return groups;
+  }, new Map<string, typeof rows>()).values()].map(spots => ({ player: spots.find(spot => spot.player.seasonPoints != null)?.player ?? spots[0].player, spots }));
+  const filtered = grouped.filter(({ player }) => (position === 'all' || player.position === position) && player.name.toLowerCase().includes(search.trim().toLowerCase())).sort((a, b) => (b.player.seasonPoints ?? -Infinity) - (a.player.seasonPoints ?? -Infinity) || a.player.name.localeCompare(b.player.name));
   const pages = Math.max(1, Math.ceil(filtered.length / 30));
   const safePage = Math.min(page, pages - 1);
   const visible = filtered.slice(safePage * 30, (safePage + 1) * 30);
   const loading = selected.some(meta => !states[meta.slug] || states[meta.slug]?.loading);
   const positions = [...new Set(rows.map(({ player }) => player.position))].sort();
-  return <><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> ROSTERED PLAYERS</p><h1>Players</h1><p className="intro-copy">Fantasy points follow each league’s scoring rules.</p></div></section><section className="surface player-browser"><div className="filters"><label className="search-field"><Search size={18} /><span className="sr-only">Search players</span><input aria-label="Search players" placeholder="Search players" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></label><label><span className="sr-only">League</span><select aria-label="League" value={league} onChange={event => { setLeague(event.target.value); setPage(0); }}><option value="all">All leagues</option>{LEAGUES.map(meta => <option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select></label><label><span className="sr-only">Position</span><select aria-label="Position" value={position} onChange={event => { setPosition(event.target.value); setPage(0); }}><option value="all">All positions</option>{positions.map(pos => <option key={pos}>{pos}</option>)}</select></label></div><div className="player-freshness">{selected.map(meta => <span key={meta.slug}><b>{meta.name}</b>{states[meta.slug]?.data ? <Fresh data={states[meta.slug]!.data!} error={states[meta.slug]?.error} /> : <span className="muted">{states[meta.slug]?.error ? 'Unavailable' : 'Loading…'}</span>}</span>)}</div>{loading && !rows.length ? <Waiting /> : filtered.length ? <><div className="table-scroll"><table className="directory-table"><caption className="sr-only">Rostered players across JFFL</caption><thead><tr><th>Player</th><th>League / team</th><th>Week pts</th><th>Proj</th><th>Season</th><th>Avg</th><th><span className="sr-only">Statistics</span></th></tr></thead><tbody>{visible.map(({ player, slug }) => <tr key={`${slug}-${player.teamId}-${player.id}`}><td><PlayerIdentity player={player} injury={player.injuryStatus} detail={player.slot === 'BE' ? 'Bench' : player.slot} /></td><td><small className={`league-label ${slug}`}>{leagueMeta(slug)?.name}</small><Link className="directory-team" to={teamLink(slug, player.teamId)}>{summaries[slug].data?.teams.find(team => team.id === player.teamId) ? <TeamIdentity team={summaries[slug].data!.teams.find(team => team.id === player.teamId)!} /> : 'Team'}</Link></td><td className="numeric emphasis">{points(player.weekPoints)}</td><td className="numeric muted">{points(player.projectedPoints)}</td><td className="numeric">{points(player.seasonPoints)}</td><td className="numeric">{points(player.averagePoints)}</td><td><StatDetails player={player} /></td></tr>)}</tbody></table></div><div className="pagination"><span>{safePage * 30 + 1}–{Math.min((safePage + 1) * 30, filtered.length)} of {filtered.length}</span><div><button disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label="Previous page"><ChevronLeft size={17} /></button><span>Page {safePage + 1} of {pages}</span><button disabled={safePage + 1 >= pages} onClick={() => setPage(safePage + 1)} aria-label="Next page"><ChevronRight size={17} /></button></div></div></> : <div className="waiting"><Search size={24} /><strong>{rows.length ? 'No players match your filters' : 'Player data is unavailable'}</strong><span>{rows.length ? 'Try a different name or position.' : 'The next scheduled update will try again.'}</span></div>}</section></>;
+  return <><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> ROSTERED PLAYERS</p><h1>Players</h1><p className="intro-copy">Fantasy points follow each league’s scoring rules.</p></div></section><section className="surface player-browser"><div className="filters"><label className="search-field"><Search size={18} /><span className="sr-only">Search players</span><input aria-label="Search players" placeholder="Search players" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></label><label><span className="sr-only">League</span><select aria-label="League" value={league} onChange={event => { setLeague(event.target.value); setPage(0); }}><option value="all">All leagues</option>{LEAGUES.map(meta => <option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select></label><label><span className="sr-only">Position</span><select aria-label="Position" value={position} onChange={event => { setPosition(event.target.value); setPage(0); }}><option value="all">All positions</option>{positions.map(pos => <option key={pos}>{pos}</option>)}</select></label></div><div className="player-freshness">{selected.map(meta => <span key={meta.slug}><b>{meta.name}</b>{states[meta.slug]?.data ? <Fresh data={states[meta.slug]!.data!} error={states[meta.slug]?.error} /> : <span className="muted">{states[meta.slug]?.error ? 'Unavailable' : 'Loading…'}</span>}</span>)}</div>{loading && !rows.length ? <Waiting /> : filtered.length ? <><div className="table-scroll"><table className="directory-table"><caption className="sr-only">Rostered players across JFFL</caption><thead><tr><th>Player</th><th>League / team</th><th>Week pts</th><th>Proj</th><th>Season</th><th>Avg</th></tr></thead><tbody>{visible.map(({ player, spots }) => <tr key={player.id}><td><Link className="directory-player" to={`/players/${encodeURIComponent(player.id)}`}><PlayerIdentity player={player} injury={player.injuryStatus} detail={spots.length === 1 ? (spots[0].player.slot === 'BE' ? 'Bench' : spots[0].player.slot) : undefined} /></Link></td><td><div className="directory-rosters">{spots.map(spot => { const team = summaries[spot.slug].data?.teams.find(item => item.id === spot.player.teamId); return <span className="directory-roster" key={`${spot.slug}-${spot.player.teamId}`}><small className={`league-label ${spot.slug}`}>{leagueMeta(spot.slug)?.name}</small><Link className="directory-team" to={teamLink(spot.slug, spot.player.teamId)}>{team ? <TeamIdentity team={team} /> : 'Team'}</Link></span>; })}</div></td><td className="numeric emphasis">{points(player.weekPoints)}</td><td className="numeric muted">{points(player.projectedPoints)}</td><td className="numeric">{points(player.seasonPoints)}</td><td className="numeric">{points(player.averagePoints)}</td></tr>)}</tbody></table></div><div className="pagination"><span>{safePage * 30 + 1}–{Math.min((safePage + 1) * 30, filtered.length)} of {filtered.length}</span><div><button disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label="Previous page"><ChevronLeft size={17} /></button><span>Page {safePage + 1} of {pages}</span><button disabled={safePage + 1 >= pages} onClick={() => setPage(safePage + 1)} aria-label="Next page"><ChevronRight size={17} /></button></div></div></> : <div className="waiting"><Search size={24} /><strong>{rows.length ? 'No players match your filters' : 'Player data is unavailable'}</strong><span>{rows.length ? 'Try a different name or position.' : 'The next scheduled update will try again.'}</span></div>}</section></>;
 }
 
 function NotFound() { return <div className="waiting"><Shield size={30} /><h1>Page not found</h1><Link className="button" to="/">Back to the leagues</Link></div>; }
@@ -320,6 +355,7 @@ export default function App() {
   }, [dark]);
   useEffect(() => {
     window.scrollTo(0, 0);
+    if (/^\/players\/.+/.test(location.pathname)) return;
     const title = location.pathname.startsWith('/cups') ? 'Cups' : location.pathname === '/summary' ? 'Standings' : location.pathname === '/weekly' ? 'Weekly roundup' : location.pathname === '/history' ? 'History' : location.pathname === '/players' ? 'Players' : 'Leagues';
     document.title = `${title} · JFFL`;
   }, [location.pathname]);
@@ -334,7 +370,7 @@ export default function App() {
     <nav className="league-strip" aria-label="Leagues"><div>{LEAGUES.map(meta => <NavLink key={meta.slug} to={`/league/${meta.slug}`}>{meta.name}</NavLink>)}</div></nav>
     <main id="main" tabIndex={-1}>
       {localPreview && <p className="notice preview-notice">Local preview · real ESPN snapshot.</p>}
-      <Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes>
+      <Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<PlayerPage/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes>
     </main>
     <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores · Jason’s competition records</span><span>Refreshes every 3 minutes · ESPN updates may be delayed</span></footer>
   </>;

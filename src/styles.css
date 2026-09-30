@@ -242,8 +242,25 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 .player-freshness { padding: 16px 0; display: flex; flex-wrap: wrap; gap: 20px; }
 .player-freshness > span { display: flex; gap: 8px; align-items: center; font-size: .66rem; }
 .player-freshness b { font-weight: 500; }
-.directory-table td { font-size: .78rem; vertical-align: top; }
+.directory-table td { font-size: .78rem; vertical-align: middle; }
+.directory-player { display: flex; color: inherit; }
+.directory-player:hover { color: inherit; text-decoration: none; }
+.directory-player:hover .player-name { color: var(--accent-ink); }
+.directory-rosters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; }
+.directory-roster { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.directory-table .directory-roster small { display: inline; margin: 0; }
+.directory-rosters .directory-team { display: inline-flex; align-items: center; margin: 0; max-width: none; }
 .directory-team { display: block; margin-top: 5px; font-size: .7rem; color: var(--muted); max-width: 190px; }
+.player-page-name .player-identity { align-items: center; }
+.player-page-name .player-headshot, .player-page-name .nfl-portrait { width: 72px; height: 72px; flex-basis: 72px; }
+.player-page-name .player-name { font-size: inherit; font-weight: inherit; letter-spacing: inherit; }
+.player-page-name small { font-family: Inter, Arial, sans-serif; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.player-ownership { margin: 28px 0; }
+.player-rosters { list-style: none; margin: 0; padding: 8px 0 4px; display: grid; gap: 14px; }
+.player-rosters li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.player-rosters .league-label { min-width: 8.5rem; }
+.player-stat-table { width: auto; min-width: 320px; }
+.player-stat-table th:first-child { text-align: left; }
 .league-label { font-weight: 500; color: var(--muted); }
 .pagination { display: flex; justify-content: space-between; align-items: center; gap: 15px; padding: 20px 0; border-top: 1px solid var(--line); font-size: .7rem; color: var(--muted); }
 .pagination > div { display: flex; align-items: center; gap: 14px; }
@@ -326,6 +343,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 }
 @media(max-width:580px) {
   .team-page-name .team-logo { width: 30px; height: 30px; flex-basis: 30px; }
+  .player-page-name .player-headshot, .player-page-name .nfl-portrait { width: 48px; height: 48px; flex-basis: 48px; }
   .header-inner { flex-wrap: wrap; padding: 19px 18px 0; min-height: 0; gap: 16px; }
   .brand { font-size: 2.7rem; border-bottom-width: 4px; }
   .theme-toggle { margin-left: auto; width: 44px; height: 44px; }
