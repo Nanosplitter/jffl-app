@@ -57,9 +57,9 @@ function Lineup({ slug, teamId, players }: { slug: string; teamId: string | null
   })}</ul> : <p className="empty-inline">No starters in this snapshot.</p>}</div>;
 }
 
-function MatchupCard({ matchup, data, compact = false, board = false, expanded = false, onToggle, lineup, className = '' }: {
+function MatchupCard({ matchup, data, compact = false, board = false, expanded = false, onToggle, lineup, className = '', to }: {
   matchup: Matchup; data: LeagueSummary; compact?: boolean; board?: boolean; expanded?: boolean; onToggle?: () => void;
-  lineup?: { players: RosteredPlayer[] | null; loading: boolean; error: boolean }; className?: string;
+  lineup?: { players: RosteredPlayer[] | null; loading: boolean; error: boolean }; className?: string; to?: string;
 }) {
   const home = data.teams.find(team => team.id === matchup.homeTeamId);
   const away = data.teams.find(team => team.id === matchup.awayTeamId);
@@ -77,15 +77,18 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
     const manager = team ? managerFor(data.slug, team.id)?.manager ?? team.name : 'Bye';
     return <div className={`matchup-side ${index === 1 ? 'home' : 'away'}`} key={index}>
       {board && team?.logoUrl && <img className="matchup-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
-      <div className="matchup-team">{team ? <Link to={teamLink(data.slug, team.id)}>{board ? <><span className="board-manager">{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity team={team} />}</Link> : <span>Bye</span>}<strong className="score">{team ? points(score) : '—'}</strong>{team && !board && <small>{record(team)}</small>}{team && !decided && projected != null && <small className="proj-line">{board ? 'Proj' : 'Projected'} {points(projected)}{pct != null ? ` · ${pct}%` : ''}</small>}{team && result && <small className="proj-line">{result}</small>}</div>
+      <div className="matchup-team">{team ? (to ? <span className="matchup-name">{board ? <><span className="board-manager">{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity team={team} />}</span> : <Link to={teamLink(data.slug, team.id)}>{board ? <><span className="board-manager">{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity team={team} />}</Link>) : <span>Bye</span>}<strong className="score">{team ? points(score) : '—'}</strong>{team && !board && <small>{record(team)}</small>}{team && !decided && projected != null && <small className="proj-line">{board ? 'Proj' : 'Projected'} {points(projected)}{pct != null ? ` · ${pct}%` : ''}</small>}{team && result && <small className="proj-line">{result}</small>}</div>
     </div>;
   };
-  return <article className={`matchup ${compact ? 'compact' : ''} ${expanded ? 'open' : ''} ${className}`}>
+  const face = <>
     <div className="matchup-face">
       {sideRow(sides[0][0], sides[0][2], sides[0][3], sides[0][4], sides[0][5], 0)}
       {sideRow(sides[1][0], sides[1][2], sides[1][3], sides[1][4], sides[1][5], 1)}
     </div>
     {chance && <div className="win-bar" role="img" aria-label={`From ESPN projected totals. ${sideName(away, matchup.awayTeamId)} ${chance.away} percent. ${sideName(home, matchup.homeTeamId)} ${chance.home} percent.`}><span className={chance.away > chance.home ? 'favored' : ''} style={{ width: `${chance.away}%` }} /><span className={chance.home > chance.away ? 'favored' : ''} style={{ width: `${chance.home}%` }} /></div>}
+  </>;
+  return <article className={`matchup ${compact ? 'compact' : ''} ${expanded ? 'open' : ''} ${className}`}>
+    {to ? <Link className="matchup-link" to={to}>{face}</Link> : face}
     {onToggle && <button className="matchup-toggle" aria-expanded={expanded} aria-controls={panelId} onClick={onToggle}>{expanded ? 'Hide starters' : 'Show starters'}<span className="sr-only"> for {sideName(away, matchup.awayTeamId)} versus {sideName(home, matchup.homeTeamId)}</span></button>}
     {expanded && <div id={panelId} className="matchup-lineup">{!lineup || (lineup.loading && !lineup.players) ? <p className="empty-inline">Loading starters…</p> : lineup.error && !lineup.players ? <p className="empty-inline">Starters are temporarily unavailable.</p> : <div className="lineup-sides"><Lineup slug={data.slug} teamId={matchup.awayTeamId} players={lineup.players ?? []} /><Lineup slug={data.slug} teamId={matchup.homeTeamId} players={lineup.players ?? []} /></div>}</div>}
   </article>;
@@ -131,7 +134,7 @@ function Overview() {
     <WeekPulse loaded={loaded} />
     <nav className="overview-links" aria-label="More from JFFL"><Link to="/weekly">Weekly roundup<ArrowUpRight size={14}/></Link><Link to="/history">Trophies & history<ArrowUpRight size={14}/></Link></nav>
     {loaded.length > 0 && <CupStrip data={board} />}
-    <div className="overview-grid">{LEAGUES.map(meta => { const state = summaries[meta.slug]; const roster = rosters[meta.slug]; return <div className={`league-column ${meta.slug}`} key={meta.slug}><section className="league-panel"><header className="league-panel-header"><LeagueMark slug={meta.slug} size="large" /><div><p className="eyebrow">DIVISION {String(meta.tier).padStart(2, '0')}</p><h2><Link to={`/league/${meta.slug}`}>{meta.name}</Link></h2></div><Link className="icon-link" to={`/league/${meta.slug}`} aria-label={`Open ${meta.name}`}><ArrowUpRight size={22} /></Link></header>{state.data ? <><div className="panel-section-title"><h3>Standings</h3></div><HomeStandings data={state.data} /><footer className="panel-footer"><Fresh data={state.data} error={state.error} /><Link to={`/league/${meta.slug}`}>League details</Link></footer></> : <Waiting error={state.error} />}</section>{state.data && <div className="mini-matchups">{state.data.matchups.map(matchup => { const key = `${meta.slug}:${matchup.id}`; const open = openKey === key; return <MatchupCard key={matchup.id} matchup={matchup} data={state.data!} compact board expanded={open} onToggle={() => setOpenKey(open ? null : key)} lineup={open ? { players: roster?.data?.players ?? null, loading: roster?.loading ?? true, error: roster?.error ?? false } : undefined} />; })}</div>}</div>; })}</div>
+    <div className="overview-grid">{LEAGUES.map(meta => { const state = summaries[meta.slug]; const roster = rosters[meta.slug]; return <div className={`league-column ${meta.slug}`} key={meta.slug}><section className="league-panel"><header className="league-panel-header"><LeagueMark slug={meta.slug} size="large" /><div><p className="eyebrow">DIVISION {String(meta.tier).padStart(2, '0')}</p><h2><Link to={`/league/${meta.slug}`}>{meta.name}</Link></h2></div><Link className="icon-link" to={`/league/${meta.slug}`} aria-label={`Open ${meta.name}`}><ArrowUpRight size={22} /></Link></header>{state.data ? <><div className="panel-section-title"><h3>Standings</h3></div><HomeStandings data={state.data} /><footer className="panel-footer"><Fresh data={state.data} error={state.error} /><Link to={`/league/${meta.slug}`}>League details</Link></footer></> : <Waiting error={state.error} />}</section>{state.data && <div className="mini-matchups">{state.data.matchups.map(matchup => { const key = `${meta.slug}:${matchup.id}`; const open = openKey === key; return <MatchupCard key={matchup.id} matchup={matchup} data={state.data!} compact board to={`/league/${meta.slug}/match/${matchup.id}`} expanded={open} onToggle={() => setOpenKey(open ? null : key)} lineup={open ? { players: roster?.data?.players ?? null, loading: roster?.loading ?? true, error: roster?.error ?? false } : undefined} />; })}</div>}</div>; })}</div>
   </>;
 }
 
