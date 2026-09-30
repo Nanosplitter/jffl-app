@@ -247,10 +247,9 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 .directory-player { display: flex; color: inherit; }
 .directory-player:hover { color: inherit; text-decoration: none; }
 .directory-player:hover .player-name { color: var(--accent-ink); }
-.directory-rosters { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; }
-.directory-roster { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.directory-table .directory-roster small { display: inline; margin: 0; }
-.league-label-short { display: none; }
+.directory-rosters { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.directory-roster { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.directory-table .directory-roster small { display: inline; margin: 0; width: 1.6rem; flex: 0 0 1.6rem; font-size: .68rem; }
 .directory-rosters .directory-team { display: inline-flex; align-items: center; margin: 0; max-width: none; }
 .directory-team { display: block; margin-top: 5px; font-size: .7rem; color: var(--muted); max-width: 190px; }
 .player-page-name .player-identity { align-items: center; }
@@ -406,10 +405,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
   .directory-table th, .player-table th { white-space: normal; line-height: 1.25; }
   .player-identity, .player-identity-copy, .directory-team, .directory-team .team-identity { min-width: 0; max-width: 100%; }
   .player-identity small, .player-meta { flex-wrap: wrap; min-width: 0; }
-  .directory-rosters { flex-direction: column; align-items: flex-start; gap: 4px; }
-  .directory-roster { flex-wrap: wrap; gap: 4px 6px; max-width: 100%; }
-  .directory-roster .league-label-full { display: none; }
-  .directory-roster .league-label-short { display: inline; white-space: nowrap; }
+  .directory-roster { max-width: 100%; }
   .directory-rosters .team-identity > span { overflow: visible; text-overflow: unset; white-space: normal; }
   .directory-table th:nth-child(n+3), .directory-table td:nth-child(n+3),
   .player-table th:nth-child(n+3), .player-table td:nth-child(n+3) { padding-left: 4px; padding-right: 2px; font-size: .72rem; }
