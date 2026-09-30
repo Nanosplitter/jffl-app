@@ -121,7 +121,7 @@ function Overview() {
   const rosters = useRosters(openSlug ? [openSlug] : []);
   const board: SummaryMap = {};
   for (const meta of LEAGUES) if (summaries[meta.slug].data) board[meta.slug] = summaries[meta.slug].data!;
-  return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 <span>/</span> WEEK {loaded[0]?.week ?? '—'}</p><h1>The leagues</h1><p className="intro-copy">Three divisions. One JFFL.</p></div></section>
+  return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 <span>/</span> WEEK {loaded[0]?.week ?? '—'}</p><h1>The leagues</h1><p className="intro-copy">Three leagues. One JFFL.</p></div></section>
     <WeekPulse loaded={loaded} />
     <nav className="overview-links" aria-label="More from JFFL"><Link to="/weekly">Weekly roundup<ArrowUpRight size={14}/></Link><Link to="/history">Trophies & history<ArrowUpRight size={14}/></Link></nav>
     {loaded.length > 0 && <CupStrip data={board} />}
