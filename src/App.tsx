@@ -4,7 +4,7 @@ import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search
 import { localPreview, useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
 import { Fresh, points, record } from './ui';
-import { CupHubPage, CupMatchPage, CupPage, MatchCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
+import { CupHubPage, CupMatchPage, CupPage, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
 import { managerFor } from './reference';
 import { buildCup, currentCupMatchesForTeam, provisionalZone, type CupId, type SummaryMap } from './competitions';
 import { projectedWinChance } from './projections';
@@ -198,14 +198,44 @@ function TeamPage() {
       {(matchup || cupMatches.length > 0) && <section className="team-matchup">
         <div className="section-heading"><h2>Matches</h2></div>
         <div className="team-match-list">
-          {matchup && <div className="team-match-item">
-            <p className="eyebrow">Week {data.week} · League</p>
-            <MatchupCard matchup={matchup} data={data} />
-          </div>}
-          {cupMatches.map(item => <div className="team-match-item" key={`${item.cupId}-${item.match.id}`}>
-            <p className="eyebrow">{item.cupName} · {item.roundName}</p>
-            <MatchCard match={item.match} weeks={item.weeks} data={board} highlighted="" index={item.matchIndex} cupId={item.cupId} />
-          </div>)}
+          {matchup && (() => {
+            const decided = data.weeklyMatchups?.find(item => item.week === data.week && item.homeTeamId === matchup.homeTeamId && item.awayTeamId === matchup.awayTeamId)?.status === 'final';
+            const chance = decided ? null : projectedWinChance(matchup.homeProjected, matchup.awayProjected);
+            const share = pointShare(matchup.awayScore, matchup.homeScore);
+            const bar = chance ? { left: chance.away, right: chance.home, label: `From ESPN projected totals. Away ${chance.away} percent. Home ${chance.home} percent.` } : share ? { ...share, label: `Away ${share.left} percent of the scored points. Home ${share.right} percent.` } : null;
+            const leagueSide = (teamId: string | null, score: number | null, projected: number | null, opponent: number | null) => {
+              const sideTeam = teamId ? data.teams.find(item => item.id === teamId) : undefined;
+              const manager = sideTeam ? managerFor(meta.slug, sideTeam.id)?.manager ?? sideTeam.name : 'Bye';
+              const result = decided && score != null && opponent != null ? score > opponent ? 'Won' : score < opponent ? 'Lost' : 'Tie' : null;
+              const note = !sideTeam ? '' : !decided && projected != null ? `${record(sideTeam)} · Proj ${points(projected)}` : result ? `${record(sideTeam)} · ${result}` : record(sideTeam);
+              return { key: teamId ?? 'bye', logoUrl: sideTeam?.logoUrl, name: manager, teamHref: sideTeam ? teamLink(meta.slug, sideTeam.id) : undefined, detail: sideTeam?.name ?? 'Bye', score: sideTeam ? points(score) : '—', note };
+            };
+            return <TeamMatchSheet label={`Week ${data.week} · League`} status={decided ? 'Final' : undefined} bar={bar} sides={[
+              leagueSide(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore),
+              leagueSide(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected, matchup.awayScore),
+            ]} />;
+          })()}
+          {cupMatches.map(item => {
+            const status = { bye: 'Bye', waiting: '', live: '', final: 'Final', tied: 'Tied', unavailable: 'Scores pending' }[item.match.status];
+            const crossLeague = item.cupId === 'jffl';
+            const share = item.match.status === 'bye' ? null : pointShare(item.match.a.total, item.match.b.total);
+            const cupSide = (side: typeof item.match.a) => {
+              const participant = side.participant;
+              const sideTeam = participant ? board[participant.slug]?.teams.find(team => team.id === participant.teamId) : undefined;
+              const leagueName = participant ? leagueMeta(participant.slug)?.name.replace(/ League$/, '') : '';
+              const legs = item.weeks.length > 1 && item.match.status !== 'bye' ? item.weeks.map((week, legIndex) => `W${week} ${points(side.legs[legIndex])}`).join(' · ') : '';
+              return {
+                key: participant?.key ?? side.label,
+                logoUrl: sideTeam?.logoUrl,
+                name: participant?.manager ?? (item.match.status === 'bye' ? 'Bye' : 'TBD'),
+                detail: participant ? `${crossLeague && leagueName ? `${leagueName} · ` : ''}${sideTeam?.name ?? 'Team'}` : side.label || 'TBD',
+                score: item.match.status === 'bye' ? '—' : points(side.total),
+                note: legs,
+                winner: !!participant && participant.key === item.match.winner?.key,
+              };
+            };
+            return <TeamMatchSheet key={`${item.cupId}-${item.match.id}`} label={`${item.cupName} · ${item.roundName}`} status={status || undefined} to={`/cups/${item.cupId}/match/${item.match.id}`} bar={share ? { ...share, label: `${item.match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${item.match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null} sides={[cupSide(item.match.a), cupSide(item.match.b)]} />;
+          })}
         </div>
       </section>}
       <div className="team-roster">
@@ -223,6 +253,39 @@ function TeamPage() {
       </div>
     </div>
   </>;
+}
+
+function pointShare(left: number | null, right: number | null) {
+  if (left == null || right == null || left + right <= 0) return null;
+  const share = Math.round((left / (left + right)) * 100);
+  return { left: share, right: 100 - share };
+}
+
+function TeamMatchSheet({ label, status, to, sides, bar }: {
+  label: string;
+  status?: string;
+  to?: string;
+  sides: { key: string; logoUrl?: string | null; name: string; teamHref?: string; detail: string; score: string; note: string; winner?: boolean }[];
+  bar: { left: number; right: number; label: string } | null;
+}) {
+  const face = <>
+    <header><span>{label}</span>{status ? <span>{status}</span> : null}</header>
+    <div className="team-sheet-face">
+      {sides.map((side, index) => <div className={`team-sheet-side ${index === 1 ? 'home' : 'away'} ${side.winner ? 'winner' : ''}`} key={side.key}>
+        {side.logoUrl ? <img className="team-sheet-logo" src={side.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="team-sheet-logo" aria-hidden="true" />}
+        <div className="team-sheet-copy">
+          {side.teamHref ? <Link className="team-sheet-name" to={side.teamHref} title={side.name}>{side.name}</Link> : <span className="team-sheet-name" title={side.name}>{side.name}{side.winner && <span className="sr-only">, advances</span>}</span>}
+          <span className="team-sheet-detail" title={side.detail}>{side.detail}</span>
+          <strong className="score">{side.score}</strong>
+          <span className="team-sheet-note">{side.note}</span>
+        </div>
+      </div>)}
+    </div>
+    <div className={`win-bar${bar ? '' : ' is-empty'}`} role={bar ? 'img' : undefined} aria-label={bar?.label} aria-hidden={bar ? undefined : true}>
+      {bar && <><span className={bar.left > bar.right ? 'favored' : ''} style={{ width: `${bar.left}%` }} /><span className={bar.right > bar.left ? 'favored' : ''} style={{ width: `${bar.right}%` }} /></>}
+    </div>
+  </>;
+  return to ? <Link className="team-sheet" to={to}>{face}</Link> : <article className="team-sheet">{face}</article>;
 }
 
 function Metric({ label, value }: { label: string; value: string }) { return <div className="metric"><span>{label}</span><strong>{value}</strong></div>; }
