@@ -406,7 +406,7 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
     position: sticky; left: 0; z-index: 1; background: var(--canvas);
   }
   .commissioner-table th:nth-child(2), .commissioner-table td:nth-child(2) {
-    position: sticky; left: 1.7rem; z-index: 1; background: var(--canvas);
+    position: sticky; left: 3.4rem; z-index: 1; background: var(--canvas);
     box-shadow: 8px 0 8px -8px color-mix(in srgb, var(--text) 40%, transparent);
   }
   .history-table th:first-child, .history-table td:first-child {

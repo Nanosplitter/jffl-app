@@ -181,7 +181,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .season-league h2.league-label { font-weight: 700; color: var(--text); }
 .commissioner-table th, .commissioner-table td { padding: 14px 12px; font-size: .74rem; }
 .commissioner-table th { font-size: .62rem; }
-.commissioner-table th:first-child, .commissioner-table td:first-child { padding-left: 0; }
+.commissioner-table th:first-child, .commissioner-table td:first-child { width: 3.4rem; padding-left: 0.85rem; }
 .commissioner-table th:last-child, .commissioner-table td:last-child { padding-right: 0; }
 .commissioner-table td:nth-child(2) { min-width: 220px; }
 .commissioner-table th:nth-child(n+3):not(:last-child) { text-align: right; }
