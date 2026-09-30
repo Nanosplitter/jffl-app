@@ -266,9 +266,10 @@ select { background: var(--canvas); border: 1px solid var(--line); border-radius
 .home-cup-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--line); }
 .home-cup { display: block; min-width: 0; padding: 14px 0 16px; border-bottom: 1px solid var(--line); }
 .home-cup:hover { color: inherit; text-decoration: none; }
-.home-cup:hover strong { color: var(--accent-ink); }
+.home-cup:hover strong, .home-cup:hover svg { color: var(--accent-ink); }
 .home-cup .eyebrow { margin-bottom: 6px; }
-.home-cup strong { display: block; font-size: .92rem; line-height: 1.3; margin-bottom: 6px; }
+.home-cup strong { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: .92rem; line-height: 1.3; margin-bottom: 6px; }
+.home-cup svg { flex: 0 0 auto; width: 16px; height: 16px; color: var(--accent-ink); }
 .home-cup span { display: block; color: var(--muted); font-size: .68rem; line-height: 1.45; }
 .board-manager { display: block; font-weight: 600; line-height: 1.3; }
 .board-team { display: block; }
