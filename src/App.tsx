@@ -210,7 +210,7 @@ function TeamPage() {
             ]} />;
           })()}
           {cupMatches.map(item => {
-            const status = { bye: 'Bye', waiting: '', live: '', final: 'Final', tied: 'Tied', unavailable: 'Scores pending' }[item.match.status];
+            const status = item.match.status === 'tied' ? 'Old fashioned duel' : item.match.status === 'live' && item.match.replay ? 'Replay week' : { bye: 'Bye', waiting: '', live: '', final: 'Final', unavailable: 'Scores pending' }[item.match.status];
             const crossLeague = item.cupId === 'jffl';
             const share = item.match.status === 'bye' ? null : pointShare(item.match.a.total, item.match.b.total);
             const cupSide = (side: typeof item.match.a) => {

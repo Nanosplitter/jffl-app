@@ -47,8 +47,9 @@ Cup seeds, pairings, starting ranks, and historical trophy counts follow the
 supplied 2026 Week 2 PDF. The Championship Cup first round uses **Josh vs. SeanH,
 99–86**, as confirmed by the owner. JFFL Cup rounds span weeks 3–4, 6–7, 9–10,
 12–13, and 15–16; league cups use weeks 2, 5, 8, and 11. A team advances only
-after every required score is final. Ties show **Awaiting commissioner decision**;
-resolving an exceptional tie requires a commissioner-approved reference update.
+after every required score is final. A level tie plays the following week, so a
+league cup can run two weeks and the JFFL Cup three. If that replay is also
+level, the match is an old fashioned duel and nobody advances.
 No browser writes or administrative interface are exposed.
 
 Live and completed team scores come from ESPN, including its historical score

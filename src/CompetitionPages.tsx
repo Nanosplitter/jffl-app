@@ -43,6 +43,12 @@ function totalShare(left: number | null, right: number | null) {
   return { away, home: 100 - away };
 }
 
+function weekPhrase(weeks: number[]) {
+  if (weeks.length <= 1) return `Week ${weeks[0]}`;
+  if (weeks.length === 2) return `Weeks ${weeks[0]} and ${weeks[1]}`;
+  return `Weeks ${weeks.slice(0, -1).join(', ')}, and ${weeks.at(-1)}`;
+}
+
 function feederLabel(label: string) {
   const parsed = /^Winner of (.+) (\d+)$/.exec(label);
   if (!parsed) return label || 'TBD';
@@ -51,11 +57,11 @@ function feederLabel(label: string) {
 }
 
 export function MatchCard({ match, weeks, data, highlighted, index, layout = 'board', cupId }: { match: CupMatch; weeks: number[]; data: SummaryMap; highlighted: string; index: number; layout?: 'board' | 'slot'; cupId: string }) {
-  const status = { bye:'Bye · advances', waiting:'', live:'', final:'Final', tied:'Awaiting commissioner decision', unavailable:'Waiting for score data' }[match.status];
+  const status = match.status === 'tied' ? 'Old fashioned duel' : match.status === 'live' && match.replay ? 'Replay week' : { bye:'Bye · advances', waiting:'', live:'', final:'Final', unavailable:'Waiting for score data' }[match.status];
   const selected = highlighted && [match.a.participant?.key, match.b.participant?.key].includes(highlighted);
   const share = match.status === 'bye' ? null : totalShare(match.a.total, match.b.total);
   const sideName = (side: CupMatch['a']) => side.participant?.manager ?? (side.label || 'TBD');
-  const label = `Cup matchup ${index + 1}, weeks ${weeks.join(' and ')}. ${sideName(match.a)} ${match.status === 'bye' ? 'bye' : points(match.a.total)}. ${sideName(match.b)} ${match.status === 'bye' ? 'bye' : points(match.b.total)}.`;
+  const label = `Cup matchup ${index + 1}, ${weekPhrase(weeks)}. ${sideName(match.a)} ${match.status === 'bye' ? 'bye' : points(match.a.total)}. ${sideName(match.b)} ${match.status === 'bye' ? 'bye' : points(match.b.total)}.`;
   if (layout === 'slot') return <Link className={`bracket-node cup-${match.status} ${selected ? 'highlighted' : ''}`} to={matchUrl(cupId, match.id)} aria-label={label}>
     {[match.a, match.b].map((side, sideIndex) => {
       const participant = side.participant;
@@ -101,7 +107,7 @@ export function MatchCard({ match, weeks, data, highlighted, index, layout = 'bo
 export function CupHubPage() {
   const { data } = useCompetitionData();
   const jffl = buildCup('jffl', data);
-  const live = jffl.rounds.flatMap(round => round.matches.flatMap((match, index) => match.status === 'live' ? [{ match, index, weeks: round.weeks, roundName: round.name }] : []));
+  const live = jffl.rounds.flatMap(round => round.matches.flatMap((match, index) => match.status === 'live' ? [{ match, index, weeks: match.weeks, roundName: round.name }] : []));
   const roundNames = [...new Set(live.map(item => item.roundName))];
   const liveTitle = roundNames.length === 1 ? `JFFL Cup · ${roundNames[0] === 'Round 1' ? 'opening round' : roundNames[0]}` : 'JFFL Cup · live';
   return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 TOURNAMENTS</p><h1>The cups</h1><p className="intro-copy">The JFFL Cup, plus a cup in each league.</p></div></section><UpdateStrip data={data} />
@@ -111,7 +117,7 @@ export function CupHubPage() {
       const active = rounds.find(round => round.matches.some(match => ['live','tied','unavailable'].includes(match.status))) ?? rounds.find(round => round.matches.some(match => match.status === 'waiting')) ?? rounds.at(-1)!;
       return <Link key={id} className={`cup-tile ${id}`} to={`/cups/${id}`}><p className="eyebrow">{id === 'jffl' ? 'TWO-WEEK TIES' : 'SINGLE-WEEK TIES'}</p><h2>{cup.name}</h2><p>{cup.champion ? `${cup.champion.manager} · Champion` : `${active.name} · ${active.weeks.length > 1 ? 'Weeks' : 'Week'} ${active.weeks.join(' + ')}`}</p><span className="tile-link">Open bracket<ArrowUpRight size={17} /></span></Link>;
     })}</div>
-    <details className="explainer"><summary>How the cups work</summary><p>Your ESPN score counts in your regular league matchup and in any cup tie scheduled for that week. JFFL Cup totals combine two weeks; league cups use one week. Scores retain each league’s scoring rules, even when the same NFL player appears on both sides.</p><p>Seeds and bracket positions follow Jason’s 2026 Week 2 PDF. Winners advance only after every scoring leg is final. A tied total waits for the commissioner’s decision.</p></details>
+    <details className="explainer"><summary>How the cups work</summary><p>Your ESPN score counts in your regular league matchup and in any cup tie scheduled for that week. JFFL Cup totals combine two weeks; league cups use one week. Scores retain each league’s scoring rules, even when the same NFL player appears on both sides.</p><p>Seeds and bracket positions follow Jason’s 2026 Week 2 PDF. Winners advance only after every scoring leg is final. A level tie plays again the next week, a second week in a league cup and a third week in the JFFL Cup. If that replay is also level, they settle it with an old fashioned duel.</p></details>
     {live.length > 0 && <><div className="section-heading"><h2>{liveTitle}</h2><Link className="text-link" to="/cups/jffl">All matchups<ArrowUpRight size={14} /></Link></div><div className="featured-cup-matches">{live.map(({ match, index, weeks }) => <MatchCard key={match.id} match={match} weeks={weeks} data={data} highlighted="" index={index} cupId="jffl" />)}</div></>}
   </>;
 }
@@ -157,7 +163,7 @@ export function CupPage() {
   const leagueCup = cupId !== 'jffl';
   const balanced = cup.rounds.every((round, index) => index === 0 || round.matches.length * 2 === cup.rounds[index - 1].matches.length);
   const tree = selectedRound === 'all' && (balanced || leagueCup);
-  return <><Link className="back-link" to="/cups">← All cups</Link><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. Jeff and Jason receive first-round byes.' : 'One-week scores. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className="champion-pill"><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
+  return <><Link className="back-link" to="/cups">← All cups</Link><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. A tie plays a third week. Jeff and Jason receive first-round byes.' : 'One-week scores. A tie plays the next week. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className="champion-pill"><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
     <div className="bracket-controls"><ManagerHighlight participants={participants} highlighted={highlighted} onChange={setHighlighted} />{selectedRound !== 'all' && <button type="button" className="round-back" onClick={() => setSelectedRound('all')}>Full bracket</button>}</div>
     <div className={`bracket-scroll ${selectedRound !== 'all' ? 'single-round' : tree ? 'bracket-tree' : 'bracket-flow'}${leagueCup && tree ? ' league-bracket' : ''}`} tabIndex={0} role="region" aria-label={selectedRound === 'all' ? `${cup.name} full bracket. Scroll horizontally to see later rounds.` : `${cup.name} selected round`}><div className="bracket-columns">{cup.rounds.map((round, roundIndex) => {
       if (selectedRound !== 'all' && String(roundIndex) !== selectedRound) return null;
@@ -165,11 +171,11 @@ export function CupPage() {
       return <section className="bracket-round" key={round.name}><header className="round-heading"><div><p className="eyebrow">{round.weeks.length>1?'WEEKS':'WEEK'} {round.weeks.join(' + ')}</p><h2>{selectedRound === 'all' ? <button type="button" className="round-jump" onClick={() => setSelectedRound(String(roundIndex))} aria-label={`Open ${round.name}`}>{round.name}<ArrowUpRight size={16} aria-hidden="true" /></button> : round.name}</h2></div><span>{average == null ? '— avg' : `${points(average)} avg`}</span></header><div className="round-matches">{(leagueCup && tree && roundIndex === 0 ? [round.matches[0] ?? null, null, null, round.matches[1] ?? null] : round.matches).map((match, index) => {
         if (!match) return <div className="bracket-slot bracket-spacer" key={`spacer-${index}`} aria-hidden="true" />;
         const matchIndex = leagueCup && roundIndex === 0 ? (index === 0 ? 0 : 1) : index;
-        const card = <MatchCard key={tree ? undefined : match.id} match={match} weeks={round.weeks} data={data} highlighted={highlighted} index={matchIndex} layout={selectedRound === 'all' || match.status === 'waiting' ? 'slot' : 'board'} cupId={cupId} />;
+        const card = <MatchCard key={tree ? undefined : match.id} match={match} weeks={match.weeks} data={data} highlighted={highlighted} index={matchIndex} layout={selectedRound === 'all' || match.status === 'waiting' ? 'slot' : 'board'} cupId={cupId} />;
         return tree ? <div className={`bracket-slot${leagueCup && roundIndex === 0 ? ' play-in' : ''}`} key={match.id}>{card}</div> : card;
       })}</div></section>;
     })}</div></div>
-    <p className="source-note">Bracket source: Jason’s Week 2 PDF. Live and completed leg scores: ESPN, refreshed every three minutes. Missing or future scores remain blank. Ties await commissioner decision.</p>
+    <p className="source-note">Bracket source: Jason’s Week 2 PDF. Live and completed leg scores: ESPN, refreshed every three minutes. Missing or future scores remain blank. A level tie plays the next week. A second tie is an old fashioned duel.</p>
   </>;
 }
 
@@ -243,7 +249,7 @@ export function CupMatchPage() {
   if (!valid || !cup) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
   if (!located) return <p className="notice">Match not found. <Link to={`/cups/${cupId}`}>Back to the bracket</Link></p>;
   const { round, match, index } = located;
-  const status = { bye: 'Bye · advances', waiting: 'Upcoming', live: 'Live', final: 'Final', tied: 'Awaiting commissioner decision', unavailable: 'Waiting for score data' }[match.status];
+  const status = match.status === 'tied' ? 'Old fashioned duel' : match.status === 'live' && match.replay ? 'Replay week' : { bye: 'Bye · advances', waiting: 'Upcoming', live: 'Live', final: 'Final', unavailable: 'Waiting for score data' }[match.status];
   const sideTitle = (side: CupMatch['a']) => side.participant?.manager ?? (match.status === 'bye' ? 'Bye' : feederLabel(side.label));
   const heading = match.status === 'bye' ? sideTitle(match.a.participant ? match.a : match.b) : `${sideTitle(match.a)} vs ${sideTitle(match.b)}`;
   const share = match.status === 'bye' ? null : totalShare(match.a.total, match.b.total);
@@ -257,7 +263,7 @@ export function CupMatchPage() {
   const right = sideProfile(match.b);
   return <div className="match-sheet">
     <Link className="back-link" to={`/cups/${cupId}`}>← {cup.name}</Link>
-    <section className="page-intro"><div><p className="eyebrow">{cup.name.toUpperCase()} <span>/</span> {round.name.toUpperCase()} <span>/</span> MATCH {index + 1}</p><h1>{heading}</h1><p className="intro-copy">{match.status === 'bye' ? status : `${round.weeks.length > 1 ? `Weeks ${round.weeks.join(' and ')}` : `Week ${round.weeks[0]}`} · ${status}${match.winner ? ` · ${match.winner.manager} advances` : ''}`}</p></div></section>
+    <section className="page-intro"><div><p className="eyebrow">{cup.name.toUpperCase()} <span>/</span> {round.name.toUpperCase()} <span>/</span> MATCH {index + 1}</p><h1>{heading}</h1><p className="intro-copy">{match.status === 'bye' ? status : `${weekPhrase(match.weeks)} · ${status}${match.winner ? ` · ${match.winner.manager} advances` : ''}`}</p></div></section>
     <UpdateStrip data={data} />
     {match.status === 'bye' ? <p className="source-note">{sideTitle(match.a.participant ? match.a : match.b)} has a bye in {round.name} and advances.</p> : <>
       <article className="match-board" aria-label={heading}>
@@ -270,14 +276,14 @@ export function CupMatchPage() {
       </article>
       <section className="match-stats" aria-label="Score and season comparison">
         <table className="match-compare"><caption className="sr-only">Score and season comparison</caption><thead><tr><th scope="col"><span className="sr-only">Stat</span></th><th scope="col">{left.title}</th><th scope="col">{right.title}</th></tr></thead><tbody>
-          {round.weeks.map((week, legIndex) => <tr key={week}><th scope="row">Week {week}</th><td>{points(match.a.legs[legIndex])}</td><td>{points(match.b.legs[legIndex])}</td></tr>)}
-          {round.weeks.length > 1 && <tr className="match-total"><th scope="row">Cup total</th><td>{points(match.a.total)}</td><td>{points(match.b.total)}</td></tr>}
+          {match.weeks.map((week, legIndex) => <tr key={week}><th scope="row">Week {week}{match.replay && week === match.weeks.at(-1) ? ' · replay' : ''}</th><td>{points(match.a.legs[legIndex])}</td><td>{points(match.b.legs[legIndex])}</td></tr>)}
+          {match.weeks.length > 1 && <tr className="match-total"><th scope="row">Cup total</th><td>{points(match.a.total)}</td><td>{points(match.b.total)}</td></tr>}
           <tr><th scope="row">Record</th><td>{left.team ? record(left.team) : '—'}</td><td>{right.team ? record(right.team) : '—'}</td></tr>
           <tr><th scope="row">Avg / week</th><td>{points(weeklyAverage(left.team))}</td><td>{points(weeklyAverage(right.team))}</td></tr>
           <tr><th scope="row">League rank</th><td>{left.team?.rank != null ? `#${left.team.rank}` : '—'}</td><td>{right.team?.rank != null ? `#${right.team.rank}` : '—'}</td></tr>
         </tbody></table>
       </section>
-      {round.weeks.map(week => <section className="match-lineups" key={week} aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={([match.a, match.b] as const).map(side => {
+      {match.weeks.map(week => <section className="match-lineups" key={week} aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={([match.a, match.b] as const).map(side => {
         const participant = side.participant;
         const roster = participant ? rosters[participant.slug] : null;
         const current = participant ? data[participant.slug]?.week === week : false;

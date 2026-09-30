@@ -46,26 +46,85 @@ test('all six Week 2 league-cup results and quarterfinal participants match the 
   assert.equal(match.b.participant?.manager,'SeanH');
   assert.equal(match.a.total,99);
   assert.equal(match.b.total,86);
+  assert.equal(match.replay,false);
+  assert.deepEqual(match.weeks,[2]);
 });
 
-test('two-week winners resolve only when both legs are final; ties await the commissioner',()=>{
+function finalLeg(data: SummaryMap, slug: 'premier' | 'championship' | 'league-one', teamId: string, week: number, score: number, id: string) {
+  const league=data[slug]!;
+  league.week=Math.max(league.week, week);
+  const matchup=league.weeklyMatchups!.find(item=>item.week===week&&[item.homeTeamId,item.awayTeamId].includes(teamId));
+  if(matchup) {
+    matchup.status='final';
+    matchup[matchup.homeTeamId===teamId?'homeScore':'awayScore']=score;
+    return;
+  }
+  league.weeklyMatchups!.push({id,week,status:'final',homeTeamId:teamId,awayTeamId:null,homeScore:score,awayScore:null,homeProjected:null,awayProjected:null});
+}
+
+test('a level tie replays the next week, and a second tie is an old fashioned duel',()=>{
   const data=fixture();
   const wayne=managerFor('premier','38')!,rc=managerFor('league-one','29')!;
-  for(const participant of [wayne,rc]) {
-    const league=data[participant.slug]!;
-    const current=league.weeklyMatchups!.find(item=>item.week===3&&[item.homeTeamId,item.awayTeamId].includes(participant.teamId))!;
-    current.status='final';
-    current[current.homeTeamId===participant.teamId?'homeScore':'awayScore']=100;
-    league.week=4;
-    league.weeklyMatchups!.push({id:'test-week4',week:4,status:'final',homeTeamId:participant.teamId,awayTeamId:null,homeScore:80,awayScore:null,homeProjected:null,awayProjected:null});
-  }
+  finalLeg(data,'premier',wayne.teamId,3,100,'wayne-3');
+  finalLeg(data,'league-one',rc.teamId,3,100,'rc-3');
+  finalLeg(data,'premier',wayne.teamId,4,80,'wayne-4');
+  finalLeg(data,'league-one',rc.teamId,4,80,'rc-4');
   let tie=buildCup('jffl',data).rounds[0].matches.find(match=>match.a.participant?.manager==='Wayne')!;
+  assert.equal(tie.status,'live');
+  assert.equal(tie.replay,true);
+  assert.deepEqual(tie.weeks,[3,4,5]);
+  assert.equal(tie.a.legs[2],null);
+  assert.equal(tie.winner,null,'A replay still in the future must not advance either side');
+
+  finalLeg(data,'premier',wayne.teamId,5,40,'wayne-5');
+  finalLeg(data,'league-one',rc.teamId,5,40,'rc-5');
+  tie=buildCup('jffl',data).rounds[0].matches.find(match=>match.a.participant?.manager==='Wayne')!;
   assert.equal(tie.status,'tied');
   assert.equal(tie.winner,null);
-  data['league-one']!.weeklyMatchups!.find(item=>item.id==='test-week4')!.homeScore=81;
+  assert.equal(tie.a.total,220);
+  assert.equal(tie.b.total,220);
+  assert.equal(buildCup('jffl',data).rounds[1].matches.every(match=>match.winner===null),true);
+
+  finalLeg(data,'league-one',rc.teamId,5,41,'rc-5');
   tie=buildCup('jffl',data).rounds[0].matches.find(match=>match.a.participant?.manager==='Wayne')!;
   assert.equal(tie.status,'final');
+  assert.equal(tie.replay,true);
   assert.equal(tie.winner?.manager,'RonniColin');
+  assert.ok(buildCup('jffl',data).rounds[1].matches.some(match=>[match.a.participant?.manager,match.b.participant?.manager].includes('RonniColin')));
+
+  const decided=fixture();
+  finalLeg(decided,'premier',wayne.teamId,3,100,'wayne-3');
+  finalLeg(decided,'league-one',rc.teamId,3,100,'rc-3');
+  finalLeg(decided,'premier',wayne.teamId,4,80,'wayne-4');
+  finalLeg(decided,'league-one',rc.teamId,4,81,'rc-4');
+  tie=buildCup('jffl',decided).rounds[0].matches.find(match=>match.a.participant?.manager==='Wayne')!;
+  assert.equal(tie.replay,false);
+  assert.deepEqual(tie.weeks,[3,4]);
+  assert.equal(tie.winner?.manager,'RonniColin');
+});
+
+test('a level league-cup tie replays the following week',()=>{
+  const data=fixture();
+  const josh=managerFor('championship','73')!,sean=MANAGERS.find(item=>item.manager==='SeanH')!;
+  finalLeg(data,'championship',josh.teamId,2,90,'josh-2');
+  finalLeg(data,'championship',sean.teamId,2,90,'sean-2');
+  let match=buildCup('championship',data).rounds[0].matches[1];
+  assert.equal(match.replay,true);
+  assert.deepEqual(match.weeks,[2,3]);
+  assert.equal(match.winner,null);
+  assert.equal(buildCup('championship',data).rounds[1].matches[3].b.participant,null);
+
+  finalLeg(data,'championship',josh.teamId,3,10,'josh-3');
+  finalLeg(data,'championship',sean.teamId,3,10,'sean-3');
+  match=buildCup('championship',data).rounds[0].matches[1];
+  assert.equal(match.status,'tied');
+  assert.equal(match.winner,null);
+
+  finalLeg(data,'championship',josh.teamId,3,11,'josh-3');
+  match=buildCup('championship',data).rounds[0].matches[1];
+  assert.equal(match.status,'final');
+  assert.equal(match.winner?.manager,'Josh');
+  assert.equal(buildCup('championship',data).rounds[1].matches[3].b.participant?.manager,'Josh');
 });
 
 test('a missing league or score cannot manufacture a cup winner or a zero',()=>{
@@ -100,8 +159,8 @@ test('a round average is the mean of playing totals and leaves byes out',()=>{
     name: 'Round 1',
     weeks: [3, 4],
     matches: [
-      { id: 'bye', status: 'bye', winner: null, a: { participant: null, label: '', legs: [90, 0], total: 90 }, b: { participant: null, label: 'Bye', legs: [null, null], total: null } },
-      { id: 'live', status: 'live', winner: null, a: { participant: null, label: '', legs: [61, 0], total: 61 }, b: { participant: null, label: '', legs: [55, 0], total: 55 } },
+      { id: 'bye', weeks: [3, 4], replay: false, status: 'bye', winner: null, a: { participant: null, label: '', legs: [90, 0], total: 90 }, b: { participant: null, label: 'Bye', legs: [null, null], total: null } },
+      { id: 'live', weeks: [3, 4], replay: false, status: 'live', winner: null, a: { participant: null, label: '', legs: [61, 0], total: 61 }, b: { participant: null, label: '', legs: [55, 0], total: 55 } },
     ],
   };
   assert.equal(roundScoreAverage(round), 58);

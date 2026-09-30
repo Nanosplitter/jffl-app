@@ -4,7 +4,7 @@ import type { LeagueSlug, LeagueSummary } from './types.ts';
 export type SummaryMap = Partial<Record<LeagueSlug, LeagueSummary>>;
 export type CupId = 'jffl' | LeagueSlug;
 export interface CupSide { participant: ManagerReference | null; label: string; legs: (number | null)[]; total: number | null; }
-export interface CupMatch { id: string; a: CupSide; b: CupSide; status: 'bye' | 'waiting' | 'live' | 'final' | 'tied' | 'unavailable'; winner: ManagerReference | null; }
+export interface CupMatch { id: string; a: CupSide; b: CupSide; weeks: number[]; replay: boolean; status: 'bye' | 'waiting' | 'live' | 'final' | 'tied' | 'unavailable'; winner: ManagerReference | null; }
 export interface CupRound { name: string; weeks: number[]; matches: CupMatch[]; }
 export interface Cup { id: CupId; name: string; rounds: CupRound[]; champion: ManagerReference | null; }
 
@@ -20,14 +20,21 @@ function side(data: SummaryMap, participant: ManagerReference | null, label: str
   return { participant, label, legs, total: legs.some(value => value !== null) ? Math.round(legs.reduce<number>((sum, value) => sum + (value ?? 0), 0) * 100) / 100 : null };
 }
 
+function legFinal(data: SummaryMap, players: ManagerReference[], week: number) {
+  return players.every(player => { const result = scoreFor(data, player, week); return result.final && result.score !== null; });
+}
+
 function match(data: SummaryMap, id: string, a: ManagerReference | null, b: ManagerReference | null, labels: [string,string], weeks: number[], bye = false): CupMatch {
-  const left = side(data, a, labels[0], weeks), right = side(data, b, labels[1], weeks);
-  if (bye) return { id, a:left, b:right, status:'bye', winner:a ?? b };
-  if (!a || !b) return { id, a:left, b:right, status:'waiting', winner:null };
-  const finished = weeks.every(week => [a,b].every(player => { const result = scoreFor(data, player, week); return result.final && result.score !== null; }));
-  const missingPast = weeks.some(week => [a,b].some(player => week < (data[player.slug]?.week ?? 0) && scoreFor(data, player, week).score === null));
+  const scheduledTied = !bye && !!a && !!b && weeks.every(week => legFinal(data, [a, b], week)) && side(data, a, labels[0], weeks).total === side(data, b, labels[1], weeks).total;
+  const scoringWeeks = scheduledTied ? [...weeks, weeks[weeks.length - 1] + 1] : weeks;
+  const left = side(data, a, labels[0], scoringWeeks), right = side(data, b, labels[1], scoringWeeks);
+  const base = { id, a: left, b: right, weeks: scoringWeeks, replay: scheduledTied };
+  if (bye) return { ...base, status: 'bye', winner: a ?? b };
+  if (!a || !b) return { ...base, status: 'waiting', winner: null };
+  const finished = scoringWeeks.every(week => legFinal(data, [a, b], week));
+  const missingPast = scoringWeeks.some(week => [a, b].some(player => week < (data[player.slug]?.week ?? 0) && scoreFor(data, player, week).score === null));
   const status = finished ? left.total === right.total ? 'tied' : 'final' : missingPast ? 'unavailable' : left.total !== null || right.total !== null ? 'live' : 'waiting';
-  return { id, a:left, b:right, status, winner:finished && left.total !== right.total ? (left.total! > right.total! ? a : b) : null };
+  return { ...base, status, winner: finished && left.total !== right.total ? (left.total! > right.total! ? a : b) : null };
 }
 
 function nextRound(data: SummaryMap, previous: CupRound, name: string, weeks: number[], cupId: string, index: number): CupRound {
@@ -79,7 +86,7 @@ export function currentCupMatchesForTeam(data: SummaryMap, slug: LeagueSlug, tea
     for (const round of cup.rounds) {
       for (const [matchIndex, match] of round.matches.entries()) {
         const inMatch = [match.a.participant, match.b.participant].some(participant => participant?.slug === slug && participant.teamId === teamId);
-        if (inMatch) best = { cupId, cupName: cup.name, roundName: round.name, weeks: round.weeks, match, matchIndex };
+        if (inMatch) best = { cupId, cupName: cup.name, roundName: round.name, weeks: match.weeks, match, matchIndex };
       }
     }
     return best ? [best] : [];
