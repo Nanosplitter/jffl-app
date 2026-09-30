@@ -26,7 +26,7 @@ controls are configured in Firebase and Google Cloud consoles, not in this repo.
 | Championship | 50597 | `/league/championship` |
 | League One | 2035286513 | `/league/league-one` |
 
-Overview `/`; team `/league/:slug/team/:teamId`; rostered players `/players`.
+Overview `/`; team `/league/:slug/team/:teamId`; league match `/league/:slug/match/:matchId`; rostered players `/players`.
 Player fantasy totals and projections are scoped to the corresponding league's
 scoring. Missing numbers display as a dash. Starters, bench, and IR follow the
 current scoring-period lineup. D/ST IDs remain strings, including negative IDs.

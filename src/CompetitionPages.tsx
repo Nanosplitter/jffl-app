@@ -6,6 +6,7 @@ import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer } fro
 import { MANAGERS, TIMELINE, managerFor } from './reference';
 import { buildCup, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
 import { Fresh, points, record } from './ui';
+import { projectedWinChance } from './projections';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity } from './PlayerIdentity';
 import { historicalStarters } from './lineups';
@@ -283,6 +284,84 @@ export function CupMatchPage() {
       })} /></section>)}
     </>}
   </div>;
+}
+
+export function LeagueMatchPage() {
+  const { slug = '', matchId = '' } = useParams();
+  const meta = LEAGUES.find(league => league.slug === slug);
+  const summaries = useSummaries();
+  const summaryState = meta ? summaries[meta.slug] : undefined;
+  const data = summaryState?.data;
+  const rosters = useRosters(meta ? [meta.slug] : []);
+  if (!meta) return <p className="notice">League not found. <Link to="/">All leagues</Link></p>;
+  if (!data) return <p className="notice">{summaryState?.error ? 'League data is temporarily unavailable.' : 'Loading league data…'}</p>;
+  const scoreboard = data.matchups.find(item => item.id === matchId);
+  const weekly = data.weeklyMatchups?.find(item => item.id === matchId) ?? data.weeklyMatchups?.find(item => scoreboard && item.week === data.week && item.homeTeamId === scoreboard.homeTeamId && item.awayTeamId === scoreboard.awayTeamId);
+  const matchup = scoreboard ?? weekly;
+  if (!matchup) return <p className="notice">Match not found. <Link to={`/league/${slug}`}>Back to {meta.name}</Link></p>;
+  const week = weekly?.week ?? data.week;
+  const decided = weekly ? weekly.status === 'final' : week < data.week;
+  const roster = rosters[meta.slug];
+  const side = (teamId: string | null, score: number | null, projected: number | null) => {
+    const team = teamId ? data.teams.find(item => item.id === teamId) ?? null : null;
+    return { teamId, team, manager: team ? managerFor(meta.slug, team.id)?.manager ?? team.name : 'Bye', score, projected };
+  };
+  const away = side(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected);
+  const home = side(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected);
+  const heading = `${away.manager} vs ${home.manager}`;
+  const chance = decided ? null : projectedWinChance(home.projected, away.projected);
+  const share = pointShare(away.score, home.score);
+  const bar = chance ? { left: chance.away, right: chance.home, label: `From ESPN projected totals. ${away.manager} ${chance.away} percent. ${home.manager} ${chance.home} percent.` } : share ? { left: share.left, right: share.right, label: `${away.manager} ${share.left} percent of the scored points. ${home.manager} ${share.right} percent.` } : null;
+  const leading = (score: number | null, opponent: number | null) => score != null && opponent != null && score > opponent;
+  const starters = (teamId: string | null, manager: string) => {
+    if (!teamId) return { title: manager, players: [] as RosteredPlayer[], message: 'Bye' };
+    if (roster?.loading && !roster.data) return { title: manager, players: [] as RosteredPlayer[], message: 'Loading starters…' };
+    if (roster?.error && !roster.data) return { title: manager, players: [] as RosteredPlayer[], message: 'Starter list is unavailable.' };
+    const current = data.week === week;
+    if (current && roster?.data) {
+      const players = startersFor(roster.data.players, teamId);
+      return { title: manager, players, message: players.length ? null : 'No starters in this snapshot.' };
+    }
+    const historical = roster?.data ? historicalStarters(roster.data.weeklyLineups, teamId, week) : null;
+    if (historical === null) return { title: manager, players: [] as RosteredPlayer[], message: 'Starter scores for this week are not in the latest snapshot yet.' };
+    return { title: manager, players: historical, message: historical.length ? null : 'No starters in this snapshot.' };
+  };
+  const identity = (entry: typeof away, align: 'left' | 'right') => <div className={`match-id ${align}`}>
+    {entry.team?.logoUrl && <img className="matchup-logo" src={entry.team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
+    <div className="match-id-copy">
+      {entry.team ? <Link className="cup-manager" to={teamUrl(meta.slug, entry.team.id)}>{entry.manager}</Link> : <span className="muted">Bye</span>}
+      {entry.team && <small className="cup-team">{entry.team.name}</small>}
+    </div>
+  </div>;
+  return <div className="match-sheet">
+    <Link className="back-link" to={`/league/${slug}`}>← {meta.name}</Link>
+    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1>{heading}</h1><p className="intro-copy">{decided ? 'Final' : 'Live'} league matchup</p></div></section>
+    <p className="competition-updates">{summaryState ? <Fresh data={data} error={summaryState.error} /> : null}</p>
+    <article className="match-board" aria-label={heading}>
+      <div className="match-board-row">
+        {identity(away, 'left')}
+        <div className="match-center-score"><strong className={leading(away.score, home.score) ? 'leading' : ''}>{points(away.score)}</strong><span aria-hidden="true">–</span><strong className={leading(home.score, away.score) ? 'leading' : ''}>{points(home.score)}</strong></div>
+        {identity(home, 'right')}
+      </div>
+      {bar && <div className="win-bar" role="img" aria-label={bar.label}><span className={bar.left > bar.right ? 'favored' : ''} style={{ width: `${bar.left}%` }} /><span className={bar.right > bar.left ? 'favored' : ''} style={{ width: `${bar.right}%` }} /></div>}
+    </article>
+    <section className="match-stats" aria-label="Score and season comparison">
+      <table className="match-compare"><caption className="sr-only">Score and season comparison</caption><thead><tr><th scope="col"><span className="sr-only">Stat</span></th><th scope="col">{away.manager}</th><th scope="col">{home.manager}</th></tr></thead><tbody>
+        <tr><th scope="row">Week {week}</th><td>{points(away.score)}</td><td>{points(home.score)}</td></tr>
+        {(away.projected != null || home.projected != null) && <tr><th scope="row">Projected</th><td>{points(away.projected)}</td><td>{points(home.projected)}</td></tr>}
+        <tr><th scope="row">Record</th><td>{away.team ? record(away.team) : '—'}</td><td>{home.team ? record(home.team) : '—'}</td></tr>
+        <tr><th scope="row">Avg / week</th><td>{points(weeklyAverage(away.team))}</td><td>{points(weeklyAverage(home.team))}</td></tr>
+        <tr><th scope="row">League rank</th><td>{away.team?.rank != null ? `#${away.team.rank}` : '—'}</td><td>{home.team?.rank != null ? `#${home.team.rank}` : '—'}</td></tr>
+      </tbody></table>
+    </section>
+    <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={[starters(away.teamId, away.manager), starters(home.teamId, home.manager)]} /></section>
+  </div>;
+}
+
+function pointShare(left: number | null, right: number | null) {
+  if (left == null || right == null || left + right <= 0) return null;
+  const share = Math.round((left / (left + right)) * 100);
+  return { left: share, right: 100 - share };
 }
 
 export function SeasonPage() {

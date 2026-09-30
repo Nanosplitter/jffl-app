@@ -4,7 +4,7 @@ import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search
 import { localPreview, useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
 import { Fresh, points, record } from './ui';
-import { CupHubPage, CupMatchPage, CupPage, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
+import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
 import { managerFor } from './reference';
 import { buildCup, currentCupMatchesForTeam, provisionalZone, type CupId, type SummaryMap } from './competitions';
 import { projectedWinChance } from './projections';
@@ -208,9 +208,9 @@ function TeamPage() {
               const manager = sideTeam ? managerFor(meta.slug, sideTeam.id)?.manager ?? sideTeam.name : 'Bye';
               const result = decided && score != null && opponent != null ? score > opponent ? 'Won' : score < opponent ? 'Lost' : 'Tie' : null;
               const note = !sideTeam ? '' : !decided && projected != null ? `${record(sideTeam)} · Proj ${points(projected)}` : result ? `${record(sideTeam)} · ${result}` : record(sideTeam);
-              return { key: teamId ?? 'bye', logoUrl: sideTeam?.logoUrl, name: manager, teamHref: sideTeam ? teamLink(meta.slug, sideTeam.id) : undefined, detail: sideTeam?.name ?? 'Bye', score: sideTeam ? points(score) : '—', note };
+              return { key: teamId ?? 'bye', logoUrl: sideTeam?.logoUrl, name: manager, detail: sideTeam?.name ?? 'Bye', score: sideTeam ? points(score) : '—', note };
             };
-            return <TeamMatchSheet label={`Week ${data.week} · League`} status={decided ? 'Final' : undefined} bar={bar} sides={[
+            return <TeamMatchSheet label={`Week ${data.week} · League`} status={decided ? 'Final' : undefined} to={`/league/${meta.slug}/match/${matchup.id}`} bar={bar} sides={[
               leagueSide(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore),
               leagueSide(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected, matchup.awayScore),
             ]} />;
@@ -340,7 +340,7 @@ export default function App() {
     <nav className="league-strip" aria-label="Leagues"><div>{LEAGUES.map(meta => <NavLink key={meta.slug} to={`/league/${meta.slug}`}>{meta.name}</NavLink>)}</div></nav>
     <main id="main" tabIndex={-1}>
       {localPreview && <p className="notice preview-notice">Local preview · real ESPN snapshot.</p>}
-      <Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes>
+      <Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes>
     </main>
     <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores · Jason’s competition records</span><span>Refreshes every 3 minutes · ESPN updates may be delayed</span></footer>
   </>;
