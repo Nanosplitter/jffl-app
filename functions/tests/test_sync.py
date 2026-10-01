@@ -2,7 +2,7 @@ import copy
 from types import SimpleNamespace
 
 import pytest
-from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, normalize_player, validate_snapshot, week_lineups, weekly_matchups
+from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, espn_image_url, normalize_player, validate_snapshot, week_lineups, weekly_matchups
 from sync_service import sync_leagues
 
 
@@ -17,6 +17,17 @@ class MemoryStore:
         if slug in self.snapshots:
             for snapshot in self.snapshots[slug]:
                 snapshot.update(refreshStatus="error", lastAttemptAt=stamp)
+
+
+def test_custom_team_logos_are_kept_when_they_are_https_images():
+    espn = "https://g.espncdn.com/lm-static/ffl/images/default_logos/20.svg"
+    custom = "https://images.rapgenius.com/example.960x960x1.jpg"
+    assert espn_image_url(espn) == espn
+    assert espn_image_url(custom) == custom
+    assert espn_image_url("http://images.rapgenius.com/example.jpg") is None
+    assert espn_image_url("https://example.com/not-an-image") is None
+    assert espn_image_url("https://user:pass@images.rapgenius.com/example.jpg") is None
+    assert espn_image_url("") is None
 
 
 def test_provider_failure_preserves_snapshot_and_continues_other_leagues():

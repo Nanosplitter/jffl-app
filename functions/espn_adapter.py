@@ -44,7 +44,11 @@ def now_iso():
     return datetime.now(timezone.utc).isoformat()
 
 
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg", ".avif")
+
+
 def espn_image_url(value):
+    """A public https image. ESPN hosts, or a custom logo ESPN already displays."""
     if not isinstance(value, str) or len(value) > 2048:
         return None
     try:
@@ -52,9 +56,12 @@ def espn_image_url(value):
         host = (parsed.hostname or "").lower()
     except ValueError:
         return None
-    trusted_host = any(host.endswith(suffix) or host == suffix[1:]
+    if parsed.scheme != "https" or not host or parsed.username or parsed.password:
+        return None
+    trusted_host = any(host == suffix[1:] or host.endswith(suffix)
                        for suffix in (".espn.com", ".espncdn.com", ".espn.net"))
-    return value if parsed.scheme == "https" and trusted_host else None
+    image = parsed.path.lower().endswith(IMAGE_EXTENSIONS)
+    return value if trusted_host or image else None
 
 
 class BoundedRequests(EspnFantasyRequests):
