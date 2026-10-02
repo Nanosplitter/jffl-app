@@ -132,14 +132,15 @@ export function stackedBars(dark: boolean, categories: string[], parts: StackPar
     emphasis: { focus: 'none' as const },
     data: names.map((_, row) => row === categories.length ? {
       value: reference.value,
+      url: undefined,
       tip: reference.tip,
-      itemStyle: { color: reference.color ?? theme.palette[9], borderRadius: [0, 6, 6, 0] },
-    } : { value: null, tip: '', itemStyle: { color: 'transparent', borderRadius: 0 } }),
+      itemStyle: { color: reference.color ?? theme.palette[9], borderRadius: [0, 6, 6, 0], borderColor: 'transparent', borderWidth: 0 },
+    } : { value: null, url: undefined, tip: '', itemStyle: { color: 'transparent', borderRadius: 0, borderColor: 'transparent', borderWidth: 0 } }),
     label: {
       show: true, position: 'right' as const, color: theme.text, fontSize: size, fontWeight: 600, distance: 8,
       formatter: (params: { dataIndex?: number }) => params.dataIndex === categories.length ? reference.label : '',
     },
-  });
+  } as unknown as (typeof series)[number]);
   return {
     ...common,
     legend: { ...common.legend, data: parts.map(part => part.name), icon: 'roundRect', itemWidth: 28, itemHeight: 14, itemGap: 28, textStyle: { color: theme.text, fontSize: Math.max(size, 16) } },
