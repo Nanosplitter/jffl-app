@@ -1,17 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { initializeApp } from 'firebase/app';
 import { connectFirestoreEmulator, doc, getFirestore, onSnapshot } from 'firebase/firestore';
+import { getFirebaseApp } from './firebaseApp';
 import { LEAGUES, type LeagueRosterSnapshot, type LeagueSlug, type LeagueSummary } from './types';
 
 type State<T> = { data: T | null; loading: boolean; error: boolean };
 const empty = <T,>(): State<T> => ({ data: null, loading: true, error: false });
-const configured = !!import.meta.env.VITE_FIREBASE_PROJECT_ID;
-const db = configured ? getFirestore(initializeApp({
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-})) : null;
+const firebaseApp = getFirebaseApp();
+const db = firebaseApp ? getFirestore(firebaseApp) : null;
 if (db && import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true') connectFirestoreEmulator(db, '127.0.0.1', 8080);
 
 type LocalData = { summaries: Record<LeagueSlug, LeagueSummary>; rosters: Record<LeagueSlug, LeagueRosterSnapshot> };
@@ -71,4 +66,4 @@ export function useRosters(slugs: LeagueSlug[]) {
   }, [key]);
   return states;
 }
-export const localPreview = import.meta.env.DEV && !configured;
+export const localPreview = import.meta.env.DEV && !firebaseApp;

@@ -39,6 +39,8 @@ Commissioner's pages:
 - `/cups`: all four cups; `/cups/jffl`, `/cups/premier`, `/cups/championship`, `/cups/league-one`: complete interactive brackets, per-week scores, totals, manager highlights, and round selection. Each match opens `/cups/{cup}/match/{id}` with the week-by-week scores and both starting lineups, including weeks that have already finished.
 - `/weekly`: current or completed-week scoring leaderboard, 100+ club, scoring extremes, margins, and current starting-player performances.
 - `/history`: 13 current trophy races, historical trophy and JFFL Cup tables, and league timeline.
+- `/archive`: league history through 2025 from the commissioner workbook. Scoring, the record book, titles, head-to-head series, manager careers, draft slot, and a week in history. Related routes sit under `/archive/`.
+- `/archive/ask` and `/archive/ask/share#...`: the AI "Ask the archive" assistant and shared answers (see below). Older `/history/archive` and `/history/ask` links redirect here.
 
 The header's sun/moon button switches light and dark themes. The preference is
 saved locally; the initial default follows the visitor's system preference.
@@ -59,6 +61,105 @@ gain new historical totals. Current-season cup results and trophy races update
 from the live snapshots. Promotion bands are provisional because Jason's
 trophy-based exceptions determine final allocations. Raw emails, PDF files,
 contact information, and mail metadata are not published.
+
+## Ask the archive (AI assistant)
+
+`/archive/ask` lets visitors ask questions about the 2002 to 2025 archive in plain
+language and get answers with interactive charts. `/archive/ask/share#...` opens a
+shared answer. Archive is a header section; Ask the archive is one of its pages.
+
+How it works:
+
+- The browser calls Gemini through **Firebase AI Logic** (`firebase/ai`). There is no
+  Cloud Function and no Gemini key in the page. Requests are protected by App Check
+  (reCAPTCHA Enterprise) and the project's Firebase AI quotas. The Gemini side can live in a
+  separate Firebase project (set `VITE_AI_FIREBASE_*`, below); Firestore stays on the main one.
+  This repo's setup uses the project that holds the Gemini prepay credits for AI Logic, App
+  Check, and Remote Config, and `jffl-live-colin` for Firestore and hosting.
+- The model never sees the whole archive and never types numbers. It calls tools
+  (`src/history/askTools.ts`) that run exact queries over the bundled `archive.json`:
+  game and season queries, head-to-head, manager careers, record book, title years,
+  draft slots, and week slices. It then asks for a chart by naming a returned dataset.
+- Charts (`src/history/chartSpec.ts`, `chartBuild.ts`, `recipes.ts`, `src/AskCharts.tsx`) are
+  typed specs (line, area, bar, stacked bar, scatter, heatmap, radar, boxplot, table, stat cards,
+  rank over time), seven league recipes (rivalry matrix, season race, career timeline, trophy
+  wall, scoring distribution, draft slot curve, head-to-head scoreboard), or a sanitized Apache
+  ECharts option. Specs are validated before drawing; unsafe or unknown fields are rejected.
+  ECharts is lazy-loaded with only the chart types it needs.
+- Each chart can re-run its saved query locally with new years, leagues, or game types
+  ("Adjust this chart"), show its data table, export PNG or CSV, and make a share link.
+  Clicking a point asks a follow-up about it.
+- JFFL Cup scores are two-week totals; the tools flag mixing them with single weeks, and
+  caveats are shown under each chart. Unknown values stay unknown, never zero.
+- The current chat lives in `sessionStorage` for the tab. Nothing is stored on a server. Share
+  links hold the chart recipe and the queries (not rows) in the URL fragment, compressed
+  (limit 8 KB). The receiving browser re-validates and rebuilds everything from its own copy of
+  the archive and makes no model call. The written summary in a link is unverified text and is
+  shown as plain text with a note.
+- Questions and tool results are sent to Google (Gemini) through Firebase, so the page tells
+  visitors not to include personal details.
+
+Local use (no Firebase project changes needed):
+
+```powershell
+$env:VITE_ASK_MOCK = 'true'   # canned local assistant; real archive numbers, canned wording
+npm run dev
+```
+
+Without `VITE_ASK_MOCK` and without `.env.local`, the dev server also uses the local assistant.
+With `.env.local` pointing at a real project, a question goes to that project's Firebase AI Logic
+(which only works after the rollout steps below). Production builds never include the local assistant.
+
+Configuration (all public client config; no secrets):
+
+| Setting | Where | Purpose |
+| --- | --- | --- |
+| `VITE_AI_FIREBASE_API_KEY`, `_AUTH_DOMAIN`, `_PROJECT_ID`, `_APP_ID` | `.env.local` / build env | Optional web config of a separate Firebase project used only for the assistant. Without them the main project is used. Must also be present in the production build env. |
+| `VITE_RECAPTCHA_SITE_KEY` | `.env.local` / build env | reCAPTCHA Enterprise site key for App Check, created in the AI project. Required in production; without it the assistant shows as not set up. |
+| `VITE_ASK_MOCK` | dev only | Use the local assistant even when Firebase is configured. |
+| `VITE_APPCHECK_DEBUG_TOKEN` | dev only | Debug token registered in the console for local App Check. |
+| `ask_enabled` | Remote Config | Kill switch. `false` pauses the assistant without a deploy. |
+| `ask_model` | Remote Config | Model name, default `gemini-3.8-flash`. |
+| `ask_thinking` | Remote Config | `minimal`, `low` (default), `medium`, `high`, or `default`. |
+| `ask_max_output_tokens` | Remote Config | Default 2048. |
+
+Client-side courtesy limits (`src/history/askGuards.ts`): 500 characters per question, 20 questions
+per chat, a short cooldown, and 40 questions per browser per day. They are not security; App Check,
+quotas, and budget alerts are.
+
+Budget plan (about $10 a month): start on the free tier, and when billing is enabled keep Gemini
+requests around 60 a day, lower the per-user requests-per-minute quota from 100 to about 10, and set
+budget alerts at $5 and $10. At the introductory $0.75 in / $3.75 out per million tokens (until the end
+of 2026; $1.50 / $7.50 after), an answer with a few tool steps is typically a fraction of a cent. Run
+the evaluation below to measure the real cost per question before widening access.
+
+Quality check (local, billable, never run in CI): `scripts/eval-ask.ts` sends about 18 golden
+questions (`src/history/askEval.ts`) to the Gemini API with your own key and compares answers with
+numbers computed from the archive.
+
+```powershell
+$env:GEMINI_API_KEY = '<your key>'   # shell only; do not write it to a file
+node --experimental-strip-types scripts/eval-ask.ts --only most-super-bowls,chart-trend
+```
+
+Output goes to `ask-eval-output/` (ignored). Numbers in an answer that no tool returned are listed for
+review.
+
+### Rollout checklist (needs explicit owner approval; nothing here runs automatically)
+
+These change the production Firebase project, so they are documented rather than done:
+
+1. Choose the Firebase target explicitly (`.firebaserc` is intentionally absent) and confirm it. If
+   Gemini billing lives in a different project, run these steps against that project and set
+   `VITE_AI_FIREBASE_*`.
+2. Enable Firebase AI Logic with the Gemini Developer API (`firebase init ailogic` or the console).
+3. Create a reCAPTCHA Enterprise key, register the web app in App Check, put the site key in
+   `VITE_RECAPTCHA_SITE_KEY`, and register debug tokens for local testing. Enforce App Check for
+   Firebase AI Logic only after confirming a real browser passes.
+4. Add the Remote Config parameters above (`ask_enabled` true, `ask_model`, `ask_thinking`).
+5. Set the per-user quota and budget alerts described above.
+6. Run `scripts/eval-ask.ts`, review failures, then `npm run build` and `firebase deploy --only hosting`.
+7. To stop spending quickly: set `ask_enabled` to `false` in Remote Config, or disable the API.
 
 ## Local development
 

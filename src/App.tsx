@@ -1,10 +1,20 @@
-import { useEffect, useState } from 'react';
-import { Link, NavLink, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search, Shield, Sun, Moon } from 'lucide-react';
 import { localPreview, useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, LeagueStandingsCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
+const ArchivePage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.ArchivePage })));
+const RecordsPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.RecordsPage })));
+const TitlesPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.TitlesPage })));
+const RivalsPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.RivalsPage })));
+const ManagersPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.ManagersPage })));
+const ManagerArchivePage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.ManagerArchivePage })));
+const AskPage = lazy(() => import('./AskHistory').then(module => ({ default: module.AskPage })));
+const AskSharePage = lazy(() => import('./AskHistory').then(module => ({ default: module.AskSharePage })));
+const DraftPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.DraftPage })));
+const WeekHistoryPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.WeekHistoryPage })));
 import { managerFor } from './reference';
 import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from './competitions';
 import { projectedWinChance } from './projections';
@@ -389,6 +399,17 @@ function PlayersPage() {
 
 function NotFound() { return <div className="waiting"><Shield size={30} /><h1>Page not found</h1><Link className="button" to="/">Back to the leagues</Link></div>; }
 
+function RedirectPath({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
+}
+
+function RedirectArchive() {
+  const { pathname, search, hash } = useLocation();
+  const rest = pathname.replace(/^\/history\/archive/, '');
+  return <Navigate to={`/archive${rest}${search}${hash}`} replace />;
+}
+
 export default function App() {
   const location = useLocation();
   const [dark, setDark] = useState(() => document.documentElement.dataset.theme === 'dark');
@@ -399,21 +420,21 @@ export default function App() {
   useEffect(() => {
     window.scrollTo(0, 0);
     if (/^\/players\/.+/.test(location.pathname)) return;
-    const title = location.pathname.startsWith('/cups') ? 'Cups' : location.pathname === '/summary' ? 'Standings' : location.pathname === '/weekly' ? 'Weekly roundup' : location.pathname === '/history' ? 'History' : location.pathname === '/players' ? 'Players' : 'Leagues';
+    const title = location.pathname.startsWith('/cups') ? 'Cups' : location.pathname === '/summary' ? 'Standings' : location.pathname === '/weekly' ? 'Weekly roundup' : location.pathname.startsWith('/archive/ask') ? 'Ask the archive' : location.pathname.startsWith('/archive') ? 'Archive' : location.pathname.startsWith('/history') ? 'History' : location.pathname === '/players' ? 'Players' : 'Leagues';
     document.title = `${title} · JFFL`;
   }, [location.pathname]);
   return <>
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header"><div className="header-inner">
       <Link to="/" className="brand" aria-label="JFFL home">JFFL</Link>
-      <nav aria-label="Main navigation"><NavLink to="/" end>Leagues</NavLink><NavLink to="/summary" className={['/weekly', '/history'].includes(location.pathname) ? 'active' : undefined}>Standings</NavLink><NavLink to="/cups">Cups</NavLink><NavLink to="/players">Players</NavLink></nav>
+      <nav aria-label="Main navigation"><NavLink to="/" end>Leagues</NavLink><NavLink to="/summary" className={location.pathname === '/weekly' || location.pathname === '/history' ? 'active' : undefined}>Standings</NavLink><NavLink to="/cups">Cups</NavLink><NavLink to="/players">Players</NavLink><NavLink to="/archive">Archive</NavLink></nav>
       <button className="theme-toggle" aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={dark} title={dark ? 'Light mode' : 'Dark mode'} onClick={() => setDark(value => !value)}>{dark ? <Sun size={19}/> : <Moon size={19}/>}</button>
       <span className="header-season">2026 <span>SEASON</span></span>
     </div></header>
     <nav className="league-strip" aria-label="Leagues"><div>{LEAGUES.map(meta => <NavLink key={meta.slug} to={`/league/${meta.slug}`}>{meta.name}</NavLink>)}</div></nav>
     <main id="main" tabIndex={-1}>
       {localPreview && <p className="notice preview-notice">Local preview · real ESPN snapshot.</p>}
-      <Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<PlayerPage/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes>
+      <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<PlayerPage/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
     </main>
     <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores</span><span>Refreshes every 3 minutes · ESPN updates may be delayed</span></footer>
   </>;

@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, NavLink, useLocation, useParams } from 'react-router-dom';
-import { ArrowUpRight, Trophy, Search, ArrowUpDown } from 'lucide-react';
+import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
-import { MANAGERS, TIMELINE, managerFor } from './reference';
+import { MANAGERS, TIMELINE, managerFor, type ManagerReference } from './reference';
+import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
+import { chartTheme, horizontalBars } from './history/archiveCharts';
+import { esc } from './history/chartKit';
 import { buildCup, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
@@ -24,8 +27,8 @@ function useCompetitionData() {
   return { data, states };
 }
 
-function SectionNav() {
-  return <nav className="section-nav" aria-label="Season pages"><NavLink to="/summary">Standings</NavLink><NavLink to="/weekly">Weekly roundup</NavLink><NavLink to="/history">Trophies & history</NavLink></nav>;
+export function SectionNav() {
+  return <nav className="section-nav" aria-label="Season pages"><NavLink to="/summary">Standings</NavLink><NavLink to="/weekly">Weekly roundup</NavLink><NavLink to="/history" end>Trophies & history</NavLink></nav>;
 }
 
 function UpdateStrip({ data }: { data: SummaryMap }) {
@@ -394,11 +397,71 @@ export function SeasonPage() {
   </>;
 }
 
+function WeekNav({ week, count, onChange }: { week: number; count: number; onChange: (week: number) => void }) {
+  const list = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    list.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+  }, [week]);
+  if (count < 1) return null;
+  return <div className="week-nav" role="group" aria-label="Choose week">
+    <button type="button" className="week-nav-step" aria-label="Previous week" disabled={week <= 1} onClick={() => onChange(week - 1)}><ChevronLeft size={18} aria-hidden="true" /></button>
+    <div className="week-nav-weeks" ref={list}>{Array.from({ length: count }, (_, index) => {
+      const value = index + 1;
+      return <button type="button" key={value} aria-pressed={value === week} aria-label={`Week ${value}`} onClick={() => onChange(value)}>{value}</button>;
+    })}</div>
+    <button type="button" className="week-nav-step" aria-label="Next week" disabled={week >= count} onClick={() => onChange(week + 1)}><ChevronRight size={18} aria-hidden="true" /></button>
+  </div>;
+}
+
+function sideTeam(data: SummaryMap, slug: string, id: string | null) {
+  if (!id) return null;
+  return data[slug as LeagueSlug]?.teams.find(team => team.id === id) ?? null;
+}
+
+function TeamMark({ logoUrl }: { logoUrl?: string | null }) {
+  if (!logoUrl) return null;
+  return <img className="team-logo" src={logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />;
+}
+
+function WeekFace({ data, slug, id, score }: { data: SummaryMap; slug: string; id: string; score: number }) {
+  const team = sideTeam(data, slug, id);
+  return <Link className="week-face" to={teamUrl(slug, id)}>
+    <TeamMark logoUrl={team?.logoUrl} />
+    <span className="week-who">
+      <span className="week-name">{managerFor(slug, id)?.manager ?? 'Team'}</span>
+      {team?.name && <span className="week-team">{team.name}</span>}
+    </span>
+    <strong>{points(score)}</strong>
+  </Link>;
+}
+
+function WeekPair({ data, slug, id, homeId, awayId, homeScore, awayScore }: { data: SummaryMap; slug: string; id: string; homeId: string | null; awayId: string | null; homeScore: number | null; awayScore: number | null }) {
+  const sides = [
+    { id: homeId, score: homeScore },
+    { id: awayId, score: awayScore },
+  ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  return <Link className="week-pair" to={`/league/${slug}/match/${id}`}>
+    {sides.map(side => {
+      const team = sideTeam(data, slug, side.id);
+      const leading = side.score != null && sides[0].score != null && side.score === sides[0].score && sides[0].score !== sides[1].score;
+      return <span key={side.id ?? 'bye'}>
+        <TeamMark logoUrl={team?.logoUrl} />
+        <span className="week-who">
+          <span className="week-name">{side.id ? managerFor(slug, side.id)?.manager ?? 'Team' : 'Bye'}</span>
+          {team?.name && <span className="week-team">{team.name}</span>}
+        </span>
+        <b className={leading ? 'leading' : ''}>{points(side.score)}</b>
+      </span>;
+    })}
+  </Link>;
+}
+
 export function WeeklyPage() {
   const { data } = useCompetitionData();
   const currentWeek=Math.max(0,...Object.values(data).map(summary=>summary?.week??0));
   const [selectedWeek,setSelectedWeek]=useState(0);
   const week=selectedWeek||currentWeek;
+  const showWeek=(value: number)=>setSelectedWeek(value>=currentWeek?0:value);
   const states=useRosters(LEAGUES.map(meta=>meta.slug));
   const matchups=LEAGUES.flatMap(meta=>(data[meta.slug]?.weeklyMatchups??[]).filter(item=>item.week===week).map(item=>({...item,slug:meta.slug})));
   const scores=matchups.flatMap(matchup=>[[matchup.homeTeamId,matchup.homeScore,matchup.awayScore],[matchup.awayTeamId,matchup.awayScore,matchup.homeScore]].filter(([id,score])=>id!==null&&score!==null).map(([id,score,opponent])=>({id:String(id),score:Number(score),opponent:opponent as number|null,slug:matchup.slug,final:matchup.status==='final'}))).sort((a,b)=>b.score-a.score);
@@ -406,16 +469,158 @@ export function WeeklyPage() {
   const winners=scores.filter(row=>row.opponent!==null&&row.score>row.opponent).sort((a,b)=>a.score-b.score);
   const losers=scores.filter(row=>row.opponent!==null&&row.score<row.opponent).sort((a,b)=>b.score-a.score);
   const hundred=scores.filter(row=>row.score>=100);
-  const describe=(row:typeof scores[number]|undefined)=>row?`${managerFor(row.slug,row.id)?.manager??'Team'} · ${points(row.score)} pts`:'—';
-  const matchupName=(row:typeof margins[number]|undefined)=>row?`${managerFor(row.slug,row.homeTeamId??'')?.manager??'Team'} / ${managerFor(row.slug,row.awayTeamId??'')?.manager??'Team'}`:'—';
   const allFinal=matchups.length===15&&matchups.every(matchup=>matchup.status==='final');
+  const peak=scores[0]?.score??0;
+  const leagueName=(slug: string)=>LEAGUES.find(meta=>meta.slug===slug)?.name??slug;
   const standouts=LEAGUES.flatMap(meta=>(states[meta.slug]?.data?.players??[]).filter(player=>player.group==='starter'&&player.weekPoints!==null).map(player=>({...player,slug:meta.slug}))).sort((a,b)=>b.weekPoints!-a.weekPoints!).slice(0,12);
-  return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p></div><label className="week-picker">Choose week<select aria-label="Choose week" value={selectedWeek} onChange={event=>setSelectedWeek(Number(event.target.value))}><option value={0}>Current week</option>{Array.from({length:currentWeek},(_,index)=><option key={index} value={index+1}>Week {index+1}</option>)}</select></label></section><UpdateStrip data={data}/>
-    <div className="recap-metrics"><article><p className="eyebrow">HIGH SCORER</p><strong>{describe(scores[0])}</strong><span>{scores[0]?LEAGUES.find(meta=>meta.slug===scores[0].slug)?.name:'Awaiting scores'}</span></article><article><p className="eyebrow">100+ CLUB</p><strong>{hundred.length} teams</strong></article><article><p className="eyebrow">SMALLEST {allFinal?'WINNING MARGIN':'MARGIN'}</p><strong>{margins[0]?`${points(margins[0].margin)} points`:'—'}</strong><span>{matchupName(margins[0])}</span></article><article><p className="eyebrow">LARGEST {allFinal?'BLOWOUT':'LEAD'}</p><strong>{margins.at(-1)?`${points(margins.at(-1)!.margin)} points`:'—'}</strong><span>{matchupName(margins.at(-1))}</span></article><article><p className="eyebrow">LOWEST {allFinal?'WINNER':'LEADING SCORE'}</p><strong>{describe(winners[0])}</strong></article><article><p className="eyebrow">HIGHEST {allFinal?'LOSER':'TRAILING SCORE'}</p><strong>{describe(losers[0])}</strong></article></div>
-    <section className="surface"><div className="surface-heading"><h2>Scoring leaderboard</h2></div><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly scoring leaderboard"><table><thead><tr><th>#</th><th>Manager</th><th>League</th><th>Points</th><th>Matchup</th></tr></thead><tbody>{scores.map((row,index)=><tr key={`${row.slug}-${row.id}`}><td className="rank">{index+1}</td><td><Link className="manager-link" to={teamUrl(row.slug,row.id)}>{managerFor(row.slug,row.id)?.manager??'Team'}</Link></td><td><span className={`league-label ${row.slug}`}>{LEAGUES.find(meta=>meta.slug===row.slug)?.name}</span></td><td className="numeric emphasis">{points(row.score)}{row.score>=100&&<span className="hundred-tag">100+</span>}</td><td className="muted">{row.opponent===null?'—':row.score===row.opponent?row.final?'Tie':'Level':row.score>row.opponent?row.final?'Won':'Leading':row.final?'Lost':'Trailing'}</td></tr>)}</tbody></table></div></section>
-    {week===currentWeek&&<section className="surface standouts"><div className="surface-heading"><h2>Top starting-player performances</h2></div><div className="table-scroll"><table><thead><tr><th>Player</th><th>Manager</th><th>League</th><th>Points</th></tr></thead><tbody>{standouts.map(player=><tr key={`${player.slug}-${player.id}`}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td><td><Link to={teamUrl(player.slug,player.teamId)}>{managerFor(player.slug,player.teamId)?.manager}</Link></td><td className={`league-label ${player.slug}`}>{LEAGUES.find(meta=>meta.slug===player.slug)?.name}</td><td className="numeric emphasis">{points(player.weekPoints)}</td></tr>)}</tbody></table></div></section>}
+  return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p></div><WeekNav week={week} count={currentWeek} onChange={showWeek} /></section><UpdateStrip data={data}/>
+    <div className="recap-metrics week-recap">
+      <article><p className="eyebrow">High scorer</p>{scores[0] ? <WeekFace data={data} slug={scores[0].slug} id={scores[0].id} score={scores[0].score} /> : <strong>—</strong>}{scores[0] && <span className={`league-label ${scores[0].slug}`}>{leagueName(scores[0].slug)}</span>}</article>
+      <article><p className="eyebrow">Lowest {allFinal ? 'winner' : 'leading score'}</p>{winners[0] ? <WeekFace data={data} slug={winners[0].slug} id={winners[0].id} score={winners[0].score} /> : <strong>—</strong>}{winners[0] && <span className={`league-label ${winners[0].slug}`}>{leagueName(winners[0].slug)}</span>}</article>
+      <article><p className="eyebrow">Highest {allFinal ? 'loser' : 'trailing score'}</p>{losers[0] ? <WeekFace data={data} slug={losers[0].slug} id={losers[0].id} score={losers[0].score} /> : <strong>—</strong>}{losers[0] && <span className={`league-label ${losers[0].slug}`}>{leagueName(losers[0].slug)}</span>}</article>
+      <article><header className="week-card-head"><p className="eyebrow">Smallest {allFinal ? 'winning margin' : 'margin'}</p><strong>{margins[0] ? `${points(margins[0].margin)} pts` : '—'}</strong></header>{margins[0] && <WeekPair data={data} slug={margins[0].slug} id={margins[0].id} homeId={margins[0].homeTeamId} awayId={margins[0].awayTeamId} homeScore={margins[0].homeScore} awayScore={margins[0].awayScore} />}</article>
+      <article><header className="week-card-head"><p className="eyebrow">Largest {allFinal ? 'blowout' : 'lead'}</p><strong>{margins.at(-1) ? `${points(margins.at(-1)!.margin)} pts` : '—'}</strong></header>{margins.at(-1) && <WeekPair data={data} slug={margins.at(-1)!.slug} id={margins.at(-1)!.id} homeId={margins.at(-1)!.homeTeamId} awayId={margins.at(-1)!.awayTeamId} homeScore={margins.at(-1)!.homeScore} awayScore={margins.at(-1)!.awayScore} />}</article>
+      <article className="week-club-card"><header className="week-card-head"><p className="eyebrow">100+ club</p><span>{hundred.length} {hundred.length === 1 ? 'team' : 'teams'}</span></header><ul className="week-club">{hundred.map(row => {
+        const team = sideTeam(data, row.slug, row.id);
+        return <li key={`${row.slug}-${row.id}`}><Link to={teamUrl(row.slug, row.id)}>
+          <TeamMark logoUrl={team?.logoUrl} />
+          <span className="week-who">
+            <span className="week-name">{managerFor(row.slug, row.id)?.manager ?? 'Team'}</span>
+            {team?.name && <span className="week-team">{team.name}</span>}
+          </span>
+          <b>{points(row.score)}</b>
+        </Link></li>;
+      })}</ul></article>
+    </div>
+    <section className="surface week-board"><div className="surface-heading"><h2>Scoring leaderboard</h2></div><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly scoring leaderboard"><table><thead><tr><th>#</th><th>Manager</th><th>League</th><th>Points</th><th>Matchup</th></tr></thead><tbody>{scores.map((row, index) => <tr key={`${row.slug}-${row.id}`}><td className="rank">{index + 1}</td><td><Link className="manager-link team-identity" to={teamUrl(row.slug, row.id)}><TeamMark logoUrl={sideTeam(data, row.slug, row.id)?.logoUrl} />{managerFor(row.slug, row.id)?.manager ?? 'Team'}</Link></td><td><span className={`league-label ${row.slug}`}>{leagueName(row.slug)}</span></td><td className="week-points"><span className="week-score"><span className="week-bar" data-league={row.slug}><span style={{ width: peak > 0 ? `${Math.round(row.score / peak * 100)}%` : '0%' }} /></span><span className="numeric emphasis">{points(row.score)}{row.score >= 100 && <span className="hundred-tag">100+</span>}</span></span></td><td className="muted">{row.opponent === null ? '—' : row.score === row.opponent ? row.final ? 'Tie' : 'Level' : row.score > row.opponent ? row.final ? 'Won' : 'Leading' : row.final ? 'Lost' : 'Trailing'}</td></tr>)}</tbody></table></div></section>
+    {week===currentWeek&&<section className="surface standouts week-board"><div className="surface-heading"><h2>Top starting-player performances</h2></div><div className="table-scroll"><table><thead><tr><th>Player</th><th>Manager</th><th>League</th><th>Points</th></tr></thead><tbody>{standouts.map(player=><tr key={`${player.slug}-${player.id}`}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td><td><Link to={teamUrl(player.slug,player.teamId)}>{managerFor(player.slug,player.teamId)?.manager}</Link></td><td className={`league-label ${player.slug}`}>{LEAGUES.find(meta=>meta.slug===player.slug)?.name}</td><td className="numeric emphasis">{points(player.weekPoints)}</td></tr>)}</tbody></table></div></section>}
     <p className="source-note">The smallest margin excludes tied games. Completed weeks use ESPN’s corrected scores; live-week winners and losers are shown as leaders and trailers.</p>
   </>;
+}
+
+function HistoryBoard({ rows, view }: { rows: ManagerReference[]; view: 'trophies' | 'cup' }) {
+  const dark = useDarkMode();
+  const option = useMemo(() => {
+    const { theme } = chartTheme(dark);
+    const leagueName = (slug: string) => LEAGUES.find(meta => meta.slug === slug)?.name ?? slug;
+    const colorAt = (slug: string) => theme.palette[slug === 'premier' ? 0 : slug === 'championship' ? 1 : 2];
+    return horizontalBars(dark, rows.map(item => `${item.manager}`), rows.map(item => {
+      if (view === 'cup') {
+        const decided = item.cupWins + item.cupLosses;
+        const win = decided ? Math.round(item.cupWins / decided * 1000) / 10 : 0;
+        return {
+          value: win, color: colorAt(item.slug), url: teamUrl(item.slug, item.teamId),
+          tip: `<b>${esc(item.manager)}</b> · ${esc(leagueName(item.slug))}<br/>${item.cupRank ? `All-time rank ${item.cupRank}` : 'Rookie'} · avg finish ${item.cupRank ? item.cupAverageFinish : '—'}<br/>${item.cupWins}–${item.cupLosses}${decided ? ` · ${win}%` : ''}<br/>${item.cupTitles} cup titles · 2026 seed ${item.jfflSeed}`,
+        };
+      }
+      const rate = item.seasons > 1 ? Math.round(item.trophies / (item.seasons - 1) * 10) / 10 : null;
+      return {
+        value: item.trophies, color: colorAt(item.slug), url: teamUrl(item.slug, item.teamId),
+        tip: `<b>${esc(item.manager)}</b> · ${esc(leagueName(item.slug))}<br/>${item.trophies} trophies · ${item.finals} finals<br/>2025: ${item.trophies2025} · 2021+: ${item.trophies2021} · 2013+: ${item.trophies2013}<br/>${item.seasons} seasons${rate === null ? '' : ` · ${rate} per season`}`,
+      };
+    }), { max: view === 'cup' ? 100 : undefined, visible: 14 });
+  }, [dark, rows, view]);
+  if (!rows.length) return null;
+  const summary = view === 'cup'
+    ? `JFFL Cup win percentage for ${rows.length} managers.`
+    : `All-time trophies for ${rows.length} managers. Bar color is the league.`;
+  return <ArchiveChart option={option} summary={summary} height={Math.min(560, Math.max(240, 48 + Math.min(rows.length, 14) * 32))} />;
+}
+
+function moveUp(slug: LeagueSlug) {
+  if (slug === 'championship') return 'Premier';
+  if (slug === 'league-one') return 'Championship';
+  return null;
+}
+
+function teamLogo(data: SummaryMap, slug: LeagueSlug, teamId: string) {
+  return data[slug]?.teams.find(team => team.id === teamId)?.logoUrl;
+}
+
+function RaceCard({ league, href, logoUrl, kicker, name, stat, unit, when, up }: {
+  league: 'jffl' | LeagueSlug; href: string; logoUrl?: string | null; kicker: string; name: string; stat?: string; unit?: string; when?: string; up?: string | null;
+}) {
+  return <Link className="trophy-race" data-league={league} to={href}>
+    {logoUrl && <img className="trophy-logo" src={logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
+    <span className="trophy-copy">
+      <span className="eyebrow">{kicker}</span>
+      <strong>{name}</strong>
+      {up && <span className="trophy-up">To {up}</span>}
+    </span>
+    {when ? <span className="trophy-when">{when}</span> : <span className="trophy-stat">{stat}{unit && <small>{unit}</small>}</span>}
+  </Link>;
+}
+
+function seasonRecord(row: { wins: number; losses: number; ties: number }) {
+  return `${row.wins}–${row.losses}${row.ties ? `–${row.ties}` : ''}`;
+}
+
+function SeasonRaces({ data }: { data: SummaryMap }) {
+  return <section className="trophy-races" aria-labelledby="season-races">
+    <header className="trophy-intro">
+      <h2 id="season-races">This season</h2>
+      <p>Leaders so far. The name becomes the champion once that race is finished.</p>
+    </header>
+    <div className="trophy-group">
+      <header className="trophy-group-head"><h3>Cups</h3><p>Knockout brackets</p></header>
+      <div className="trophy-row trophy-row-4">{CUP_IDS.map(id => {
+        const cup = buildCup(id, data);
+        const champion = cup.champion;
+        return <RaceCard key={id} league={id} href={`/cups/${id}`}
+          logoUrl={champion ? teamLogo(data, champion.slug, champion.teamId) : null}
+          kicker={champion ? 'Champion' : 'In progress'}
+          name={champion ? champion.manager : cup.name}
+          stat={champion ? 'Won' : undefined}
+          when={champion ? undefined : id === 'jffl' ? 'Weeks 15–16 final' : 'Week 11 final'}
+          up={id === 'jffl' ? 'Premier' : null} />;
+      })}</div>
+    </div>
+    <div className="trophy-group">
+      <header className="trophy-group-head"><h3>Best record</h3><p>Season title</p></header>
+      <div className="trophy-row">{LEAGUES.map(meta => {
+        const summary = data[meta.slug];
+        const leader = summary?.teams.slice().sort((a, b) => (a.regularSeasonRank ?? a.rank ?? 99) - (b.regularSeasonRank ?? b.rank ?? 99))[0];
+        const row = summary && leader ? regularSeason(summary).find(item => item.teamId === leader.id && item.games > 0) : undefined;
+        const done = (summary?.completedWeeks ?? 0) >= 14;
+        const week = summary?.completedWeeks || summary?.week || 0;
+        return <RaceCard key={meta.slug} league={meta.slug} href="/summary"
+          logoUrl={leader ? teamLogo(data, meta.slug, leader.id) : null}
+          kicker={meta.name}
+          name={leader ? managerFor(meta.slug, leader.id)?.manager ?? 'Team' : 'No scores yet'}
+          stat={row ? seasonRecord(row) : '—'}
+          unit={row ? done ? 'champion' : `week ${week || '—'}` : undefined}
+          up={moveUp(meta.slug)} />;
+      })}</div>
+    </div>
+    <div className="trophy-group">
+      <header className="trophy-group-head"><h3>Most points</h3><p>Scoring title</p></header>
+      <div className="trophy-row">{LEAGUES.map(meta => {
+        const summary = data[meta.slug];
+        const leader = summary ? regularSeason(summary).filter(item => item.games > 0).sort((a, b) => b.points - a.points)[0] : undefined;
+        return <RaceCard key={meta.slug} league={meta.slug} href="/summary"
+          logoUrl={leader ? teamLogo(data, meta.slug, leader.teamId) : null}
+          kicker={meta.name}
+          name={leader ? managerFor(meta.slug, leader.teamId)?.manager ?? 'Team' : 'No scores yet'}
+          stat={leader ? points(leader.points) : '—'}
+          unit={leader ? 'points' : undefined} />;
+      })}</div>
+    </div>
+    <div className="trophy-group">
+      <header className="trophy-group-head"><h3>Super Bowl</h3><p>Playoff after week 14</p></header>
+      <div className="trophy-row">{LEAGUES.map(meta => {
+        const summary = data[meta.slug];
+        const winner = summary?.teams.find(team => team.finalStanding === 1);
+        const started = (summary?.completedWeeks ?? 0) >= 14;
+        const name = winner ? managerFor(meta.slug, winner.id)?.manager ?? 'Team' : null;
+        return <RaceCard key={meta.slug} league={meta.slug} href={`/league/${meta.slug}`}
+          logoUrl={winner ? teamLogo(data, meta.slug, winner.id) : null}
+          kicker={meta.name}
+          name={name ?? (started ? 'Bracket pending' : 'Not started')}
+          stat={name ? 'Won' : 'Top 8'}
+          up={moveUp(meta.slug)} />;
+      })}</div>
+    </div>
+  </section>;
 }
 
 export function HistoryPage() {
@@ -427,17 +632,9 @@ export function HistoryPage() {
   const rows=MANAGERS.filter(item=>(league==='all'||item.slug===league)&&item.manager.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>sort==='manager'?a.manager.localeCompare(b.manager):view==='trophies'?b.trophies-a.trophies:(a.cupRank||99)-(b.cupRank||99));
   const trophies=MANAGERS.reduce((sum,item)=>sum+item.trophies,0);
   const finals=MANAGERS.reduce((sum,item)=>sum+item.finals,0);
-  return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">25 SEASONS <span>/</span> JFFL’S TROPHY ROOM</p><h1>Trophies & history</h1><p className="intro-copy">This season’s races, and the history behind them.</p></div></section><UpdateStrip data={data}/>
-    <div className="trophy-races">{CUP_IDS.map(id=>{const cup=buildCup(id,data);return <Link className="trophy-race" key={id} to={`/cups/${id}`}><div><h3>{cup.name}</h3><span>{cup.champion?`${cup.champion.manager} · Champion`:'Tournament in progress'}</span><small>Final: week {id==='jffl'?'15 + 16':'11'}{id==='jffl'?' · Automatic Premier promotion':''}</small></div></Link>;})}{LEAGUES.flatMap(meta=>{
-      const summary=data[meta.slug];
-      const seasonLeader=summary?.teams.slice().sort((a,b)=>(a.regularSeasonRank??a.rank??99)-(b.regularSeasonRank??b.rank??99))[0];
-      const totals=summary?regularSeason(summary):[];
-      const pointLeader=totals.filter(item=>item.games>0).sort((a,b)=>b.points-a.points)[0];
-      const superbowlWinner=summary?.teams.find(team=>team.finalStanding===1);
-      const manager=(id:string|undefined)=>id?managerFor(meta.slug,id)?.manager??'Team':'Awaiting scores';
-      return [<Link key={`${meta.slug}-season`} className="trophy-race" to="/summary"><div><h3>{meta.name} season champion</h3><span>{manager(seasonLeader?.id)} · {(summary?.completedWeeks??0)>=14?'Regular season complete':'Current leader'}</span><small>Week 14{meta.slug==='premier'?'':` · Automatic ${meta.slug==='championship'?'Premier':'Championship'} promotion`}</small></div></Link>,<Link key={`${meta.slug}-points`} className="trophy-race" to="/summary"><div><h3>{meta.name} points champion</h3><span>{manager(pointLeader?.teamId)}{pointLeader?` · ${points(pointLeader.points)} pts`:''}</span><small>Regular-season points through week 14</small></div></Link>,<Link key={`${meta.slug}-superbowl`} className="trophy-race" to={`/league/${meta.slug}`}><div><h3>{meta.name} Superbowl</h3><span>{superbowlWinner?`${manager(superbowlWinner.id)} · Champion`:'Awaiting ESPN playoff results'}</span><small>Top 8 qualify · {meta.slug==='league-one'?'Championship':'Premier'} promotion for champion</small></div></Link>];
-    })}</div>
-    <div className="section-heading"><h2>Historical leaderboard</h2><span className="muted">Through 2025</span></div><div className="archive-stats"><span><strong>{trophies}</strong> total trophies</span><span><strong>{finals}</strong> finals appearances</span><span><strong>30</strong> current managers</span></div><section className="surface"><div className="history-tabs" role="group" aria-label="Historical table"><button className={view==='trophies'?'active':''} aria-pressed={view==='trophies'} onClick={()=>setView('trophies')}>Trophy history</button><button className={view==='cup'?'active':''} aria-pressed={view==='cup'} onClick={()=>setView('cup')}>JFFL Cup history</button></div><div className="filters"><label className="search-field"><Search size={17}/><input aria-label="Search historical managers" placeholder="Search managers" value={search} onChange={event=>setSearch(event.target.value)}/></label><select aria-label="Historical league" value={league} onChange={event=>setLeague(event.target.value)}><option value="all">All leagues</option>{LEAGUES.map(meta=><option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select><button className="sort-button" aria-label="Toggle historical sort" onClick={()=>setSort(sort==='default'?'manager':'default')}><ArrowUpDown size={16}/>{sort==='manager'?'Name':'Rank'}</button></div><div className="table-scroll" tabIndex={0} role="region" aria-label="Historical manager statistics"><table className="history-table"><thead><tr><th>Manager</th><th>League</th>{view==='trophies'?<><th>Seasons</th><th>2025</th><th>2021+</th><th>2013+</th><th>All trophies</th><th>Trophies / season</th><th>Finals</th></>:<><th>All-time rank</th><th>Avg finish</th><th>Cup record</th><th>Win %</th><th>Cup titles</th><th>2026 seed</th></>}</tr></thead><tbody>{rows.map(item=><tr key={item.key}><td><Link className="manager-link" to={teamUrl(item.slug,item.teamId)}>{item.manager}</Link></td><td className={`league-label ${item.slug}`}>{LEAGUES.find(meta=>meta.slug===item.slug)?.name}</td>{view==='trophies'?<>{[item.seasons,item.trophies2025,item.trophies2021,item.trophies2013,item.trophies].map((value,index)=><td className={`numeric ${index===4?'emphasis':''}`} key={index}>{value}</td>)}<td className="numeric muted">{item.seasons>1?points(Math.round(item.trophies/(item.seasons-1)*10)/10):'—'}</td><td className="numeric">{item.finals}</td></>:<><td className="numeric">{item.cupRank||'Rookie'}</td><td className="numeric">{item.cupRank?points(item.cupAverageFinish):'—'}</td><td className="numeric">{item.cupWins}–{item.cupLosses}</td><td className="numeric">{item.cupWins+item.cupLosses?`${points(item.cupWins/(item.cupWins+item.cupLosses)*100)}%`:'—'}</td><td className="numeric emphasis">{item.cupTitles}</td><td className="numeric">{item.jfflSeed}</td></>}</tr>)}</tbody></table></div>{!rows.length&&<p className="empty-inline">No managers match your filters.</p>}</section>
+  return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">25 SEASONS <span>/</span> JFFL’S TROPHY ROOM</p><h1>Trophies & history</h1><p className="intro-copy">Who is leading this season, then the trophy history underneath.</p></div></section><UpdateStrip data={data}/>
+    <SeasonRaces data={data} />
+    <div className="section-heading"><h2>Historical leaderboard</h2><Link to="/archive">Archive</Link></div><div className="archive-stats"><span><strong>{trophies}</strong> total trophies</span><span><strong>{finals}</strong> finals appearances</span><span><strong>30</strong> current managers</span></div><section className="surface"><div className="history-tabs" role="group" aria-label="Historical table"><button className={view==='trophies'?'active':''} aria-pressed={view==='trophies'} onClick={()=>setView('trophies')}>Trophy history</button><button className={view==='cup'?'active':''} aria-pressed={view==='cup'} onClick={()=>setView('cup')}>JFFL Cup history</button></div><div className="filters"><label className="search-field"><Search size={17}/><input aria-label="Search historical managers" placeholder="Search managers" value={search} onChange={event=>setSearch(event.target.value)}/></label><select aria-label="Historical league" value={league} onChange={event=>setLeague(event.target.value)}><option value="all">All leagues</option>{LEAGUES.map(meta=><option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select><button className="sort-button" aria-label="Toggle historical sort" onClick={()=>setSort(sort==='default'?'manager':'default')}><ArrowUpDown size={16}/>{sort==='manager'?'Name':'Rank'}</button></div><HistoryBoard rows={rows} view={view} />{!rows.length&&<p className="empty-inline">No managers match your filters.</p>}</section>
     <p className="source-note">Trophy counts, finals, and cup records run through 2025. This season’s cup results are in the live brackets. Trophy rate excludes the current unfinished season.</p>
     <div className="section-heading"><h2>From the first draft to season 25</h2></div><ol className="history-timeline">{TIMELINE.map(event=><li key={event.year}><span>{event.year}</span><div><h3>{event.title}</h3><p>{event.detail}</p></div></li>)}</ol>
   </>;
