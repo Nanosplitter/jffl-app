@@ -231,7 +231,7 @@ export function AskPage() {
     <div className="ask-thread">
       {messages.length === 0 && <div className="ask-empty-state">
         <h2>Try a question</h2>
-        <p>Answers come only from the league archive (2002 to 2025). I may misread a question, so charts show the data behind them. Questions are sent to Google’s Gemini through Firebase, so please do not include personal details.</p>
+        <p>Answers come only from the league archive (2002 to 2025). Questions are sent to Google’s Gemini through Firebase, so please do not include personal details.</p>
         {STARTERS.map(group => <div key={group.title} className="ask-starter-group">
           <h3>{group.title}</h3>
           <div className="ask-starters">{group.items.map(item => <button key={item} type="button" disabled={busy || unavailable} onClick={() => void send(item)}>{item}</button>)}</div>
