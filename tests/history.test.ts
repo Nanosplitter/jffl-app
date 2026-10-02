@@ -40,7 +40,7 @@ test('the weekly record book does not treat two-week JFFL Cup totals as a week',
   assert.equal(weekly.blowouts[0]?.teamA ? Math.abs(weekly.blowouts[0].scoreA - weekly.blowouts[0].scoreB) : 0, 122);
 });
 
-test('the best regular-season record also wins that Super Bowl in 7 of 42 leagues', () => {
+test('the best regular-season record also wins that Superbowl in 7 of 42 leagues', () => {
   assert.deepEqual(overlap, { same: 7, leagues: 42 });
   const year = titles.find(item => item.season === 2019);
   const championship = year?.leagues.find(league => league.league === 'Championship');
@@ -91,7 +91,7 @@ test('week labels collapsed WK2 into week 2', () => {
   assert.equal(archive.games.some(game => game.type === 'Season' && game.week === null), false);
 });
 
-test('league cups and Super Bowls stay out of the JFFL Cup book', () => {
+test('league cups and Superbowls stay out of the JFFL Cup book', () => {
   assert.equal(recordBook(archive.games, LEAGUE_CUP).games > 0, true);
   assert.equal(recordBook(archive.games, SUPER_BOWL).highest.every(line => line.type === 'Superbowl'), true);
   assert.equal(cups.highest.every(line => line.league === 'JFFL'), true);

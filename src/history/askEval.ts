@@ -35,7 +35,7 @@ const mostBy = (session: Session, flag: string) => {
 };
 
 export const GOLDEN: Golden[] = [
-  { id: 'most-super-bowls', turns: ['Who has won the most Super Bowls?'], contains: session => mostBy(session, 'superBowlChamp'), tools: ['query_seasons'] },
+  { id: 'most-super-bowls', turns: ['Who has won the most Superbowls?'], contains: session => mostBy(session, 'superBowlChamp'), tools: ['query_seasons'] },
   { id: 'most-regular-season-titles', turns: ['Who has finished first in the regular season most often?'], contains: session => mostBy(session, 'seasonChamp') },
   {
     id: 'highest-weekly-score', turns: ['What is the highest score ever in a single regular-season week?'],
@@ -51,7 +51,7 @@ export const GOLDEN: Golden[] = [
     contains: session => { const record = summary(session, 'head_to_head', { a: 'Becky', b: 'Jeff' }); return [[String(record.BeckyWins)], [String(record.JeffWins)]]; },
   },
   {
-    id: 'best-record-super-bowl', turns: ['How often does the team with the best regular-season record win the Super Bowl?'],
+    id: 'best-record-super-bowl', turns: ['How often does the team with the best regular-season record win the Superbowl?'],
     contains: session => { const record = summary(session, 'title_years', {}); return [[String(record.bestRecordWonSuperBowl)], [String(record.leaguesWithSuperBowl)]]; },
   },
   {
@@ -78,7 +78,7 @@ export const GOLDEN: Golden[] = [
   { id: 'chart-career', turns: ['Show Jeff\u2019s career as a timeline'], charts: ['career_timeline'] },
   { id: 'chart-draft', turns: ['Show how draft slot relates to titles'], charts: ['draft_slot_curve', 'bar', 'line', 'scatter'] },
   {
-    id: 'follow-up-filter', turns: ['Who has won the most Super Bowls?', 'Now only count the Premier league since 2013'],
+    id: 'follow-up-filter', turns: ['Who has won the most Superbowls?', 'Now only count the Premier league since 2013'],
     tools: ['query_seasons'],
   },
   {

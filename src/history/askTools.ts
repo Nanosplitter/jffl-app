@@ -80,7 +80,7 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     league: { type: 'string', about: 'League that manager played in that year' },
     rankSeason: { type: 'number', about: 'Regular-season finish in the league, 1 is best. Null for 2026 until week 14 is final' },
     standing: { type: 'number', about: 'Current league position. Equals rankSeason for finished seasons' },
-    rankFinal: { type: 'number', about: 'Super Bowl finish, 1 is champion' },
+    rankFinal: { type: 'number', about: 'Superbowl finish, 1 is champion' },
     jfflRank: { type: 'number', about: 'JFFL Cup finish, 1 is champion (2013 onward)' },
     cupRank: { type: 'number', about: 'League cup finish, 1 is champion' },
     points: { type: 'number', about: 'Total regular-season points scored (2026: so far)' },
@@ -91,7 +91,7 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     draft: { type: 'number', about: 'Draft slot, 1 picks first. Unknown (null) for 2026' },
     pointsRank: { type: 'number', about: 'Rank by points scored within the league' },
     seasonChamp: { type: 'number', about: '1 if finished first in the regular season, 0 if not, null if unknown' },
-    superBowlChamp: { type: 'number', about: '1 if won the league Super Bowl, 0 if not, null if unknown' },
+    superBowlChamp: { type: 'number', about: '1 if won the league Superbowl, 0 if not, null if unknown' },
     leagueCupChamp: { type: 'number', about: '1 if won the league cup, 0 if not, null if unknown' },
     jfflCupChamp: { type: 'number', about: '1 if won the JFFL Cup, 0 if not, null if unknown' },
     topThree: { type: 'number', about: '1 if the regular-season finish was 1 to 3, 0 if not, null if unknown' },
@@ -116,7 +116,7 @@ export const DATA_NOTES = [
   'Seasons 2002 through 2025 are complete history. 2026 is in progress and comes from the live league snapshots, when they are loaded.',
   'Rows with status live are games still being played. Their scores can change. Records and "best ever" questions should use status final.',
   '2026 titles stay unknown (null) until they are decided. Player-level data (player_weeks) exists only for 2026.',
-  '2002 has standings and Super Bowl results but almost no weekly game scores.',
+  '2002 has standings and Superbowl results but almost no weekly game scores.',
   'JFFL Cup games (league JFFL, 2013 onward) use two-week totals. Do not compare those scores with a single week.',
   'Ties are separate from wins and losses.',
   'Names are manager nicknames. "team" always means the manager.',
@@ -560,7 +560,7 @@ export type DataToolName = (typeof DATA_TOOL_NAMES)[number];
 export const isDataTool = (name: string): name is DataToolName => (DATA_TOOL_NAMES as readonly string[]).includes(name);
 
 const BOOKS = { weekly: WEEKLY, jffl_cup: JFFL_CUP, league_cup: LEAGUE_CUP, super_bowl: SUPER_BOWL } as const;
-const BOOK_LABEL = { weekly: 'Weekly', jffl_cup: 'JFFL Cup', league_cup: 'League cups', super_bowl: 'Super Bowl' } as const;
+const BOOK_LABEL = { weekly: 'Weekly', jffl_cup: 'JFFL Cup', league_cup: 'League cups', super_bowl: 'Superbowl' } as const;
 
 const clamp = (value: unknown, fallback: number, min: number, max: number) => {
   const number = Number(value);
@@ -624,7 +624,7 @@ export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<s
       return {
         ok: true, title: `${a} vs ${b}`, columns: inferColumns(['season', 'league', 'when', 'team', 'opponent', 'score', 'opponentScore', 'diff', 'winner'], rows), rows: rows.map(row => ({ ...row })),
         matched: rows.length, truncated: false,
-        caveats: ['Regular-season meetings only. Cup and Super Bowl games are not included.', ...liveNote, ...(rows.length ? [] : ['They have no regular-season meetings.'])],
+        caveats: ['Regular-season meetings only. Cup and Superbowl games are not included.', ...liveNote, ...(rows.length ? [] : ['They have no regular-season meetings.'])],
         summary: { a, b, meetings: games.length, [`${a}Wins`]: aWins, [`${b}Wins`]: bWins, ties },
       };
     }

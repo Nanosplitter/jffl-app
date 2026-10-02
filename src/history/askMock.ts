@@ -56,7 +56,7 @@ export function createMockModel(): ModelLike {
       if (last.parts.some(part => 'functionResponse' in obj(part))) {
         const ids = datasetIdFrom(contents, index);
         if (calledSince === 1 && ids && /champion|title|won|winner/.test(lower)) {
-          return answer(response('', [{ name: 'render_chart', args: { type: 'bar', title: 'Super Bowl titles by manager', datasetId: ids, x: 'team', y: ['titles'], sort: 'y_desc', horizontal: true } }]));
+          return answer(response('', [{ name: 'render_chart', args: { type: 'bar', title: 'Superbowl titles by manager', datasetId: ids, x: 'team', y: ['titles'], sort: 'y_desc', horizontal: true } }]));
         }
         if (calledSince === 1 && ids && /score|highest|record/.test(lower)) {
           return answer(response('', [{ name: 'render_chart', args: { type: 'table', title: 'Highest single-week scores', datasetId: ids } }]));

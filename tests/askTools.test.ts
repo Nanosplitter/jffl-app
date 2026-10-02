@@ -118,7 +118,7 @@ test('records keep the JFFL Cup book separate from weekly scores', () => {
   assert.equal(runDataTool(ctx, 'records', { book: 'nope' }).ok, false);
 });
 
-test('title years report the 7 of 42 Super Bowl overlap', () => {
+test('title years report the 7 of 42 Superbowl overlap', () => {
   const result = runDataTool(ctx, 'title_years', {}) as { summary: { leaguesWithSuperBowl: number; bestRecordWonSuperBowl: number }; rows: Array<Record<string, unknown>> };
   assert.deepEqual(result.summary, { leaguesWithSuperBowl: 42, bestRecordWonSuperBowl: 7 });
   const championship = result.rows.find(row => row.season === 2019 && row.league === 'Championship');

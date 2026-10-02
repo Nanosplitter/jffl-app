@@ -227,7 +227,7 @@ export const ChartView = forwardRef<ChartHandle, ChartViewProps>(function ChartV
           </div>
           <fieldset><legend>Leagues</legend>{LEAGUES.map(league => <label key={league} className="ask-check"><input type="checkbox" checked={!!controls.leagues?.includes(league)} onChange={() => toggle('leagues', league)} />{league}</label>)}</fieldset>
           {table === 'team_games' && <>
-            <fieldset><legend>Games</legend>{TYPES.map(type => <label key={type} className="ask-check"><input type="checkbox" checked={!!controls.types?.includes(type)} onChange={() => toggle('types', type)} />{type === 'Superbowl' ? 'Super Bowl' : type}</label>)}</fieldset>
+            <fieldset><legend>Games</legend>{TYPES.map(type => <label key={type} className="ask-check"><input type="checkbox" checked={!!controls.types?.includes(type)} onChange={() => toggle('types', type)} />{type}</label>)}</fieldset>
             <label className="ask-check"><input type="checkbox" checked={!!controls.excludeTwoWeek} onChange={event => update({ excludeTwoWeek: event.target.checked })} />Leave out two-week JFFL Cup totals</label>
           </>}
         </>}

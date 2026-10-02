@@ -48,7 +48,7 @@ test('the loop runs tools, draws a chart, and keeps the model parts intact', asy
   ]);
   const contents: ModelContent[] = [];
   const events: AgentEvent[] = [];
-  const result = await runAgent({ model, session, contents, message: asks('Who won the most Super Bowls?'), onEvent: event => events.push(event) });
+  const result = await runAgent({ model, session, contents, message: asks('Who won the most Superbowls?'), onEvent: event => events.push(event) });
   assert.equal(result.steps, 3);
   assert.equal(result.charts.length, 1);
   assert.equal(result.datasets.length, 1);
@@ -176,6 +176,7 @@ test('every tool declaration is valid for Gemini and the prompt carries the sche
   assert.match(prompt, /Jeff, Becky/);
   assert.match(prompt, /Table team_games/);
   assert.match(prompt, /Follow-ups:/);
+  assert.match(prompt, /Always write Superbowl and Superbowls/);
 });
 
 test('the local test assistant exercises the whole path on the real archive', async () => {

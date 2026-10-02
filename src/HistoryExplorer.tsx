@@ -208,14 +208,14 @@ export function ArchivePage() {
     <div className="recap-metrics">
       <article><p className="eyebrow">PLAYED GAMES</p><strong>{history.games.length.toLocaleString('en-US')}</strong><span>With both scores. 2026 is still in progress.</span></article>
       <article><p className="eyebrow">WEEKLY SCORING</p><strong>{early} to {later}</strong><span>Mean points, 2003–2012, then 2013–2025.</span></article>
-      <article><p className="eyebrow">SEASON AND SUPER BOWL</p><strong>{overlap.same} of {overlap.leagues}</strong><span>Leagues where the best record also won the Super Bowl.</span></article>
+      <article><p className="eyebrow">SEASON AND SUPERBOWL</p><strong>{overlap.same} of {overlap.leagues}</strong><span>Leagues where the best record also won the Superbowl.</span></article>
     </div>
     <div className="section-heading"><h2>Regular-season scoring</h2></div>
     <ScoringChart />
     <div className="section-heading"><h2>Explore</h2></div>
     <nav className="archive-links" aria-label="Archive sections">
       <Link to="/archive/records"><strong>Record book</strong><span>Weekly high is {high ? `${high.team} ${points(high.score)} in ${high.season}` : '—'}. JFFL Cup totals are listed separately because they add two weeks.</span></Link>
-      <Link to="/archive/titles"><strong>Three titles</strong><span>Season rank, Super Bowl, and cup. The best record won the Super Bowl in {overlap.same} of {overlap.leagues} leagues.</span></Link>
+      <Link to="/archive/titles"><strong>Three titles</strong><span>Season rank, Superbowl, and cup. The best record won the Superbowl in {overlap.same} of {overlap.leagues} leagues.</span></Link>
       <Link to="/archive/rivals"><strong>Head-to-head</strong><span>{jeffBecky.played.length ? `Jeff is ${jeffBecky.winsLeft}${dash}${jeffBecky.winsRight} against Becky across every match.` : 'Every match, including playoffs and cups.'}</span></Link>
       <Link to="/archive/managers"><strong>Managers</strong><span>{careerBook.filter(row => row.seasons === 24).length} managers have a season in every year since 2002.</span></Link>
       <Link to="/archive/draft"><strong>Draft</strong><span>Picks 1 through 8 win the league about 10% of the time. Pick 9 or later wins it about 5%.</span></Link>
@@ -229,7 +229,7 @@ const BOOKS = [
   { id: 'weekly', label: 'Weekly', note: 'One regular-season week. This is the list for a single-week record.', pick: WEEKLY },
   { id: 'jffl', label: 'JFFL Cup', note: 'These rows are two-week totals. A 275 here is not a bigger week than a 170.', pick: JFFL_CUP },
   { id: 'league', label: 'League cups', note: 'Premier, Championship, and League One cup games.', pick: LEAGUE_CUP },
-  { id: 'bowl', label: 'Super Bowl', note: 'Playoff games, including the final.', pick: SUPER_BOWL },
+  { id: 'bowl', label: 'Superbowl', note: 'Playoff games, including the final.', pick: SUPER_BOWL },
 ] as const;
 
 export function RecordsPage() {
@@ -249,7 +249,7 @@ export function RecordsPage() {
 }
 
 const LEAGUE_ORDER = ['Combined', 'Premier', 'Championship', 'League One'];
-const RACE_NAME = { record: 'Best record', bowl: 'Super Bowl', cup: 'League cup' } as const;
+const RACE_NAME = { record: 'Best record', bowl: 'Superbowl', cup: 'League cup' } as const;
 type Race = keyof typeof RACE_NAME;
 
 function racePhrase(races: Race[]) {
@@ -267,7 +267,7 @@ function seasonFact(row: HistorySeason) {
   if (row.pointsPerWeek != null) scoring.push(`${row.pointsPerWeek.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} per week`);
   const races = [
     row.rankSeason != null ? `Finish ${row.rankSeason}` : '',
-    row.rankFinal != null ? `Super Bowl ${row.rankFinal}` : '',
+    row.rankFinal != null ? `Superbowl ${row.rankFinal}` : '',
     row.cupRank != null ? `Cup ${row.cupRank}` : '',
     row.jfflRank != null ? `JFFL rank ${row.jfflRank}` : '',
     row.draft != null ? `Draft ${row.draft}` : '',
@@ -317,7 +317,7 @@ function TitlesBoard() {
         <div className="title-columns title-columns-head">
           <span />
           <span>Best record</span>
-          <span>Super Bowl</span>
+          <span>Superbowl</span>
           <span>League cup</span>
         </div>
         <div className="title-leagues">
@@ -349,10 +349,10 @@ function TitlesBoard() {
 }
 
 export function TitlesPage() {
-  return <Shell eyebrow="2002–2025 / THREE RACES" title="Titles" copy="The regular-season winner, the Super Bowl champion, and the league cup champion are often three different managers.">
-    <div className="archive-stats"><span><strong>{overlap.same}</strong> of {overlap.leagues} Super Bowls won by that league’s top record</span></div>
+  return <Shell eyebrow="2002–2025 / THREE RACES" title="Titles" copy="The regular-season winner, the Superbowl champion, and the league cup champion are often three different managers.">
+    <div className="archive-stats"><span><strong>{overlap.same}</strong> of {overlap.leagues} Superbowls won by that league’s top record</span></div>
     <TitlesBoard />
-    <p className="source-note">Each column is a race. A name stretched across columns won each of those races. The same name in two separate columns won both, with someone else in between. Hover a name for that season’s record, points, and finishes. In 2006, Brendan and Tom both sit at rank 1. JFFL Cup begins in 2013 and is listed once for the year. League cups begin when that league does. 2002 has standings and a Super Bowl, and almost no weekly scores.</p>
+    <p className="source-note">Each column is a race. A name stretched across columns won each of those races. The same name in two separate columns won both, with someone else in between. Hover a name for that season’s record, points, and finishes. In 2006, Brendan and Tom both sit at rank 1. JFFL Cup begins in 2013 and is listed once for the year. League cups begin when that league does. 2002 has standings and a Superbowl, and almost no weekly scores.</p>
   </Shell>;
 }
 
@@ -456,7 +456,7 @@ function whenLabel(game: HistoryGame) {
 }
 
 function finalLabel(game: HistoryGame) {
-  if (game.type === 'Superbowl') return 'Super Bowl';
+  if (game.type === 'Superbowl') return 'Superbowl';
   return game.league === 'JFFL' ? 'JFFL Cup final' : `${game.league} cup final`;
 }
 
@@ -486,7 +486,7 @@ function PairChart({ left, right, games }: { left: string; right: string; games:
   const option = useMemo(() => h2hMargins(dark, left, games.map(marginLabel), games.map(game => {
     const leftScore = game.teamA === left ? game.scoreA : game.scoreB;
     const rightScore = game.teamA === left ? game.scoreB : game.scoreA;
-    const event = game.type === 'Season' ? `${game.season} week ${game.week ?? '—'}` : `${game.season} ${game.type === 'Superbowl' ? 'Super Bowl' : `${game.league} cup`}`;
+    const event = game.type === 'Season' ? `${game.season} week ${game.week ?? '—'}` : `${game.season} ${game.type === 'Superbowl' ? 'Superbowl' : `${game.league} cup`}`;
     return {
       value: leftScore - rightScore,
       tip: `<b>${event}</b> · ${esc(game.league)}<br/>${esc(left)} ${points(leftScore)}, ${esc(right)} ${points(rightScore)}`,
@@ -535,7 +535,7 @@ export function ManagersPage() {
     const colors = ['--title-season', '--title-super', '--title-cup', '--title-jffl'].map((name, index) => style.getPropertyValue(name).trim() || fallback[index]);
     const parts = [
       { name: 'Season title', color: colors[0], values: ranked.map(row => row.seasonTitles) },
-      { name: 'Super Bowl', color: colors[1], values: ranked.map(row => row.superBowls) },
+      { name: 'Superbowl', color: colors[1], values: ranked.map(row => row.superBowls) },
       { name: 'League cup', color: colors[2], values: ranked.map(row => row.leagueCups) },
       { name: 'JFFL Cup', color: colors[3], values: ranked.map(row => row.jfflCups) },
     ];
@@ -544,7 +544,7 @@ export function ManagersPage() {
       tips: ranked.map(row => {
         const total = titleTotal(row);
         const rate = careerRate(row);
-        return `<b>${esc(row.team)}</b><br/>${total} titles in ${row.seasons} seasons, ${row.first}${dash}${row.last}<br/>${row.wins}${dash}${row.losses}${row.ties ? `${dash}${row.ties}` : ''}${rate === null ? '' : ` · ${rate}%`}<br/>${row.seasonTitles} season titles · ${row.superBowls} Super Bowls<br/>${row.leagueCups} league cups · ${row.jfflCups} JFFL Cups`;
+        return `<b>${esc(row.team)}</b><br/>${total} titles in ${row.seasons} seasons, ${row.first}${dash}${row.last}<br/>${row.wins}${dash}${row.losses}${row.ties ? `${dash}${row.ties}` : ''}${rate === null ? '' : ` · ${rate}%`}<br/>${row.seasonTitles} season titles · ${row.superBowls} Superbowls<br/>${row.leagueCups} league cups · ${row.jfflCups} JFFL Cups`;
       }),
       urls: ranked.map(row => managerUrl(row.team)),
       room: 112,
@@ -568,14 +568,14 @@ export function ManagerArchivePage() {
   const weeklyHigh = recordBook(history.games.filter(game => game.teamA === name || game.teamB === name), WEEKLY).highest.find(line => line.team === name);
   if (!career) return <Shell eyebrow="LEAGUE ARCHIVE" title="Manager not found" copy="That name is not in the workbook through 2025."><p><Link to="/archive/managers">All managers</Link></p></Shell>;
   const label = (count: number, singular: string, plural: string) => `${count} ${count === 1 ? singular : plural}`;
-  return <Shell eyebrow={`${career.first}–${career.last} / ${career.seasons} SEASONS`} title={career.team} copy={`${label(career.seasonTitles, 'season title', 'season titles')}, ${label(career.superBowls, 'Super Bowl', 'Super Bowls')}, ${label(career.leagueCups, 'league cup', 'league cups')}, ${label(career.jfflCups, 'JFFL Cup', 'JFFL Cups')}.`}>
+  return <Shell eyebrow={`${career.first}–${career.last} / ${career.seasons} SEASONS`} title={career.team} copy={`${label(career.seasonTitles, 'season title', 'season titles')}, ${label(career.superBowls, 'Superbowl', 'Superbowls')}, ${label(career.leagueCups, 'league cup', 'league cups')}, ${label(career.jfflCups, 'JFFL Cup', 'JFFL Cups')}.`}>
     <p><Link className="back-link" to="/archive/managers">All managers</Link></p>
     <div className="recap-metrics">
       <article><p className="eyebrow">RECORD</p><strong>{career.wins}{dash}{career.losses}{career.ties ? `${dash}${career.ties}` : ''}</strong><span>Regular-season games in the team-season table.</span></article>
       <article><p className="eyebrow">WEEKLY HIGH</p><strong>{weeklyHigh ? points(weeklyHigh.score) : '—'}</strong><span>{weeklyHigh ? `${weeklyHigh.season} ${weeklyHigh.league} ${roundLabel(weeklyHigh)} vs ${weeklyHigh.opponent}` : 'No weekly score'}</span></article>
     </div>
     <CareerChart seasons={seasons} />
-    <p className="source-note">Bars are season points. The line is regular-season finish, with 1 at the top. Hover a season for the record, Super Bowl rank, cup rank, and draft slot. A blank finish means the workbook left that race empty.</p>
+    <p className="source-note">Bars are season points. The line is regular-season finish, with 1 at the top. Hover a season for the record, Superbowl rank, cup rank, and draft slot. A blank finish means the workbook left that race empty.</p>
   </Shell>;
 }
 
@@ -586,7 +586,7 @@ function CareerChart({ seasons }: { seasons: typeof history.seasons }) {
     season: String(row.season),
     points: row.points,
     finish: row.rankSeason,
-    tip: `<b>${row.season} ${esc(row.league)}</b><br/>${row.wins ?? '—'}${dash}${row.losses ?? '—'}${row.ties ? `${dash}${row.ties}` : ''}<br/>Finish ${row.rankSeason ?? '—'} · Super Bowl ${row.rankFinal ?? '—'} · Cup ${row.cupRank ?? '—'}<br/>${points(row.points)} points · draft ${row.draft ?? '—'}`,
+    tip: `<b>${row.season} ${esc(row.league)}</b><br/>${row.wins ?? '—'}${dash}${row.losses ?? '—'}${row.ties ? `${dash}${row.ties}` : ''}<br/>Finish ${row.rankSeason ?? '—'} · Superbowl ${row.rankFinal ?? '—'} · Cup ${row.cupRank ?? '—'}<br/>${points(row.points)} points · draft ${row.draft ?? '—'}`,
   }))), [dark, ordered]);
   return <ArchiveChart option={option} summary={`Career by season. Points are bars. Finish is the line, with 1 at the top.`} height={420} />;
 }

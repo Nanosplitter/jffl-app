@@ -609,7 +609,7 @@ function SeasonRaces({ data }: { data: SummaryMap }) {
       })}</div>
     </div>
     <div className="trophy-group">
-      <header className="trophy-group-head"><h3>Super Bowl</h3><p>Playoff after week 14</p></header>
+      <header className="trophy-group-head"><h3>Superbowl</h3><p>Playoff after week 14</p></header>
       <div className="trophy-row">{LEAGUES.map(meta => {
         const summary = data[meta.slug];
         const winner = summary?.teams.find(team => team.finalStanding === 1);

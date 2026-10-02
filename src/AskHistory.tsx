@@ -24,8 +24,8 @@ import { useLiveArchive } from './useLiveArchive';
 const LIVE_STARTERS = { title: 'This season', items: ['Who scored the most points this week?', 'Who is top of each league right now?', 'Who left the most points on the bench this week?'] };
 
 const STARTERS = [
-  { title: 'Specific', items: ['Who has won the most Super Bowls?', 'What is the highest single-week score ever?', 'What is Becky\u2019s record against Jeff?'] },
-  { title: 'Big picture', items: ['How has scoring changed over the years?', 'Does draft position matter for winning titles?', 'How often does the best regular-season record win the Super Bowl?'] },
+  { title: 'Specific', items: ['Who has won the most Superbowls?', 'What is the highest single-week score ever?', 'What is Becky\u2019s record against Jeff?'] },
+  { title: 'Big picture', items: ['How has scoring changed over the years?', 'Does draft position matter for winning titles?', 'How often does the best regular-season record win the Superbowl?'] },
   { title: 'Make me a chart', items: ['Chart the average score per season for each league', 'Who beats whom in the Premier league since 2013?', 'Show Jeff\u2019s career as a timeline'] },
 ];
 

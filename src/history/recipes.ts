@@ -135,7 +135,7 @@ function careerTimeline(spec: ChartSpec, env: BuildEnv): ResolvedChart {
       formatter: (params: Array<{ axisValue: string }>) => {
         const row = by.get(Number(params[0]?.axisValue));
         if (!row) return esc(params[0]?.axisValue);
-        const parts = [`Finish ${row.rankSeason ?? '\u2014'} in ${row.league}`, row.wins != null ? `Record ${row.wins}\u2013${row.losses ?? '\u2014'}${row.ties ? `\u2013${row.ties}` : ''}` : '', row.rankFinal === 1 ? 'Won the Super Bowl' : '', row.cupRank === 1 ? 'Won the league cup' : '', row.jfflRank === 1 ? 'Won the JFFL Cup' : '', row.draft != null ? `Drafted ${row.draft}` : ''].filter(Boolean);
+        const parts = [`Finish ${row.rankSeason ?? '\u2014'} in ${row.league}`, row.wins != null ? `Record ${row.wins}\u2013${row.losses ?? '\u2014'}${row.ties ? `\u2013${row.ties}` : ''}` : '', row.rankFinal === 1 ? 'Won the Superbowl' : '', row.cupRank === 1 ? 'Won the league cup' : '', row.jfflRank === 1 ? 'Won the JFFL Cup' : '', row.draft != null ? `Drafted ${row.draft}` : ''].filter(Boolean);
         return `<b>${row.season}</b><br/>${parts.map(esc).join('<br/>')}`;
       },
     },
@@ -143,7 +143,7 @@ function careerTimeline(spec: ChartSpec, env: BuildEnv): ResolvedChart {
     yAxis: { type: 'value', inverse: true, min: 1, max: maxRank, interval: 1, name: 'Regular-season finish', ...axisStyle(theme) },
     series: [
       { type: 'line', name: 'Regular-season finish', data: finish, connectNulls: false, symbolSize: 7, lineStyle: { width: 2.5, color: theme.palette[0] }, itemStyle: { color: theme.palette[0] } },
-      markers('rankFinal', 'Super Bowl', 'diamond', theme.palette[1], 20),
+      markers('rankFinal', 'Superbowl', 'diamond', theme.palette[1], 20),
       markers('cupRank', 'League cup', 'triangle', theme.palette[2], 17),
       markers('jfflRank', 'JFFL Cup', 'rect', theme.palette[3], 16),
     ],
@@ -152,14 +152,14 @@ function careerTimeline(spec: ChartSpec, env: BuildEnv): ResolvedChart {
   const cards: Card[] = career ? [
     { label: 'Seasons', value: String(career.seasons), note: `${career.first} to ${career.last}` },
     { label: 'Season titles', value: String(career.seasonTitles) },
-    { label: 'Super Bowls', value: String(career.superBowls) },
+    { label: 'Superbowls', value: String(career.superBowls) },
     { label: 'League cups', value: String(career.leagueCups) },
     { label: 'JFFL Cups', value: String(career.jfflCups) },
   ] : [];
   return skeleton(spec, {
     option, cards, height: 360,
-    table: { columns: ['Season', 'League', 'Finish', 'Super Bowl', 'Cup', 'JFFL Cup', 'Wins', 'Losses', 'Draft'], rows: seasons.map(row => [row.season, row.league, row.rankSeason, row.rankFinal, row.cupRank, row.jfflRank, row.wins, row.losses, row.draft]) },
-    summary: `${name}'s career from ${first} to ${last}: ${career ? `${career.seasonTitles} season titles, ${career.superBowls} Super Bowls, ${career.leagueCups} league cups, ${career.jfflCups} JFFL Cups.` : ''}`,
+    table: { columns: ['Season', 'League', 'Finish', 'Superbowl', 'Cup', 'JFFL Cup', 'Wins', 'Losses', 'Draft'], rows: seasons.map(row => [row.season, row.league, row.rankSeason, row.rankFinal, row.cupRank, row.jfflRank, row.wins, row.losses, row.draft]) },
+    summary: `${name}'s career from ${first} to ${last}: ${career ? `${career.seasonTitles} season titles, ${career.superBowls} Superbowls, ${career.leagueCups} league cups, ${career.jfflCups} JFFL Cups.` : ''}`,
     caveats: ['Rank 1 is first. A gap in the line means the archive has no finish for that year. Markers sit at that season\u2019s regular-season finish.'],
   });
 }
@@ -172,7 +172,7 @@ function trophyWall(spec: ChartSpec, env: BuildEnv): ResolvedChart {
   rows = rows.sort((a, b) => b.total - a.total || a.team.localeCompare(b.team)).slice(0, p.managers?.length ? 16 : 15);
   if (!rows.length) return emptyChart(spec.title, 'No managers to show.');
   const kinds = [
-    ['Season titles', 'seasonTitles', theme.palette[0]], ['Super Bowls', 'superBowls', theme.palette[1]],
+    ['Season titles', 'seasonTitles', theme.palette[0]], ['Superbowls', 'superBowls', theme.palette[1]],
     ['League cups', 'leagueCups', theme.palette[2]], ['JFFL Cups', 'jfflCups', theme.palette[3]],
   ] as const;
   const option = {
@@ -300,7 +300,7 @@ function h2hScoreboard(spec: ChartSpec, env: BuildEnv): ResolvedChart {
     option, cards, height: 320,
     table: { columns: ['Game', 'League', a!, b!, 'Margin'], rows: rows.map(row => [row.when, row.league, row.aScore, row.bScore, row.diff]) },
     summary: `${a} versus ${b}: ${aWins}\u2013${bWins}${ties ? `\u2013${ties}` : ''} over ${games.length} regular-season meetings. Bars above zero are ${a} wins.`,
-    caveats: ['Regular-season meetings only. Cup and Super Bowl games are not included.'],
+    caveats: ['Regular-season meetings only. Cup and Superbowl games are not included.'],
   });
 }
 

@@ -99,7 +99,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'title_years',
-    description: 'Who won the regular season (best record), the Super Bowl, the league cup, and the JFFL Cup each year, by league. Also counts how often the best record won the Super Bowl. 2026 titles are null until decided.',
+    description: 'Who won the regular season (best record), the Superbowl, the league cup, and the JFFL Cup each year, by league. Also counts how often the best record won the Superbowl. 2026 titles are null until decided.',
     parameters: { type: 'object', properties: { league: str(`Optional league: ${LEAGUES.join(', ')}.`), from: int('First season, 2002 or later.'), to: int('Last season, 2026 or earlier.') } },
   },
   {
@@ -222,6 +222,7 @@ Cards
 ` : ''}
 Style
 - Answer in plain, concise language, in short paragraphs or a short list. No tables, no emojis, no headings.
+- This league's championship is the Superbowl, one word. Always write Superbowl and Superbowls. "Super Bowl" is only for the real NFL game.
 - Do not mention tools, datasets, JSON, or datasetIds to the user.
 - Finish with one line: Follow-ups: first question | second question | third question. Make them specific follow-up questions this archive can answer.
 
