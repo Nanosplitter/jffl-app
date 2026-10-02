@@ -64,9 +64,10 @@ contact information, and mail metadata are not published.
 
 ## Ask the archive (AI assistant)
 
-`/archive/ask` lets visitors ask questions about the 2002 to 2025 archive in plain
-language and get answers with interactive charts. `/archive/ask/share#...` opens a
-shared answer. Archive is a header section; Ask the archive is one of its pages.
+`/archive/ask` lets visitors ask questions about the 2002 to 2025 archive and the
+2026 season in progress in plain language, and get answers with interactive charts.
+`/archive/ask/share#...` opens a shared answer. Archive is a header section; Ask the
+archive is one of its pages.
 
 How it works:
 
@@ -80,6 +81,16 @@ How it works:
   (`src/history/askTools.ts`) that run exact queries over the bundled `archive.json`:
   game and season queries, head-to-head, manager careers, record book, title years,
   draft slots, and week slices. It then asks for a chart by naming a returned dataset.
+- The 2026 season comes from the same Firestore snapshots as the rest of the site
+  (`publicLeagues` and `publicRosters`), never from ESPN directly. `src/history/liveSeason.ts`
+  maps ESPN teams to manager nicknames and turns the snapshots into 2026 game and season rows
+  plus a 2026-only `player_weeks` table (`query_players`: starters, bench, and points by week).
+  Games still being played have `status: live`, and answers and caveats say so with the
+  snapshot time. Records, head-to-head, and week-in-history count finished games only. 2026
+  titles stay unknown until decided, and the 2026 draft slot is not available. Past-week
+  bench players are not in ESPN's saved lineups, so their slot is unknown. The page shows
+  "This season as of ..." and rebuilds the tables when a snapshot updates; charts already on
+  screen keep their rows.
 - Charts (`src/history/chartSpec.ts`, `chartBuild.ts`, `recipes.ts`, `src/AskCharts.tsx`) are
   typed specs (line, area, bar, stacked bar, scatter, heatmap, radar, boxplot, table, stat cards,
   rank over time), seven league recipes (rivalry matrix, season race, career timeline, trophy
@@ -95,7 +106,8 @@ How it works:
   links hold the chart recipe and the queries (not rows) in the URL fragment, compressed
   (limit 8 KB). The receiving browser re-validates and rebuilds everything from its own copy of
   the archive and makes no model call. The written summary in a link is unverified text and is
-  shown as plain text with a note.
+  shown as plain text with a note. A link whose charts use 2026 data also holds the snapshot
+  time; the receiver's charts use their current snapshot and say the numbers may have changed.
 - Questions and tool results are sent to Google (Gemini) through Firebase, so the page tells
   visitors not to include personal details.
 
@@ -133,9 +145,10 @@ budget alerts at $5 and $10. At the introductory $0.75 in / $3.75 out per millio
 of 2026; $1.50 / $7.50 after), an answer with a few tool steps is typically a fraction of a cent. Run
 the evaluation below to measure the real cost per question before widening access.
 
-Quality check (local, billable, never run in CI): `scripts/eval-ask.ts` sends about 18 golden
+Quality check (local, billable, never run in CI): `scripts/eval-ask.ts` sends about 19 golden
 questions (`src/history/askEval.ts`) to the Gemini API with your own key and compares answers with
-numbers computed from the archive.
+numbers computed from the archive. The current-season question uses the committed week 3
+fixtures in `tests/fixtures/`, not live ESPN data.
 
 ```powershell
 $env:GEMINI_API_KEY = '<your key>'   # shell only; do not write it to a file
@@ -230,7 +243,7 @@ snapshot and record the failed attempt separately. If even the status write fail
 the next league still refreshes; the client recognizes stale timestamps.
 
 The frontend subscribes to three summaries. Rosters load only for team/player
-pages. All visitors share the same provider reads; visiting a page never contacts
+pages and after the first question in Ask the archive. All visitors share the same provider reads; visiting a page never contacts
 ESPN. Arrays are exempted from Firestore indexing to avoid unnecessary index work.
 
 ## Cloud maintenance
@@ -275,6 +288,10 @@ The target is below $5/month, not a guaranteed total. At a three-minute cadence,
 six published-document writes per run are about 2,880 writes per day; lease traffic,
 visitor document reads, hosting transfer, logs, builds, and container storage also
 contribute. Inactive functions scale to zero. One scheduler job serves all leagues.
+Ask the archive reads the three roster documents only once a visitor sends a first
+question (or opens a saved chat or share link that used player data). That adds
+three document reads, plus three more each time the updater publishes a new roster
+snapshot while the page stays open. Visits without a question add none.
 
 [Firebase spend caps](https://firebase.google.com/docs/projects/billing/spend-caps)
 are currently a preview feature, use gross estimated costs before credits, and

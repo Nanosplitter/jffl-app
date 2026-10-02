@@ -15,7 +15,7 @@ const list = (description: string, items: Record<string, unknown> = { type: 'str
 const filterItem = {
   type: 'object',
   properties: {
-    field: str('Column name.'),
+    field: str('Column name. Use status ("final" or "live") to include or leave out 2026 games still being played.'),
     op: { type: 'string', enum: [...FILTER_OPS], description: 'eq, ne, gt, gte, lt, lte, in (comma-separated list), between (two comma-separated values, inclusive), contains (text), is_null, not_null.' },
     value: str('The value as text, for example "2013" or "Jeff". For in and between, a comma-separated list such as "2013,2025". Not needed for is_null and not_null.'),
   },
@@ -57,12 +57,17 @@ const queryProperties = {
 export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   {
     name: 'query_games',
-    description: 'Search game results. One row per team per game (each game appears twice, once from each side), so team-level questions such as highest scores, average points, or win counts work directly. Set within to keep whoever held the min or max inside each group (the lowest score in a league-week), then groupBy and count those rows. Returns a datasetId you can pass to render_chart.',
+    description: 'Search game results. One row per team per game (each game appears twice, once from each side), so team-level questions such as highest scores, average points, or win counts work directly. 2026 games have status live while being played; filter status final for records. Set within to keep whoever held the min or max inside each group (the lowest score in a league-week), then groupBy and count those rows. Returns a datasetId you can pass to render_chart.',
     parameters: { type: 'object', properties: queryProperties },
   },
   {
     name: 'query_seasons',
-    description: 'Search team-season results: finishes, records, points, draft slot, and championship flags (seasonChamp, superBowlChamp, leagueCupChamp, jfflCupChamp, topThree are 1, 0, or null when unknown). One row per manager per season. Returns a datasetId you can pass to render_chart.',
+    description: 'Search team-season results: finishes, records, points, draft slot, and championship flags (seasonChamp, superBowlChamp, leagueCupChamp, jfflCupChamp, topThree are 1, 0, or null when unknown). One row per manager per season. The 2026 rows have status live: standing is the current position and undecided titles are null. Returns a datasetId you can pass to render_chart.',
+    parameters: { type: 'object', properties: queryProperties },
+  },
+  {
+    name: 'query_players',
+    description: 'Search 2026 player scores. One row per rostered player per week, with the manager (team), slot, starter (1 starter, 0 bench or IR, null unknown), points, and status (live while that week is being played). Use it for top scorers this week, a manager\u2019s best starters, or points left on the bench (starter 0). There is no player data before 2026. Returns a datasetId you can pass to render_chart.',
     parameters: { type: 'object', properties: queryProperties },
   },
   {
@@ -72,17 +77,17 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'head_to_head',
-    description: 'Regular-season history between two managers: every meeting plus wins, losses, and ties. Returns a datasetId.',
+    description: 'Regular-season history between two managers: every finished meeting plus wins, losses, and ties. Live 2026 games are left out. Returns a datasetId.',
     parameters: { type: 'object', properties: { a: str('First manager nickname.'), b: str('Second manager nickname.') }, required: ['a', 'b'] },
   },
   {
     name: 'manager_career',
-    description: 'One manager\u2019s career: every season with finish, record, draft slot, and trophies, plus career totals. Returns a datasetId.',
+    description: 'One manager\u2019s career: every season with finish, record, draft slot, and trophies, plus career totals for finished seasons. The 2026 row is in progress. Returns a datasetId.',
     parameters: { type: 'object', properties: { name: str('Manager nickname.') }, required: ['name'] },
   },
   {
     name: 'records',
-    description: 'The record book: highest or lowest single scores, widest margins, one-point games, or ties. JFFL Cup scores are two-week totals and are only in the jffl_cup book.',
+    description: 'The record book: highest or lowest single scores, widest margins, one-point games, or ties. Counts finished games only, including finished 2026 games. JFFL Cup scores are two-week totals and are only in the jffl_cup book.',
     parameters: {
       type: 'object',
       properties: {
@@ -94,8 +99,8 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'title_years',
-    description: 'Who won the regular season (best record), the Super Bowl, the league cup, and the JFFL Cup each year, by league. Also counts how often the best record won the Super Bowl.',
-    parameters: { type: 'object', properties: { league: str(`Optional league: ${LEAGUES.join(', ')}.`), from: int('First season, 2002 or later.'), to: int('Last season, 2025 or earlier.') } },
+    description: 'Who won the regular season (best record), the Super Bowl, the league cup, and the JFFL Cup each year, by league. Also counts how often the best record won the Super Bowl. 2026 titles are null until decided.',
+    parameters: { type: 'object', properties: { league: str(`Optional league: ${LEAGUES.join(', ')}.`), from: int('First season, 2002 or later.'), to: int('Last season, 2026 or earlier.') } },
   },
   {
     name: 'draft_slot_stats',
@@ -104,7 +109,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'week_slice',
-    description: 'One regular-season week number across every season: the highest score each year, plus the overall high, low, and widest margin.',
+    description: 'One regular-season week number across every season: the highest score each year, plus the overall high, low, and widest margin. Finished games only.',
     parameters: { type: 'object', properties: { week: int('Regular-season week number, such as 1 or 9.') }, required: ['week'] },
   },
   {
@@ -150,18 +155,28 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
 ];
 
-export function buildSystemPrompt(managers: string[]) {
-  return `You are the JFFL archive assistant on a fantasy football league site. You answer questions about the league's history from 2002 through 2025 and draw interactive charts. You can only use the archive tools. You have no live scores, no ESPN access, and no information about the current 2026 season.
+export interface LivePromptInfo { season: number; week: number | null; asOf: string | null; players: boolean }
+
+function seasonScope(live: LivePromptInfo | null | undefined) {
+  if (!live) return `You answer questions about the league's history from 2002 through 2025 and draw interactive charts. You can only use the archive tools. The current 2026 season is not loaded right now, so you have no information about it.`;
+  return `You answer questions about the league's complete history from 2002 through 2025, and about the ${live.season} season in progress${live.week ? ` (currently week ${live.week})` : ''}, and draw interactive charts. ${live.season} data comes from the league snapshots the site copies from ESPN every few minutes, so it can be a few minutes old. You can only use the archive tools.${live.players ? '' : ` Player-level data is not loaded right now, so query_players will not work.`}`;
+}
+
+export function buildSystemPrompt(managers: string[], live?: LivePromptInfo | null) {
+  return `You are the JFFL archive assistant on a fantasy football league site. ${seasonScope(live)}
 
 How to work
 - Get every number from a tool. Never state a score, count, rate, or year that did not come from a tool result in this conversation.
-- Pick the simplest tool. query_games and query_seasons answer most questions. Use head_to_head, manager_career, records, title_years, draft_slot_stats, and week_slice when they fit.
+- Pick the simplest tool. query_games and query_seasons answer most questions. Use query_players for 2026 player scores, and head_to_head, manager_career, records, title_years, draft_slot_stats, and week_slice when they fit.
+- 2026 is in progress. When a score comes from a row with status live, say it is live and can still change. Give 2026 standings as current positions, not finishes. Never predict outcomes, final standings, or who will win a game or title.
+- For records, "best ever", and other all-time comparisons, use finished games: filter status final in query_games. The records, head_to_head, and week_slice tools already skip live games.
+- "This week" or "this season" means the 2026 season in progress.
 - To find who held the highest or lowest value inside each group, set within, then group and count the kept rows. For who scored the lowest in their league-week the most times in a season: filter type Season and score not_null, within { groupBy: ["season", "league", "week"], fn: "min", field: "score" }, groupBy ["season", "team"], count as weeks, sort weeks desc. Use fn "max" for the highest score in the week. Leave league out of within.groupBy for the lowest score in the whole archive that week. Ties for the extreme all count. Do not download raw weeks to count this yourself; the tool returns the short list.
 - If a name could be a typo or could match more than one manager, call resolve_entity. If several managers match, ask which one the user means before answering.
 - Report sample sizes when they are small (under 10 games or seasons) and say the result is a small sample.
 - If a result is empty or truncated, say so. Unknown values are unknown; never treat them as zero.
 - Mention relevant data notes briefly (for example, JFFL Cup scores are two-week totals, so they are never compared with single weeks).
-- If the question is unrelated to the league archive, say you can only help with league history.
+- If the question is unrelated to the league, say you can only help with league history and the current season.
 
 Charts
 - Use render_chart when a picture is clearer than a sentence: trends over seasons, comparisons, rankings, matrices. Skip charts for simple one-number answers. At most two charts per answer.

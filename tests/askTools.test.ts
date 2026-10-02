@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { applyControls, createContext, datasetForModel, parseQuery, resolveEntity, runDataTool, runQuery, type Dataset, type Query } from '../src/history/askTools.ts';
 import { parseArchive, type ArchiveFile } from '../src/history/stats.ts';
+import type { SummaryMap } from '../src/competitions.ts';
+import { buildLiveSeason, type RosterMap } from '../src/history/liveSeason.ts';
 
 const archive = parseArchive(JSON.parse(readFileSync(new URL('../src/history/archive.json', import.meta.url), 'utf8')) as ArchiveFile);
 const ctx = createContext(archive);
@@ -200,4 +202,74 @@ test('the model sees a compact preview, not every row', () => {
   assert.equal(seen.rows.length, 25);
   assert.ok(seen.note?.includes('ds9'));
   assert.equal(seen.columnStats?.score.max, Math.max(...big.rows.map(row => row.score as number)));
+});
+
+// ---------- The season in progress ----------
+
+const fixture = <T>(name: string) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')) as T;
+const live = buildLiveSeason(fixture<SummaryMap>('week3-summaries.json'), fixture<RosterMap>('week3-rosters.json'))!;
+const liveCtx = createContext({ ...archive, live });
+const liveRun = (name: Parameters<typeof runDataTool>[1], args: Record<string, unknown>) => {
+  const outcome = runDataTool(liveCtx, name, args);
+  assert.equal(outcome.ok, true, outcome.ok ? '' : outcome.error);
+  return outcome as { rows: Array<Record<string, unknown>>; caveats: string[]; summary?: Record<string, unknown> };
+};
+
+test('archive rows are final and live 2026 rows carry their status', () => {
+  assert.ok(ctx.tables.team_games.every(row => row.status === 'final'));
+  assert.equal(ctx.tables.player_weeks.length, 0);
+  const rows = liveCtx.tables.team_games.filter(row => row.season === 2026);
+  assert.equal(rows.length, live.games.length * 2);
+  assert.ok(rows.some(row => row.status === 'live') && rows.some(row => row.status === 'final'));
+  const seasons = liveCtx.tables.seasons.filter(row => row.season === 2026);
+  assert.equal(seasons.length, 30);
+  assert.ok(seasons.every(row => row.status === 'live' && row.seasonChamp === null && row.topThree === null));
+  assert.equal(liveCtx.tables.seasons.find(row => row.season === 2025)?.standing, liveCtx.tables.seasons.find(row => row.season === 2025)?.rankSeason);
+});
+
+test('a query spanning 2025 and 2026 returns both seasons and the live caveat', () => {
+  const result = liveRun('query_games', {
+    filters: [{ field: 'type', op: 'eq', value: 'Season' }, { field: 'season', op: 'between', value: '2025,2026' }],
+    groupBy: ['season', 'status'], aggregates: [{ fn: 'count', as: 'games' }],
+  });
+  assert.deepEqual(result.rows.map(row => [row.season, row.status]), [[2025, 'final'], [2026, 'final'], [2026, 'live']]);
+  assert.ok(result.caveats.some(text => /live scores as of/i.test(text)));
+  const finals = liveRun('query_games', { filters: [{ field: 'season', op: 'eq', value: 2026 }, { field: 'status', op: 'eq', value: 'final' }], aggregates: [{ fn: 'count' }] });
+  assert.equal(finals.caveats.some(text => /live scores/i.test(text)), false);
+  const standings = liveRun('query_seasons', { filters: [{ field: 'season', op: 'eq', value: 2026 }, { field: 'standing', op: 'eq', value: 1 }], select: ['league', 'team', 'standing'] });
+  assert.equal(standings.rows.length, 3);
+  assert.ok(standings.caveats.some(text => text.includes('in progress')));
+});
+
+test('query_players aggregates player weeks and flags unknown slots', () => {
+  const bench = liveRun('query_players', {
+    filters: [{ field: 'week', op: 'eq', value: 3 }, { field: 'starter', op: 'eq', value: 0 }],
+    groupBy: ['team'], aggregates: [{ fn: 'sum', field: 'points', as: 'benchPoints' }],
+  });
+  assert.deepEqual(bench.rows, [{ team: 'Jason', benchPoints: 15.2 }]);
+  assert.ok(bench.caveats.some(text => /live scores/i.test(text)));
+  const all = liveRun('query_players', { filters: [{ field: 'player', op: 'eq', value: 'Test Receiver' }] });
+  assert.ok(all.caveats.some(text => text.includes('starter null')));
+  const none = runDataTool(ctx, 'query_players', {});
+  assert.equal(none.ok, false);
+});
+
+test('records, head to head, and careers only count finished 2026 results', () => {
+  const baseBook = runDataTool(ctx, 'records', { book: 'weekly', kind: 'lowest' }) as { matched: number };
+  const liveBook = liveRun('records', { book: 'weekly', kind: 'lowest' }) as unknown as { matched: number; caveats: string[] };
+  const finishedWeeks = live.games.filter(game => game.type === 'Season' && game.status === 'final').length;
+  assert.equal(finishedWeeks, 30);
+  assert.equal(liveBook.matched - baseBook.matched, finishedWeeks);
+  assert.ok(liveBook.caveats.some(text => text.includes('Live games are left out')));
+  const base = runDataTool(ctx, 'head_to_head', { a: 'Donna', b: 'Jason' }) as { summary: { meetings: number } };
+  const withLive = liveRun('head_to_head', { a: 'Donna', b: 'Jason' });
+  const finished2026 = live.games.filter(game => game.type === 'Season' && game.status === 'final' && [game.teamA, game.teamB].sort().join() === 'Donna,Jason').length;
+  assert.equal(withLive.summary!.meetings, base.summary.meetings + finished2026);
+  const career = liveRun('manager_career', { name: 'Jason' });
+  assert.equal(career.rows.at(-1)?.season, 2026);
+  assert.ok(career.caveats.some(text => text.includes('2002 to 2025')));
+  assert.deepEqual(career.summary, (runDataTool(ctx, 'manager_career', { name: 'Jason' }) as { summary: unknown }).summary);
+  const titles = liveRun('title_years', { from: 2026, to: 2026 });
+  assert.ok(titles.rows.length >= 3 && titles.rows.every(row => row.superBowl === null && row.bestRecord === null));
+  assert.ok(titles.caveats.some(text => text.includes('in progress')));
 });

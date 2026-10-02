@@ -3,7 +3,7 @@ import { getAI, getGenerativeModel, GoogleAIBackend, ThinkingLevel, type Content
 import { fetchAndActivate, getRemoteConfig, getValue } from 'firebase/remote-config';
 import { getAiFirebaseApp } from '../firebaseApp';
 import type { ModelLike } from './askAgent.ts';
-import { buildSystemPrompt, TOOL_DECLARATIONS } from './askDeclarations.ts';
+import { buildSystemPrompt, TOOL_DECLARATIONS, type LivePromptInfo } from './askDeclarations.ts';
 
 /** Remote Config defaults. Changing them in the Firebase console takes effect without a deploy. */
 export const REMOTE_DEFAULTS = {
@@ -45,7 +45,7 @@ async function readRemote(app: NonNullable<ReturnType<typeof getAiFirebaseApp>>)
  * Connects to Gemini through Firebase AI Logic. The browser never holds a Gemini key: requests go through Firebase,
  * protected by App Check and the project's quotas.
  */
-export async function loadAssistant(managers: string[]): Promise<Assistant> {
+export async function loadAssistant(managers: string[], live?: LivePromptInfo | null): Promise<Assistant> {
   const app = getAiFirebaseApp();
   if (!app) {
     if (import.meta.env.DEV) {
@@ -77,7 +77,7 @@ export async function loadAssistant(managers: string[]): Promise<Assistant> {
   const level = THINKING[remote.ask_thinking.toLowerCase()];
   const generative = getGenerativeModel(getAI(app, { backend: new GoogleAIBackend() }), {
     model: remote.ask_model,
-    systemInstruction: buildSystemPrompt(managers),
+    systemInstruction: buildSystemPrompt(managers, live),
     tools: [{ functionDeclarations: TOOL_DECLARATIONS as never }],
     generationConfig: {
       maxOutputTokens: Math.min(Math.max(remote.ask_max_output_tokens, 512), 8192),

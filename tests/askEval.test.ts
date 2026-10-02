@@ -5,10 +5,13 @@ import { runAgent, type ModelContent } from '../src/history/askAgent.ts';
 import { GOLDEN, unsupportedNumbers } from '../src/history/askEval.ts';
 import { createMockModel } from '../src/history/askMock.ts';
 import { createSession } from '../src/history/askRuntime.ts';
+import { buildLiveSeason } from '../src/history/liveSeason.ts';
 import { parseArchive, type ArchiveFile } from '../src/history/stats.ts';
 
-const archive = parseArchive(JSON.parse(readFileSync(new URL('../src/history/archive.json', import.meta.url), 'utf8')) as ArchiveFile);
-const session = createSession(archive);
+const read = (path: string) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
+const archive = parseArchive(read('../src/history/archive.json') as ArchiveFile);
+const live = buildLiveSeason(read('./fixtures/week3-summaries.json'), read('./fixtures/week3-rosters.json'));
+const session = createSession({ ...archive, live });
 
 test('every golden question has ground truth computed from the archive', () => {
   assert.ok(GOLDEN.length >= 15);
@@ -30,6 +33,9 @@ test('ground truth agrees with figures established in the query tests', () => {
   assert.equal(eras[0][0], '65.4');
   assert.equal(eras[1][0], '88.1');
   assert.deepEqual(byId.get('best-record-super-bowl')!.contains!(session)[0], ['7']);
+  const week = live!.games.filter(game => game.type === 'Season' && game.week === 3).flatMap(game => [{ team: game.teamA, score: game.scoreA }, { team: game.teamB, score: game.scoreB }]);
+  const top = week.reduce((best, side) => (side.score ?? -1) > (best.score ?? -1) ? side : best);
+  assert.deepEqual(byId.get('current-week-high')!.contains!(session), [[top.team], [String(top.score)]]);
 });
 
 test('numbers that no tool returned are flagged, rounded ones are not', async () => {

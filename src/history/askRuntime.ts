@@ -1,9 +1,8 @@
 import {
-  applyControls, createContext, datasetForModel, isDataTool, parseQuery, runDataTool, runQuery,
+  applyControls, createContext, datasetForModel, isDataTool, managerNames, parseQuery, runDataTool, runQuery,
   type Archive, type Controls, type Dataset, type Source, type TableName, type ToolContext,
 } from './askTools.ts';
 import { normalizeModelSpec, validateSpec, type ChartSpec, type ValidationEnv } from './chartSpec.ts';
-import { careers } from './stats.ts';
 
 export interface Session {
   ctx: ToolContext;
@@ -16,8 +15,14 @@ export interface Session {
 export function createSession(archive: Archive): Session {
   return {
     ctx: createContext(archive), sources: new Map(), cache: new Map(), next: 1,
-    managers: careers(archive.seasons).map(row => row.team).sort((a, b) => a.localeCompare(b)),
+    managers: managerNames(archive),
   };
+}
+
+/** Swaps in newer live data. Cached datasets keep their rows, so charts already on screen do not move. */
+export function refreshSession(session: Session, archive: Archive) {
+  session.ctx = createContext(archive);
+  session.managers = managerNames(archive);
 }
 
 /** Rebuilds a dataset from the tool call that created it, so sessions and links need no stored rows. */
@@ -35,7 +40,7 @@ export function datasetOf(session: Session, id: string): Dataset | undefined {
 
 export function controlTable(session: Session, id: string): TableName | null {
   const tool = session.sources.get(id)?.tool;
-  return tool === 'query_games' ? 'team_games' : tool === 'query_seasons' ? 'seasons' : null;
+  return tool === 'query_games' ? 'team_games' : tool === 'query_seasons' ? 'seasons' : tool === 'query_players' ? 'player_weeks' : null;
 }
 
 /** Re-runs a stored query with extra filters from the chart controls. No model call is involved. */
@@ -45,7 +50,7 @@ export function rerunDataset(session: Session, id: string, controls: Controls): 
   if (!base || !table) return base;
   const parsed = parseQuery(table, base.source.args);
   if (!parsed.ok) return base;
-  const result = runQuery(session.ctx.tables, table, applyControls(table, parsed.value, controls));
+  const result = runQuery(session.ctx.tables, table, applyControls(table, parsed.value, controls), session.ctx.archive.live?.asOf);
   if (!result.ok) return base;
   return { ...base, columns: result.value.columns, rows: result.value.rows, caveats: result.value.caveats, truncated: result.value.truncated, matched: result.value.matched };
 }
@@ -72,7 +77,7 @@ export interface ToolRun {
 }
 
 const NOTES: Record<string, string> = {
-  query_games: 'Searching games', query_seasons: 'Searching seasons', resolve_entity: 'Matching names', head_to_head: 'Comparing managers',
+  query_games: 'Searching games', query_seasons: 'Searching seasons', query_players: 'Searching player scores', resolve_entity: 'Matching names', head_to_head: 'Comparing managers',
   manager_career: 'Reading a career', records: 'Checking the record book', title_years: 'Checking title winners', draft_slot_stats: 'Checking draft slots',
   week_slice: 'Reading a week in history', render_chart: 'Drawing a chart',
 };

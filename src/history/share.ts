@@ -1,10 +1,11 @@
-import { createSession, restoreSources, validationEnv, type Session } from './askRuntime.ts';
-import { isDataTool, type Archive, type Controls, type Source } from './askTools.ts';
+import { createSession, datasetOf, restoreSources, validationEnv, type Session } from './askRuntime.ts';
+import { createContext, isDataTool, runDataTool, type Archive, type Controls, type Source } from './askTools.ts';
 import { datasetIdsOf, LAST_SEASON, FIRST_SEASON, LEAGUES, validateSpec, type ChartSpec } from './chartSpec.ts';
 
 /**
  * Share links carry a recipe, not data. The fragment holds the chart spec and the queries that feed it; the receiving
- * browser rebuilds everything from the bundled archive. Nothing is stored on a server and no model call is made.
+ * browser rebuilds everything from the bundled archive, plus its own copy of the live league snapshots for the season
+ * in progress. Nothing is stored on a server and no model call is made.
  * The fragment never reaches a server because browsers do not send it in requests.
  */
 
@@ -17,7 +18,8 @@ const MAX_ARGS_CHARS = 2500;
 const TYPES = ['Season', 'Cup', 'Superbowl'];
 
 export interface SharedChart { spec: ChartSpec; sources: Array<{ id: string; source: Source }>; controls?: Controls }
-export interface SharePayload { v: 1; a: string; q?: string; t?: string; c: SharedChart[] }
+/** `l` is the live snapshot time, present only when a chart uses the season in progress. */
+export interface SharePayload { v: 1; a: string; l?: string; q?: string; t?: string; c: SharedChart[] }
 
 export const archiveStamp = (archive: Archive) => `${archive.games.length}-${archive.seasons.length}`;
 
@@ -96,6 +98,7 @@ export async function decodeShare(text: string): Promise<Decoded> {
   }
   if (!isObject(raw) || raw.v !== SHARE_VERSION) return bad('This link was made by a different version of the site.');
   if (typeof raw.a !== 'string' || raw.a.length > 40) return bad('This link is damaged or incomplete.');
+  if (raw.l !== undefined && (typeof raw.l !== 'string' || raw.l.length > 40)) return bad('This link is damaged or incomplete.');
   if (!Array.isArray(raw.c) || !raw.c.length || raw.c.length > MAX_CHARTS) return bad('This link has no chart in it.');
   const charts: SharedChart[] = [];
   let sourceCount = 0;
@@ -116,6 +119,7 @@ export async function decodeShare(text: string): Promise<Decoded> {
     ok: true,
     payload: {
       v: SHARE_VERSION, a: raw.a, c: charts,
+      ...(typeof raw.l === 'string' && !Number.isNaN(Date.parse(raw.l)) ? { l: raw.l } : {}),
       ...(typeof raw.q === 'string' && raw.q.trim() ? { q: raw.q.slice(0, 300) } : {}),
       ...(typeof raw.t === 'string' && raw.t.trim() ? { t: raw.t.slice(0, MAX_TEXT) } : {}),
     },
@@ -131,6 +135,8 @@ export interface BuiltShare {
   charts: Array<{ id: string; spec: ChartSpec; controls?: Controls; warnings: string[] }>;
   skipped: number;
   stale: boolean;
+  /** When the link used live data: the snapshot time it was made from. The charts use this device's current snapshot. */
+  liveAsOf?: string;
 }
 
 /** Re-validates every chart against the archive on this device. Anything that does not hold up is dropped. */
@@ -150,7 +156,20 @@ export function buildShare(archive: Archive, payload: SharePayload): BuiltShare 
     if (!result.ok || datasetIdsOf(result.spec).some(id => !own.has(id))) { skipped += 1; return; }
     charts.push({ id: `shared-${index}`, spec: result.spec, controls: item.controls, warnings: result.warnings });
   });
-  return { session, question: payload.q, text: payload.t, charts, skipped, stale: payload.a !== archiveStamp(archive) };
+  return { session, question: payload.q, text: payload.t, charts, skipped, stale: payload.a !== archiveStamp(archive), ...(payload.l ? { liveAsOf: payload.l } : {}) };
+}
+
+/** True when any dataset behind these charts would come out differently without the season in progress. */
+export function usesLiveData(session: Session, specs: ChartSpec[]): boolean {
+  if (!session.ctx.archive.live) return false;
+  let historyOnly: ReturnType<typeof createContext> | undefined;
+  return specs.some(spec => datasetIdsOf(spec).some(id => {
+    const dataset = datasetOf(session, id);
+    if (!dataset || !isDataTool(dataset.source.tool)) return false;
+    historyOnly ??= createContext({ ...session.ctx.archive, live: null });
+    const without = runDataTool(historyOnly, dataset.source.tool, dataset.source.args);
+    return !without.ok || 'entity' in without || JSON.stringify(without.rows) !== JSON.stringify(dataset.rows);
+  }));
 }
 
 function remap(spec: unknown, mapping: Map<string, string>): unknown {

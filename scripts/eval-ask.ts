@@ -13,6 +13,7 @@ import { runAgent, splitFollowUps, type AgentEvent, type ModelContent, type Mode
 import { buildSystemPrompt, TOOL_DECLARATIONS } from '../src/history/askDeclarations.ts';
 import { GOLDEN, unsupportedNumbers, type Golden } from '../src/history/askEval.ts';
 import { createSession } from '../src/history/askRuntime.ts';
+import { buildLiveSeason } from '../src/history/liveSeason.ts';
 import { parseArchive, type ArchiveFile } from '../src/history/stats.ts';
 
 const args = process.argv.slice(2);
@@ -26,7 +27,10 @@ const modelName = flag('model', 'gemini-3.8-flash');
 const thinking = flag('thinking', 'low');
 const only = new Set(flag('only', '').split(',').filter(Boolean));
 
-const archive = parseArchive(JSON.parse(readFileSync(new URL('../src/history/archive.json', import.meta.url), 'utf8')) as ArchiveFile);
+const read = (path: string) => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
+// The season in progress comes from the committed week 3 fixtures, so the eval never needs ESPN or Firestore.
+const live = buildLiveSeason(read('../tests/fixtures/week3-summaries.json'), read('../tests/fixtures/week3-rosters.json'));
+const archive = { ...parseArchive(read('../src/history/archive.json') as ArchiveFile), live };
 const usage = { prompt: 0, output: 0, thoughts: 0, requests: 0 };
 
 function restModel(system: string): ModelLike {
@@ -83,7 +87,7 @@ interface Outcome { id: string; pass: boolean; problems: string[]; review: numbe
 
 async function runOne(item: Golden): Promise<Outcome> {
   const session = createSession(archive);
-  const model = restModel(buildSystemPrompt(session.managers));
+  const model = restModel(buildSystemPrompt(session.managers, live && { season: live.season, week: live.week, asOf: live.asOf, players: live.players.length > 0 }));
   const contents: ModelContent[] = [];
   const tools: string[] = [];
   const started = Date.now();

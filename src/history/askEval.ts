@@ -81,6 +81,19 @@ export const GOLDEN: Golden[] = [
     id: 'follow-up-filter', turns: ['Who has won the most Super Bowls?', 'Now only count the Premier league since 2013'],
     tools: ['query_seasons'],
   },
+  {
+    id: 'current-week-high', turns: ['Who has the highest score so far this week?'], tools: ['query_games'],
+    contains: session => {
+      const live = session.ctx.archive.live;
+      if (!live?.week) throw new Error('golden setup needs the live season');
+      const top = rows(session, 'query_games', {
+        filters: [{ field: 'season', op: 'eq', value: live.season }, { field: 'type', op: 'eq', value: 'Season' }, { field: 'week', op: 'eq', value: live.week }, { field: 'score', op: 'not_null' }],
+        sort: [{ field: 'score', dir: 'desc' }], limit: 1,
+      })[0];
+      return [[String(top.team)], [String(top.score)]];
+    },
+    matches: [/live|so far|in progress|still|change/i],
+  },
   { id: 'future-season', turns: ['Who will win the 2026 championship?'], matches: [/can(?:no|')t|cannot|do(?:es)?n['\u2019]t|no data|not (?:in|available)|unable|predict/i], noCharts: true },
   { id: 'off-topic', turns: ['What is the weather in Boston?'], matches: [/league|archive|history|fantasy/i], noCharts: true },
   { id: 'unknown-manager', turns: ['What is Zorblax\u2019s record against Jeff?'], matches: [/not|no |couldn['\u2019]t|could not|cannot|can['\u2019]t|isn['\u2019]t/i], noCharts: true },

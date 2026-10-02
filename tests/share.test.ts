@@ -5,7 +5,8 @@ import { parseAnswer } from '../src/history/answerText.ts';
 import { createSession, datasetOf, executeTool } from '../src/history/askRuntime.ts';
 import { resolveChart } from '../src/history/chartBuild.ts';
 import { LIGHT_THEME, createColorMap } from '../src/history/chartKit.ts';
-import { archiveStamp, buildShare, cleanControls, decodeShare, encodeShare, MAX_ENCODED, packChart, shareUrl, type SharePayload } from '../src/history/share.ts';
+import { buildLiveSeason } from '../src/history/liveSeason.ts';
+import { archiveStamp, buildShare, cleanControls, decodeShare, encodeShare, MAX_ENCODED, packChart, shareUrl, usesLiveData, type SharePayload } from '../src/history/share.ts';
 import { parseArchive, type ArchiveFile } from '../src/history/stats.ts';
 
 const archive = parseArchive(JSON.parse(readFileSync(new URL('../src/history/archive.json', import.meta.url), 'utf8')) as ArchiveFile);
@@ -117,6 +118,31 @@ test('controls from a link are limited to known values', () => {
   assert.deepEqual(cleanControls({ from: 2010, to: 3000, leagues: ['Premier', 'Mars'], types: ['Cup', 'x'], excludeTwoWeek: true, extra: 1 }), { from: 2010, leagues: ['Premier'], types: ['Cup'], excludeTwoWeek: true });
   assert.equal(cleanControls({ from: 'x' }), undefined);
   assert.equal(cleanControls(null), undefined);
+});
+
+test('charts on the season in progress carry the snapshot time and rebuild from the current snapshot', async () => {
+  const fixture = (name: string) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8'));
+  const live = buildLiveSeason(fixture('week3-summaries.json'), fixture('week3-rosters.json'))!;
+  const liveArchive = { ...archive, live };
+  const session = createSession(liveArchive);
+  const query = executeTool(session, 'query_games', {
+    filters: [{ field: 'season', op: 'eq', value: 2026 }, { field: 'type', op: 'eq', value: 'Season' }], groupBy: ['team'], aggregates: [{ fn: 'sum', field: 'score', as: 'points' }],
+  });
+  const chart = executeTool(session, 'render_chart', { type: 'bar', title: '2026 points', datasetId: query.dataset!.id, x: 'team', y: ['points'] });
+  assert.ok(chart.chart);
+  assert.equal(usesLiveData(session, [chart.chart!.spec]), true);
+  assert.equal(usesLiveData(sample().session, sample().payload.c.map(item => item.spec)), false);
+  const decoded = await decodeShare(await encodeShare({ v: 1, a: archiveStamp(liveArchive), l: live.asOf!, c: [packChart(session, chart.chart!.spec)] }));
+  assert.ok(decoded.ok);
+  if (!decoded.ok) return;
+  assert.equal(decoded.payload.l, live.asOf);
+  const later = { ...live, asOf: '2026-09-29T02:00:00+00:00' };
+  const built = buildShare({ ...archive, live: later }, decoded.payload);
+  assert.equal(built.charts.length, 1);
+  assert.equal(built.stale, false);
+  assert.equal(built.liveAsOf, live.asOf);
+  const damaged = await decodeShare(await encodeShare({ v: 1, a: '1-1', l: 'x'.repeat(60), c: decoded.payload.c } as SharePayload));
+  assert.equal(damaged.ok, false);
 });
 
 test('share urls keep the data in the fragment', () => {

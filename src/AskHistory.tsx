@@ -5,17 +5,20 @@ import { ArchiveNav } from './ArchiveNav';
 import { ChartView, useDarkMode, type ChartHandle } from './AskCharts';
 import { aiConfigured } from './firebaseApp';
 import { parseAnswer } from './history/answerText.ts';
-import { history } from './history/archive.ts';
 import { AgentAborted, fitHistory, runAgent, splitFollowUps, trimHistory, turnCount, type ModelContent } from './history/askAgent.ts';
+import type { LivePromptInfo } from './history/askDeclarations.ts';
 import { checkLimits, DAILY_KEY, friendlyError, MAX_INPUT_CHARS, readDaily } from './history/askGuards.ts';
-import { createSession, restoreSources, validationEnv, type Session } from './history/askRuntime.ts';
+import { createSession, refreshSession, restoreSources, validationEnv, type Session } from './history/askRuntime.ts';
 import { deserialize, serialize, STORE_KEY, type ChartItem, type ChatMessage } from './history/askStore.ts';
 import type { Assistant } from './history/askModel.ts';
 import { DARK_THEME, LIGHT_THEME, createColorMap } from './history/chartKit.ts';
 import { validateSpec } from './history/chartSpec.ts';
 import { copyEmail, renderEmail } from './history/emailCopy.ts';
-import { archiveStamp, buildShare, decodeShare, encodeShare, packChart, shareUrl, type BuiltShare } from './history/share.ts';
-import type { Controls } from './history/askTools.ts';
+import { archiveStamp, buildShare, decodeShare, encodeShare, packChart, shareUrl, usesLiveData, type BuiltShare, type SharePayload } from './history/share.ts';
+import { asOfLabel, type Archive, type Controls } from './history/askTools.ts';
+import { useLiveArchive } from './useLiveArchive';
+
+const LIVE_STARTERS = { title: 'This season', items: ['Who scored the most points this week?', 'Who is top of each league right now?', 'Who left the most points on the bench this week?'] };
 
 const STARTERS = [
   { title: 'Specific', items: ['Who has won the most Super Bowls?', 'What is the highest single-week score ever?', 'What is Becky\u2019s record against Jeff?'] },
@@ -67,12 +70,30 @@ function CopyForEmail({ question, text, chartIds, handles, onDone }: {
   return <button type="button" className="ask-email-copy" onClick={() => void copy()}><Copy size={15} aria-hidden="true" />Copy</button>;
 }
 
+function LiveNote({ archive }: { archive: Archive }) {
+  const live = archive.live;
+  if (!live) return null;
+  return <p className="source-note">This season as of {asOfLabel(live.asOf)}{live.week ? `, week ${live.week}` : ''}.</p>;
+}
+
+const livePrompt = (archive: Archive): LivePromptInfo | null => archive.live
+  ? { season: archive.live.season, week: archive.live.week, asOf: archive.live.asOf, players: archive.live.players.length > 0 }
+  : null;
+const promptKey = (info: LivePromptInfo | null) => info ? `${info.season}:${info.week}:${info.players}` : 'none';
+
 export function AskPage() {
   const dark = useDarkMode();
   const color = useColorMap(dark);
   const navigate = useNavigate();
   const location = useLocation();
-  const [session, setSession] = useState<Session>(() => createSession(history));
+  const [wantRosters, setWantRosters] = useState(false);
+  const { archive, ready } = useLiveArchive(wantRosters);
+  const archiveRef = useRef(archive);
+  archiveRef.current = archive;
+  const rostersReady = useRef(false);
+  rostersReady.current = wantRosters && ready;
+  const rosterWaiters = useRef<Array<() => void>>([]);
+  const [session, setSession] = useState<Session>(() => createSession(archive));
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -83,6 +104,7 @@ export function AskPage() {
   const [shareLink, setShareLink] = useState<{ id: string; url: string } | null>(null);
   const contents = useRef<ModelContent[]>([]);
   const assistant = useRef<Assistant | null>(null);
+  const assistantKey = useRef('');
   const busyRef = useRef(false);
   const lastSent = useRef(0);
   const abort = useRef<AbortController | null>(null);
@@ -93,13 +115,15 @@ export function AskPage() {
   const chartHandles = useRef(new Map<string, ChartHandle>());
   const unavailable = !aiConfigured && !import.meta.env.DEV;
 
-  // Restore this tab's chat. Charts are validated again, so stored data can never bypass the checks.
+  // Restore this tab's chat once the live snapshots are in, so charts built on this season can be rebuilt.
+  // Charts are validated again, so stored data can never bypass the checks.
   useEffect(() => {
-    if (restored.current) return;
-    restored.current = true;
+    if (restored.current || !ready) return;
     const saved = deserialize(read(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY));
+    if (saved && !wantRosters && saved.sources.some(entry => entry.source.tool === 'query_players')) { setWantRosters(true); return; }
+    restored.current = true;
     if (!saved) return;
-    const next = createSession(history);
+    const next = createSession(archiveRef.current);
     restoreSources(next, saved.sources);
     const env = validationEnv(next);
     const cleaned = saved.messages.map(message => ({
@@ -109,6 +133,19 @@ export function AskPage() {
     contents.current = saved.contents;
     setSession(next);
     setMessages(cleaned);
+  }, [ready, wantRosters]);
+
+  // Newer snapshots replace the tables for new questions; charts already shown keep their rows.
+  useEffect(() => {
+    if (session.ctx.archive !== archive) refreshSession(session, archive);
+    if (wantRosters && ready) rosterWaiters.current.splice(0).forEach(resolve => resolve());
+  }, [archive, session, wantRosters, ready]);
+
+  // Roster documents are read on the first question, not on every visit. A slow read never blocks the answer for long.
+  const loadRosters = useCallback(() => {
+    if (rostersReady.current) return Promise.resolve();
+    setWantRosters(true);
+    return new Promise<void>(resolve => { rosterWaiters.current.push(resolve); window.setTimeout(resolve, 6000); });
   }, []);
 
   useEffect(() => {
@@ -141,6 +178,7 @@ export function AskPage() {
     if (!check.ok) { setNotice(check.reason); return; }
     setNotice(null);
     setShareLink(null);
+    restored.current = true;
     lastSent.current = now;
     busyRef.current = true;
     setBusy(true);
@@ -151,10 +189,13 @@ export function AskPage() {
     const controller = new AbortController();
     abort.current = controller;
     try {
+      if (!rostersReady.current) { setNote('Loading this season'); await loadRosters(); }
       setNote('Connecting to the assistant');
-      if (!assistant.current) {
+      const live = livePrompt(archiveRef.current);
+      if (!assistant.current || assistantKey.current !== promptKey(live)) {
         const { loadAssistant } = await import('./history/askModel.ts');
-        assistant.current = await loadAssistant(session.managers);
+        assistant.current = await loadAssistant(session.managers, live);
+        assistantKey.current = promptKey(live);
         setMock(assistant.current.mock);
       }
       contents.current = fitHistory(trimHistory(contents.current));
@@ -180,7 +221,7 @@ export function AskPage() {
       setBusy(false);
       setNote('');
     }
-  }, [session, patch]);
+  }, [session, patch, loadRosters]);
 
   // A chart in a shared link can hand a question over to this page.
   useEffect(() => {
@@ -194,7 +235,7 @@ export function AskPage() {
   const reset = () => {
     abort.current?.abort();
     contents.current = [];
-    setSession(createSession(history));
+    setSession(createSession(archiveRef.current));
     setMessages([]);
     setNotice(null);
     setShareLink(null);
@@ -205,7 +246,9 @@ export function AskPage() {
   const shareMessage = useCallback(async (message: ChatMessage, question: string, chartId: string, controls: Controls) => {
     try {
       const charts = message.charts.map(chart => packChart(session, chart.spec, chart.id === chartId ? controls : chart.controls));
-      const encoded = await encodeShare({ v: 1, a: archiveStamp(history), q: question.slice(0, 300), t: message.text.slice(0, 1200), c: charts });
+      const asOf = session.ctx.archive.live?.asOf;
+      const live = asOf && usesLiveData(session, message.charts.map(chart => chart.spec)) ? { l: asOf } : {};
+      const encoded = await encodeShare({ v: 1, a: archiveStamp(session.ctx.archive), ...live, q: question.slice(0, 300), t: message.text.slice(0, 1200), c: charts });
       const url = shareUrl(window.location.origin, encoded);
       setShareLink({ id: message.id, url });
       try { await navigator.clipboard.writeText(url); setToast('Link copied'); } catch { setToast('Link ready. Copy it below.'); }
@@ -223,7 +266,7 @@ export function AskPage() {
 
   return <div className="ask-page">
     <ArchiveNav />
-    <section className="page-intro"><div><p className="eyebrow">League archive</p><h1>Ask the archive</h1><p className="intro-copy">Ask about 24 seasons of JFFL history in your own words. The assistant looks the answer up in the archive and can draw a chart you can adjust.</p></div></section>
+    <section className="page-intro"><div><p className="eyebrow">League archive</p><h1>Ask the archive</h1><p className="intro-copy">Ask about 24 seasons of JFFL history{archive.live ? ' and the season in progress' : ''} in your own words. The assistant looks the answer up in the archive and can draw a chart you can adjust.</p><LiveNote archive={archive} /></div></section>
 
     {unavailable && <p className="notice" role="status">The assistant is not switched on for this site yet. The archive pages and any shared links still work.</p>}
     {mock && <p className="notice" role="status">Local test assistant: canned wording, real archive numbers. It is only available in development.</p>}
@@ -231,8 +274,8 @@ export function AskPage() {
     <div className="ask-thread">
       {messages.length === 0 && <div className="ask-empty-state">
         <h2>Try a question</h2>
-        <p>Answers come only from the league archive (2002 to 2025). Questions are sent to Google’s Gemini through Firebase, so please do not include personal details.</p>
-        {STARTERS.map(group => <div key={group.title} className="ask-starter-group">
+        <p>Answers come only from the league archive (2002 to 2025){archive.live ? ' and this season’s league data, which can include games still being played' : ''}. Questions are sent to Google’s Gemini through Firebase, so please do not include personal details.</p>
+        {(archive.live ? [LIVE_STARTERS, ...STARTERS] : STARTERS).map(group => <div key={group.title} className="ask-starter-group">
           <h3>{group.title}</h3>
           <div className="ask-starters">{group.items.map(item => <button key={item} type="button" disabled={busy || unavailable} onClick={() => void send(item)}>{item}</button>)}</div>
         </div>)}
@@ -290,21 +333,33 @@ export function AskSharePage() {
   const color = useColorMap(dark);
   const navigate = useNavigate();
   const { hash } = useLocation();
+  const [payload, setPayload] = useState<SharePayload | null>(null);
+  const needsRosters = !!payload?.c.some(chart => chart.sources.some(entry => entry.source.tool === 'query_players'));
+  const { archive, ready } = useLiveArchive(needsRosters);
   const [state, setState] = useState<{ status: 'loading' } | { status: 'error'; message: string } | { status: 'ready'; built: BuiltShare }>({ status: 'loading' });
 
   useEffect(() => {
     let cancelled = false;
     setState({ status: 'loading' });
+    setPayload(null);
     decodeShare(hash).then(result => {
       if (cancelled) return;
-      if (!result.ok) { setState({ status: 'error', message: result.error }); return; }
-      const built = buildShare(history, result.payload);
-      setState(built.charts.length ? { status: 'ready', built } : { status: 'error', message: 'None of the charts in this link could be rebuilt.' });
+      if (!result.ok) setState({ status: 'error', message: result.error });
+      else setPayload(result.payload);
     });
     return () => { cancelled = true; };
   }, [hash]);
 
+  // Build once the live snapshots are in. Later snapshot updates do not rebuild the page under the reader.
+  useEffect(() => {
+    if (!payload || !ready) return;
+    const built = buildShare(archive, payload);
+    setPayload(null);
+    setState(built.charts.length ? { status: 'ready', built } : { status: 'error', message: 'None of the charts in this link could be rebuilt.' });
+  }, [payload, ready, archive]);
+
   const built = state.status === 'ready' ? state.built : null;
+  const currentAsOf = built?.session.ctx.archive.live?.asOf;
   return <div className="ask-page">
     <ArchiveNav />
     <section className="page-intro"><div>
@@ -316,6 +371,7 @@ export function AskSharePage() {
     {state.status === 'error' && <div className="ask-thread"><p className="ask-error" role="alert">{state.message}</p><div className="ask-share-bar"><Link className="button" to="/archive/ask">Ask your own question</Link></div></div>}
     {built && <div className="ask-thread">
       {built.stale && <p className="notice">This link was made from an earlier version of the archive, so numbers may differ slightly.</p>}
+      {built.liveAsOf && built.liveAsOf !== currentAsOf && <p className="notice">This link used this season’s numbers as of {asOfLabel(built.liveAsOf)}. The charts show {currentAsOf ? `the numbers as of ${asOfLabel(currentAsOf)}` : 'only what is available now'}, so they may have changed since the link was made.</p>}
       {built.skipped > 0 && <p className="notice">{built.skipped} chart{built.skipped === 1 ? '' : 's'} in this link could not be rebuilt and {built.skipped === 1 ? 'was' : 'were'} left out.</p>}
       {built.text && <div><Answer text={built.text} /><p className="source-note">The written summary comes from the link and has not been checked. The charts below are rebuilt from the archive.</p></div>}
       <div className="ask-charts">{built.charts.map(chart => <ChartView key={chart.id} spec={chart.spec} session={built.session} color={color} dark={dark} initialControls={chart.controls}

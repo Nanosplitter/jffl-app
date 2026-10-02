@@ -1,0 +1,51 @@
+{
+  "premier": {
+    "schemaVersion": 1,
+    "leagueId": "831337",
+    "slug": "premier",
+    "leagueName": "Premier League",
+    "season": 2026,
+    "week": 3,
+    "updatedAt": "2026-09-29T01:04:33.384911+00:00",
+    "lastAttemptAt": "2026-09-29T01:04:33.384911+00:00",
+    "refreshStatus": "ok",
+    "players": [
+      {
+        "id": "9001", "teamId": "16", "name": "Test Quarterback", "position": "QB", "proTeam": "KC",
+        "slot": "QB", "group": "starter", "eligibleSlots": ["QB", "OP", "BE"], "injuryStatus": null,
+        "weekPoints": 12, "projectedPoints": 19.5, "seasonPoints": 50.5, "averagePoints": 16.8,
+        "weekStats": {}, "seasonStats": {},
+        "weeklyStats": [{ "week": 1, "points": 18, "stats": {} }, { "week": 2, "points": 20.5, "stats": {} }]
+      },
+      {
+        "id": "9002", "teamId": "16", "name": "Test Runner", "position": "RB", "proTeam": "SF",
+        "slot": "RB", "group": "starter", "eligibleSlots": ["RB", "FLEX", "BE"], "injuryStatus": null,
+        "weekPoints": 8, "projectedPoints": 11, "seasonPoints": null, "averagePoints": null,
+        "weekStats": {}, "seasonStats": {}
+      },
+      {
+        "id": "9003", "teamId": "16", "name": "Test Receiver", "position": "WR", "proTeam": "MIA",
+        "slot": "BE", "group": "bench", "eligibleSlots": ["WR", "FLEX", "BE"], "injuryStatus": null,
+        "weekPoints": 15.2, "projectedPoints": 9, "seasonPoints": 24.2, "averagePoints": 12.1,
+        "weekStats": {}, "seasonStats": {},
+        "weeklyStats": [{ "week": 2, "points": 9, "stats": {} }]
+      },
+      {
+        "id": "-16001", "teamId": "34", "name": "Test D/ST", "position": "D/ST", "proTeam": "BUF",
+        "slot": "D/ST", "group": "starter", "eligibleSlots": ["D/ST", "BE"], "injuryStatus": null,
+        "weekPoints": null, "projectedPoints": 7, "seasonPoints": null, "averagePoints": null,
+        "weekStats": {}, "seasonStats": {}
+      }
+    ],
+    "weeklyLineups": [
+      { "week": 2, "teamId": "16", "players": [
+        { "id": "9001", "name": "Test Quarterback", "position": "QB", "proTeam": "KC", "slot": "QB", "points": 20.5 },
+        { "id": "9002", "name": "Test Runner", "position": "RB", "proTeam": "SF", "slot": "RB", "points": null }
+      ] },
+      { "week": 3, "teamId": "16", "players": [
+        { "id": "9001", "name": "Test Quarterback", "position": "QB", "proTeam": "KC", "slot": "QB", "points": 12 },
+        { "id": "9002", "name": "Test Runner", "position": "RB", "proTeam": "SF", "slot": "RB", "points": 8 }
+      ] }
+    ]
+  }
+}

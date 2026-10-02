@@ -8,7 +8,8 @@ export type ChartKind = ChartType | RecipeName | 'echarts';
 export const ALL_KINDS: readonly string[] = [...CHART_TYPES, ...RECIPES, 'echarts'];
 export const LEAGUES = ['Combined', 'Premier', 'Championship', 'League One', 'JFFL'] as const;
 export const FIRST_SEASON = 2002;
-export const LAST_SEASON = 2025;
+/** Includes the season in progress, which comes from the live league snapshots. */
+export const LAST_SEASON = 2026;
 
 export interface RecipeParams {
   managers?: string[];
