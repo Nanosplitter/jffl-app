@@ -78,6 +78,21 @@ export function axisStyle(theme: Theme, grid = true) {
   };
 }
 
+/**
+ * A y-axis name sits above the plot area, and containLabel does not count it, so a small grid top clips it.
+ * Returns the option with enough top room for the name, and for a legend above it when there is one.
+ */
+export function roomForAxisNames<T>(option: T): T {
+  const source = option as { grid?: unknown; yAxis?: unknown; legend?: unknown };
+  const axes = (Array.isArray(source.yAxis) ? source.yAxis : source.yAxis ? [source.yAxis] : []) as Array<{ name?: unknown; nameLocation?: string; inverse?: boolean }>;
+  const named = axes.some(axis => typeof axis.name === 'string' && axis.name.trim() && (axis.nameLocation ?? 'end') === 'end' && !axis.inverse);
+  const grid = source.grid as { top?: unknown } | undefined;
+  if (!named || !grid || Array.isArray(grid) || (grid.top !== undefined && typeof grid.top !== 'number')) return option;
+  const legend = source.legend as { show?: boolean } | undefined;
+  const needed = legend && legend.show !== false ? 64 : 36;
+  return (grid.top ?? 60) >= needed ? option : { ...source, grid: { ...grid, top: needed } } as T;
+}
+
 export function baseOption(theme: Theme, opts: { legend?: boolean; zoom?: boolean; top?: number } = {}) {
   return {
     animationDuration: 600,

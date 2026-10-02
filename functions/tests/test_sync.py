@@ -193,9 +193,27 @@ def test_week_history_uses_scoring_period_points_and_keeps_future_scores_absent(
         '3': {'id':3,'matchupPeriodId':3,'winner':'UNDECIDED','home':{'teamId':1,'totalPoints':0},'away':{'teamId':2,'totalPoints':0}},
     }
     rows=weekly_matchups(boundary,2)
-    assert len(rows)==2
+    assert len(rows)==3
     assert rows[0]['status']=='final'
     assert rows[1]['status']=='live'
     assert rows[1]['homeScore']==17
     assert rows[1]['awayScore']==0
+    assert rows[2]['status']=='pending'
+    assert (rows[2]['homeTeamId'], rows[2]['awayTeamId']) == ('1', '2')
+    assert rows[2]['homeScore'] is None and rows[2]['awayScore'] is None
+    assert rows[2]['homeProjected'] is None and rows[2]['awayProjected'] is None
+    boundary.session.close()
+
+
+def test_future_weeks_are_published_as_pending_and_unset_playoff_slots_are_left_out():
+    boundary = BoundedRequests(1, 2026)
+    boundary.raw_settings = {'scheduleSettings': {'matchupPeriods': {'1': [1], '5': [5], '15': [15, 16]}}}
+    boundary.raw_schedule = {
+        '1': {'id':1,'matchupPeriodId':1,'winner':'UNDECIDED','home':{'teamId':1},'away':{'teamId':2}},
+        '9': {'id':9,'matchupPeriodId':5,'winner':'UNDECIDED','home':{'teamId':3,'totalPoints':0},'away':{'teamId':1,'totalPoints':0}},
+        '70': {'id':70,'matchupPeriodId':15,'winner':'UNDECIDED','home':{},'away':{}},
+    }
+    rows=weekly_matchups(boundary,1)
+    assert [(row['week'], row['status']) for row in rows] == [(1, 'live'), (5, 'pending')]
+    assert rows[1]['homeTeamId'] == '3' and rows[1]['homeScore'] is None
     boundary.session.close()

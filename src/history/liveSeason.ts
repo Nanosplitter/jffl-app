@@ -42,6 +42,21 @@ export interface PlayerWeek {
   status: LiveStatus;
 }
 
+/** One manager's league game or cup tie in a given week, including weeks not played yet. */
+export interface ScheduleRow {
+  week: number;
+  /** Cup ties can span two weeks; this is the last one. Equal to week for league games. */
+  lastWeek: number;
+  league: LeagueName;
+  type: 'Season' | 'Cup';
+  round: string;
+  team: string;
+  opponent: string;
+  score: number | null;
+  opponentScore: number | null;
+  status: 'final' | 'live' | 'scheduled';
+}
+
 export interface LiveSeason {
   season: number;
   /** Oldest snapshot time across the leagues, so every number is at least this fresh. */
@@ -51,6 +66,10 @@ export interface LiveSeason {
   seasons: LiveSeasonRow[];
   players: PlayerWeek[];
   rostersLoaded: boolean;
+  /** League games for every scheduled week and every cup tie, from each manager's side. */
+  schedule: ScheduleRow[];
+  /** The snapshots these rows came from, so cards in answers can be checked against the same data. */
+  summaries: SummaryMap;
 }
 
 export type RosterMap = Partial<Record<LeagueSlug, LeagueRosterSnapshot>>;
@@ -163,6 +182,41 @@ function playerWeeks(slug: LeagueSlug, summary: LeagueSummary, roster: LeagueRos
   return rows;
 }
 
+function leagueSchedule(slug: LeagueSlug, summary: LeagueSummary): ScheduleRow[] {
+  const rows: ScheduleRow[] = [];
+  for (const matchup of summary.weeklyMatchups ?? []) {
+    const status: ScheduleRow['status'] = matchup.status === 'final' ? 'final' : matchup.status === 'live' || matchup.week === summary.week ? 'live' : matchup.week < summary.week ? 'final' : 'scheduled';
+    const home = managerName(slug, matchup.homeTeamId, summary);
+    const away = managerName(slug, matchup.awayTeamId, summary);
+    const round = matchup.week > REGULAR_WEEKS ? 'Playoffs' : 'Regular season';
+    const base = { week: matchup.week, lastWeek: matchup.week, league: LEAGUE_OF[slug], type: 'Season' as const, round, status };
+    if (home) rows.push({ ...base, team: home, opponent: away ?? 'Bye', score: matchup.homeScore, opponentScore: matchup.awayScore });
+    if (away) rows.push({ ...base, team: away, opponent: home ?? 'Bye', score: matchup.awayScore, opponentScore: matchup.homeScore });
+  }
+  return rows;
+}
+
+function cupSchedule(data: SummaryMap): ScheduleRow[] {
+  const rows: ScheduleRow[] = [];
+  for (const id of CUPS) {
+    if (id === 'jffl' ? LEAGUES.some(meta => !data[meta.slug]) : !data[id]) continue;
+    const cup = buildCup(id, data);
+    for (const round of cup.rounds) {
+      for (const match of round.matches) {
+        const status: ScheduleRow['status'] = match.status === 'final' || match.status === 'tied' || match.status === 'bye' ? 'final' : match.status === 'live' ? 'live' : 'scheduled';
+        const base = { week: Math.min(...match.weeks), lastWeek: Math.max(...match.weeks), league: id === 'jffl' ? 'JFFL' as const : LEAGUE_OF[id], type: 'Cup' as const, round: `${cup.name} ${round.name}`, status };
+        const sides = [[match.a, match.b], [match.b, match.a]] as const;
+        for (const [own, other] of sides) {
+          if (!own.participant) continue;
+          const opponent = other.participant?.manager ?? (match.status === 'bye' ? 'Bye' : other.label || 'To be decided');
+          rows.push({ ...base, team: own.participant.manager, opponent, score: own.total, opponentScore: other.total });
+        }
+      }
+    }
+  }
+  return rows;
+}
+
 /** Turns the shared league and roster snapshots into 2026 archive rows. Returns null until a league snapshot is loaded. */
 export function buildLiveSeason(summaries: SummaryMap, rosters: RosterMap = {}): LiveSeason | null {
   const loaded = LEAGUES.filter(meta => summaries[meta.slug]);
@@ -176,18 +230,22 @@ export function buildLiveSeason(summaries: SummaryMap, rosters: RosterMap = {}):
   const games: LiveGame[] = [];
   const seasons: LiveSeasonRow[] = [];
   const players: PlayerWeek[] = [];
+  const schedule: ScheduleRow[] = [];
   for (const { slug } of loaded) {
     const summary = summaries[slug]!;
+    schedule.push(...leagueSchedule(slug, summary));
     games.push(...regularGames(slug, summary));
     seasons.push(...seasonRows(slug, summary, champions));
     const roster = rosters[slug];
     if (roster) players.push(...playerWeeks(slug, summary, roster));
   }
   games.push(...cupGames(summaries, season));
+  schedule.push(...cupSchedule(summaries));
+  schedule.sort((a, b) => a.week - b.week || a.type.localeCompare(b.type) || a.league.localeCompare(b.league) || a.team.localeCompare(b.team));
   const stamps = loaded.map(meta => summaries[meta.slug]!.updatedAt).filter(Boolean).sort();
   return {
     season, asOf: stamps[0] ?? null, week: Math.max(...loaded.map(meta => summaries[meta.slug]!.week)),
-    games, seasons, players, rostersLoaded: LEAGUES.every(meta => !!rosters[meta.slug]),
+    games, seasons, players, rostersLoaded: LEAGUES.every(meta => !!rosters[meta.slug]), schedule, summaries,
   };
 }
 

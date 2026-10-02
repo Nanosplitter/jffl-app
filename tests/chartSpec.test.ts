@@ -159,6 +159,17 @@ test('every recipe builds a chart from the real archive', () => {
   assert.equal(wall.table.rows[0][0], 'Jeff');
 });
 
+test('a named y axis gets room above the plot, so its label is never clipped', () => {
+  const topOf = (chart: ReturnType<typeof resolveChart>) => (chart.option as { grid: { top: number } }).grid.top;
+  const h2h = resolveChart(good({ type: 'h2h_scoreboard', title: 'Jeff vs Jason', params: { a: 'Jeff', b: 'Jason' } }), build);
+  assert.ok(topOf(h2h) >= 36);
+  const scatter = resolveChart(good({ type: 'scatter', title: 'Draft vs points', datasetId: scatterId, x: 'draft', y: ['points'] }), build);
+  assert.ok(topOf(scatter) >= 36);
+  const legend = resolveChart(good({ type: 'line', title: 'Scoring', datasetId: scoringId, x: 'season', y: ['mean'], series: 'league' }), build);
+  const named = ((legend.option as { yAxis: { name?: string } }).yAxis).name;
+  if (named) assert.ok(topOf(legend) >= 64);
+});
+
 test('recipes handle empty results with a plain message', () => {
   const none = resolveChart(good({ type: 'season_race', title: 'x', params: { season: 2002, league: 'Premier' } }), build);
   assert.equal(none.kind, 'table');

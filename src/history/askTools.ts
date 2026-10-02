@@ -3,7 +3,7 @@ import {
   careers, draftBuckets, pairGames, rate, recordBook, roundLabel, titleYears,
   type HistoryGame, type HistorySeason,
 } from './stats.ts';
-import { finishedGames, type LiveSeason } from './liveSeason.ts';
+import { finishedGames, REGULAR_WEEKS, type LiveSeason } from './liveSeason.ts';
 
 export type Cell = string | number | null;
 export type Row = Record<string, Cell>;
@@ -555,7 +555,7 @@ export type ToolOutcome =
   | { ok: false; error: string }
   | { ok: true; entity: ReturnType<typeof resolveEntity> };
 
-export const DATA_TOOL_NAMES = ['query_games', 'query_seasons', 'query_players', 'resolve_entity', 'head_to_head', 'manager_career', 'records', 'title_years', 'draft_slot_stats', 'week_slice'] as const;
+export const DATA_TOOL_NAMES = ['query_games', 'query_seasons', 'query_players', 'resolve_entity', 'head_to_head', 'manager_career', 'records', 'title_years', 'draft_slot_stats', 'week_slice', 'schedule'] as const;
 export type DataToolName = (typeof DATA_TOOL_NAMES)[number];
 export const isDataTool = (name: string): name is DataToolName => (DATA_TOOL_NAMES as readonly string[]).includes(name);
 
@@ -714,6 +714,37 @@ export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<s
       }
       const rows: Row[] = draftBuckets(archive.seasons).map(bucket => ({ bucket: bucket.label, seasons: bucket.seasons, titles: bucket.titles, titleRate: rate(bucket.titles, bucket.seasons), topThree: bucket.topThree, topThreeRate: rate(bucket.topThree, bucket.seasons) }));
       return { ok: true, title: 'Draft slot results', columns: inferColumns(['bucket', 'seasons', 'titles', 'titleRate', 'topThree', 'topThreeRate'], rows), rows, matched: rows.length, truncated: false, caveats: ['A season counts when the draft slot and the regular-season rank are both known. Title means regular-season rank 1.'] };
+    }
+    case 'schedule': {
+      const live = archive.live;
+      if (!live) return fail('The current season is not loaded, so there is no schedule.');
+      const current = live.week ?? 1;
+      const last = Math.max(current, ...live.schedule.map(row => row.lastWeek));
+      const from = clamp(args.fromWeek, current, 1, last);
+      const to = clamp(args.toWeek, Math.min(from + 2, last), from, last);
+      const fold = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const manager = typeof args.manager === 'string' && args.manager.trim() ? fold(args.manager) : null;
+      const league = typeof args.league === 'string' && args.league.trim() ? fold(args.league).replace(/league$/, '') : null;
+      if (manager && !live.schedule.some(row => fold(row.team) === manager)) return fail(`"${String(args.manager)}" has no ${live.season} games. Use resolve_entity to check the name.`);
+      const rows: Row[] = live.schedule
+        .filter(row => row.lastWeek >= from && row.week <= to)
+        .filter(row => !manager || fold(row.team) === manager)
+        .filter(row => !league || fold(row.league).replace(/league$/, '') === league)
+        .filter(row => args.type !== 'Season' && args.type !== 'Cup' || row.type === args.type)
+        .map(row => ({ week: row.week === row.lastWeek ? String(row.week) : `${row.week}-${row.lastWeek}`, league: row.league, type: row.type, round: row.round, team: row.team, opponent: row.opponent, status: row.status, score: row.score, opponentScore: row.opponentScore }));
+      const capped = rows.slice(0, 120);
+      const scheduledCup = rows.some(row => row.type === 'Cup' && row.status === 'scheduled');
+      return {
+        ok: true, title: `${live.season} schedule, weeks ${from}-${to}`, columns: inferColumns(['week', 'league', 'type', 'round', 'team', 'opponent', 'status', 'score', 'opponentScore'], capped), rows: capped,
+        matched: rows.length, truncated: rows.length > capped.length,
+        caveats: [
+          `Schedule as of ${asOfLabel(asOf)}. Scores are null for games not played yet.`,
+          ...(rows.some(row => row.status === 'live') ? ['Games marked live are still being played, so their scores can change.'] : []),
+          ...(scheduledCup ? ['Cup opponents shown as "Winner of ..." depend on games not finished yet. JFFL Cup ties are two-week totals.'] : []),
+          ...(to >= REGULAR_WEEKS ? ['Playoff pairings appear only once ESPN sets them.'] : []),
+        ],
+        summary: { currentWeek: current, lastScheduledWeek: last },
+      };
     }
     case 'week_slice': {
       const week = clamp(args.week, 1, 1, 18);

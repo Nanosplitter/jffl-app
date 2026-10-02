@@ -1,4 +1,5 @@
 import type { ModelContent } from './askAgent.ts';
+import { isCardItem, type CardItem } from './askCards.ts';
 import type { Controls, Source } from './askTools.ts';
 import type { ChartSpec } from './chartSpec.ts';
 
@@ -8,6 +9,7 @@ export interface ChatMessage {
   role: 'user' | 'assistant';
   text: string;
   charts: ChartItem[];
+  cards?: CardItem[];
   followUps: string[];
   error?: string;
 }
@@ -32,7 +34,8 @@ export function deserialize(raw: string | null): Stored | null {
     const value = JSON.parse(raw) as Partial<Stored> | null;
     if (!value || value.v !== 1 || !Array.isArray(value.messages) || !Array.isArray(value.contents) || !Array.isArray(value.sources)) return null;
     const messages = value.messages.filter((message): message is ChatMessage => !!message && (message.role === 'user' || message.role === 'assistant')
-      && typeof message.text === 'string' && Array.isArray(message.charts) && Array.isArray(message.followUps));
+      && typeof message.text === 'string' && Array.isArray(message.charts) && Array.isArray(message.followUps))
+      .map(message => (message.cards === undefined ? message : { ...message, cards: Array.isArray(message.cards) ? message.cards.filter(isCardItem).slice(0, 4) : [] }));
     return { v: 1, messages, contents: value.contents as ModelContent[], sources: value.sources };
   } catch {
     return null;

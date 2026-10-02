@@ -1,3 +1,4 @@
+import { MAX_CARDS, type CardItem } from './askCards.ts';
 import { executeTool, type Session } from './askRuntime.ts';
 import type { Dataset } from './askTools.ts';
 import type { ChartSpec } from './chartSpec.ts';
@@ -18,7 +19,8 @@ export type AgentEvent =
   | { type: 'step'; step: number }
   | { type: 'text'; delta: string }
   | { type: 'tool'; name: string; note: string }
-  | { type: 'chart'; id: string; spec: ChartSpec; warnings: string[] };
+  | { type: 'chart'; id: string; spec: ChartSpec; warnings: string[] }
+  | { type: 'card'; card: CardItem };
 
 export interface AgentOptions {
   model: ModelLike;
@@ -35,6 +37,7 @@ export interface AgentOptions {
 export interface AgentResult {
   text: string;
   charts: Array<{ id: string; spec: ChartSpec; warnings: string[] }>;
+  cards: CardItem[];
   datasets: Dataset[];
   steps: number;
   hitLimit: boolean;
@@ -56,6 +59,7 @@ export async function runAgent(options: AgentOptions): Promise<AgentResult> {
   const maxCharts = options.maxCharts ?? MAX_CHARTS;
   const checkpoint = contents.length;
   const charts: AgentResult['charts'] = [];
+  const cards: CardItem[] = [];
   const datasets: Dataset[] = [];
   let lastText = '';
   let chartCount = 0;
@@ -82,13 +86,15 @@ export async function runAgent(options: AgentOptions): Promise<AgentResult> {
       if (stepText.trim()) lastText = stepText;
       if (!calls.length) {
         if (!parts.length) contents.push({ role: 'model', parts: [{ text: lastText || 'I could not produce an answer.' }] });
-        return { text: lastText, charts, datasets, steps: step, hitLimit: false };
+        return { text: lastText, charts, cards, datasets, steps: step, hitLimit: false };
       }
       const replies: unknown[] = [];
       for (const call of calls) {
         let run;
         if (call.name === 'render_chart' && chartCount >= maxCharts) {
           run = { note: 'Drawing a chart', response: { ok: false, error: `Only ${maxCharts} charts are allowed per answer. Answer in text.` } } as ReturnType<typeof executeTool>;
+        } else if (call.name === 'show_card' && cards.length >= MAX_CARDS) {
+          run = { note: 'Adding a card', response: { ok: false, error: `Only ${MAX_CARDS} cards are allowed per answer. Answer in text.` } } as ReturnType<typeof executeTool>;
         } else {
           try { run = executeTool(session, call.name, call.args); } catch { run = { note: 'Working', response: { ok: false, error: 'That step failed. Try a simpler request.' } } as ReturnType<typeof executeTool>; }
         }
@@ -100,6 +106,11 @@ export async function runAgent(options: AgentOptions): Promise<AgentResult> {
           charts.push({ id, spec: run.chart.spec, warnings: run.chart.warnings });
           onEvent?.({ type: 'chart', id, spec: run.chart.spec, warnings: run.chart.warnings });
         }
+        if (run.card) {
+          const card = { id: `k${session.next}-${cards.length + 1}-${Date.now().toString(36)}`, spec: run.card };
+          cards.push(card);
+          onEvent?.({ type: 'card', card });
+        }
         replies.push({ functionResponse: { name: call.name, response: run.response } });
       }
       contents.push({ role: 'user', parts: replies });
@@ -107,7 +118,7 @@ export async function runAgent(options: AgentOptions): Promise<AgentResult> {
     // Ran out of steps: close the turn so the history stays valid for the next question.
     const text = lastText || 'That question needed more steps than I allow. Try narrowing it, for example to one league or a few seasons.';
     contents.push({ role: 'model', parts: [{ text }] });
-    return { text, charts, datasets, steps: maxSteps, hitLimit: true };
+    return { text, charts, cards, datasets, steps: maxSteps, hitLimit: true };
   } catch (error) {
     contents.length = checkpoint;
     throw error;

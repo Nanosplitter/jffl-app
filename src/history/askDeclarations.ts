@@ -113,6 +113,20 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
     parameters: { type: 'object', properties: { week: int('Regular-season week number, such as 1 or 9.') }, required: ['week'] },
   },
   {
+    name: 'schedule',
+    description: 'The 2026 schedule: league games for every scheduled week (including future weeks) and cup ties, one row per manager per game, with opponent, status (final, live, or scheduled), and scores (null until played). Use it for who someone plays next, upcoming weeks, or a remaining schedule. Defaults to the current week and the two after it.',
+    parameters: {
+      type: 'object',
+      properties: {
+        manager: str('Manager nickname. Leave out for everyone.'),
+        league: str('Premier, Championship, League One, or JFFL (the cross-league cup).'),
+        type: { type: 'string', enum: ['Season', 'Cup'], description: 'Only league games or only cup ties.' },
+        fromWeek: int('First week. Defaults to the current week.'),
+        toWeek: int('Last week. Defaults to two weeks after fromWeek.'),
+      },
+    },
+  },
+  {
     name: 'render_chart',
     description: 'Show an interactive chart to the user. Use a typed chart with a datasetId from a query tool, a named recipe for league-specific visuals, or "echarts" for a custom ECharts option. Call it at most twice per answer, only when a visual helps. The data is drawn from the dataset, so never copy numbers into it.',
     parameters: {
@@ -153,6 +167,22 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
       required: ['type', 'title'],
     },
   },
+  {
+    name: 'show_card',
+    description: 'Show a live card from the site for the current season: a league matchup, a cup match, a team, or a league standings table. The site fills in the numbers and the link; give names only. It returns the facts shown on the card.',
+    parameters: {
+      type: 'object',
+      properties: {
+        kind: { type: 'string', enum: ['matchup', 'cup_match', 'team', 'standings'], description: 'matchup: a manager\u2019s league game in one week. cup_match: their latest JFFL Cup or league cup match. team: their team this season. standings: one league table.' },
+        manager: str('Manager nickname. Required except for standings.'),
+        opponent: str('matchup only: the opponent, to check the pairing.'),
+        week: int('matchup only: week number, including future scheduled weeks. Leave out for the current week.'),
+        cup: str('cup_match only: "JFFL" or the manager\u2019s league. Leave out to use their most recent cup match.'),
+        league: str('standings only: Premier, Championship, or League One.'),
+      },
+      required: ['kind'],
+    },
+  },
 ];
 
 export interface LivePromptInfo { season: number; week: number | null; asOf: string | null; players: boolean }
@@ -170,7 +200,7 @@ How to work
 - Pick the simplest tool. query_games and query_seasons answer most questions. Use query_players for 2026 player scores, and head_to_head, manager_career, records, title_years, draft_slot_stats, and week_slice when they fit.
 - 2026 is in progress. When a score comes from a row with status live, say it is live and can still change. Give 2026 standings as current positions, not finishes. Never predict outcomes, final standings, or who will win a game or title.
 - For records, "best ever", and other all-time comparisons, use finished games: filter status final in query_games. The records, head_to_head, and week_slice tools already skip live games.
-- "This week" or "this season" means the 2026 season in progress.
+- "This week" or "this season" means the 2026 season in progress. For upcoming opponents or a remaining schedule, use schedule; describe future games as scheduled, without picking winners.
 - To find who held the highest or lowest value inside each group, set within, then group and count the kept rows. For who scored the lowest in their league-week the most times in a season: filter type Season and score not_null, within { groupBy: ["season", "league", "week"], fn: "min", field: "score" }, groupBy ["season", "team"], count as weeks, sort weeks desc. Use fn "max" for the highest score in the week. Leave league out of within.groupBy for the lowest score in the whole archive that week. Ties for the extreme all count. Do not download raw weeks to count this yourself; the tool returns the short list.
 - If a name could be a typo or could match more than one manager, call resolve_entity. If several managers match, ask which one the user means before answering.
 - Report sample sizes when they are small (under 10 games or seasons) and say the result is a small sample.
@@ -185,7 +215,11 @@ Charts
 - Use echarts only when nothing else fits.
 - After a chart is shown, do not describe its layout. Summarize what it shows.
 - If the user asks to change a previous chart (another league, years, chart type, highlight), run the needed query again and draw a new chart.
-
+${live ? `
+Cards
+- Use show_card when the answer is about specific current-season games or teams: the matchups you discuss, a cup tie, a team, or a league table. At most four cards per answer, and none for history-only answers.
+- Cards update live and link to the full page, so mention the key numbers in a sentence and let the card carry the rest.
+` : ''}
 Style
 - Answer in plain, concise language, in short paragraphs or a short list. No tables, no emojis, no headings.
 - Do not mention tools, datasets, JSON, or datasetIds to the user.

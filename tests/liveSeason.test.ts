@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import type { SummaryMap } from '../src/competitions.ts';
+import { buildCup, regularSeason, type SummaryMap } from '../src/competitions.ts';
 import { buildLiveSeason, finishedGames, type RosterMap } from '../src/history/liveSeason.ts';
+import { withFutureWeeks } from './futureWeeks.ts';
 
 const read = <T>(name: string) => JSON.parse(readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8')) as T;
 const summaries = read<SummaryMap>('week3-summaries.json');
@@ -40,6 +41,28 @@ test('unknown scores stay null and pending weeks are left out', () => {
   assert.ok(game);
   assert.notEqual(game.scoreB, null);
   assert.equal(built.games.some(item => item.week === 4), false);
+});
+
+test('the schedule covers future league weeks and cup ties without inventing scores', () => {
+  const built = buildLiveSeason(withFutureWeeks(summaries, [4, 5]))!;
+  const jason = built.schedule.filter(row => row.team === 'Jason');
+  const league = jason.filter(row => row.type === 'Season').map(row => [row.week, row.status, row.score]);
+  assert.deepEqual(league, [[1, 'final', 133], [2, 'final', 98], [3, 'live', 79], [4, 'scheduled', null], [5, 'scheduled', null]]);
+  assert.ok(jason.every(row => row.opponent && row.opponent !== 'Jason'));
+  const cups = jason.filter(row => row.type === 'Cup');
+  assert.ok(cups.some(row => row.round === 'Premier League Cup Quarterfinals' && row.week === 5 && row.status === 'scheduled' && row.score === null));
+  assert.ok(cups.some(row => row.round.startsWith('JFFL Cup Round 2') && row.week === 6 && row.lastWeek === 7 && /^Winner of/.test(row.opponent)));
+  assert.equal(built.games.some(game => game.week !== null && game.week > 3), false);
+});
+
+test('published future weeks leave cup brackets and regular-season totals unchanged', () => {
+  const future = withFutureWeeks(summaries, [4, 5, 6, 7]);
+  for (const id of ['jffl', 'premier', 'championship', 'league-one'] as const) {
+    assert.deepEqual(buildCup(id, future), buildCup(id, summaries));
+  }
+  for (const slug of ['premier', 'championship', 'league-one'] as const) {
+    assert.deepEqual(regularSeason(future[slug]!), regularSeason(summaries[slug]!));
+  }
 });
 
 test('only finished games with both scores count as results', () => {

@@ -10,6 +10,8 @@ export interface EmailPiece {
   cards?: Array<{ label: string; value: string; note?: string }>;
   table?: { columns: string[]; rows: Cell[][] } | null;
   caveats?: string[];
+  /** Live cards copy as text plus a link to the page, since their numbers keep changing. */
+  link?: { href: string; text: string };
 }
 
 const TABLE_ROWS = 40;
@@ -78,13 +80,17 @@ export function renderEmail(input: { question?: string; answer: string; pieces: 
     if (piece.image) {
       const width = Math.max(280, Math.min(piece.imageWidth ?? 960, 1200));
       html.push(`<p style="margin:0 0 12px;background-color:transparent;"><img src="${esc(piece.image)}" alt="" width="${width}" style="max-width:100%;height:auto;display:block;border:0;background-color:transparent;" /></p>`);
-    } else if (!piece.table && !piece.cards?.length) {
+    } else if (!piece.table && !piece.cards?.length && !piece.link) {
       pushParagraph('The chart could not be copied.', mutedStyle);
       plain.push('The chart could not be copied.');
     }
     if (piece.table && piece.table.columns.length && piece.table.rows.length) {
       html.push(tableHtml(piece.table.columns, piece.table.rows));
       plain.push(tablePlain(piece.table.columns, piece.table.rows));
+    }
+    if (piece.link) {
+      pushParagraph(`<a href="${esc(piece.link.href)}" style="color:#0b5cad;">${esc(piece.link.text)}</a>`);
+      plain.push(`${piece.link.text}: ${piece.link.href}`);
     }
     for (const caveat of piece.caveats ?? []) {
       pushParagraph(esc(caveat), mutedStyle);

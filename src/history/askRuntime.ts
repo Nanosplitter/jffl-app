@@ -2,6 +2,7 @@ import {
   applyControls, createContext, datasetForModel, isDataTool, managerNames, parseQuery, runDataTool, runQuery,
   type Archive, type Controls, type Dataset, type Source, type TableName, type ToolContext,
 } from './askTools.ts';
+import { resolveCard, type CardSpec } from './askCards.ts';
 import { normalizeModelSpec, validateSpec, type ChartSpec, type ValidationEnv } from './chartSpec.ts';
 
 export interface Session {
@@ -72,6 +73,7 @@ export interface ToolRun {
   response: Record<string, unknown>;
   dataset?: Dataset;
   chart?: { spec: ChartSpec; warnings: string[] };
+  card?: CardSpec;
   /** Short note for the progress line in the UI. */
   note: string;
 }
@@ -79,7 +81,7 @@ export interface ToolRun {
 const NOTES: Record<string, string> = {
   query_games: 'Searching games', query_seasons: 'Searching seasons', query_players: 'Searching player scores', resolve_entity: 'Matching names', head_to_head: 'Comparing managers',
   manager_career: 'Reading a career', records: 'Checking the record book', title_years: 'Checking title winners', draft_slot_stats: 'Checking draft slots',
-  week_slice: 'Reading a week in history', render_chart: 'Drawing a chart',
+  week_slice: 'Reading a week in history', schedule: 'Checking the schedule', render_chart: 'Drawing a chart', show_card: 'Adding a card',
 };
 
 export function executeTool(session: Session, name: string, rawArgs: unknown): ToolRun {
@@ -91,6 +93,14 @@ export function executeTool(session: Session, name: string, rawArgs: unknown): T
     return {
       note, chart: { spec: result.spec, warnings: result.warnings },
       response: { ok: true, shown: true, message: 'The chart is now displayed to the user. Do not describe its layout; summarize what it shows.', warnings: result.warnings },
+    };
+  }
+  if (name === 'show_card') {
+    const result = resolveCard(session.ctx.archive.live?.summaries ?? {}, args);
+    if (!result.ok) return { note, response: { ok: false, error: result.error } };
+    return {
+      note, card: result.spec,
+      response: { ok: true, shown: true, card: result.text.title, facts: result.text.facts, message: 'The card is now displayed with live numbers and a link. Do not repeat everything on it.' },
     };
   }
   if (!isDataTool(name)) return { note, response: { ok: false, error: `Unknown tool "${name}".` } };

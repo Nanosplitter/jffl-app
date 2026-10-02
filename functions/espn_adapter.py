@@ -226,7 +226,9 @@ def weekly_matchups(boundary, current_week):
         period = matchup.get('matchupPeriodId')
         weeks = periods.get(str(period), [period])
         for week in weeks:
-            if not isinstance(week, int) or week > current_week:
+            if not isinstance(week, int):
+                continue
+            if week > current_week and not any('teamId' in matchup.get(side, {}) for side in ('home', 'away')):
                 continue
             row = {'id': f"{week}-{matchup['id']}", 'week': week,
                    'status': 'final' if matchup.get('winner') in ('HOME', 'AWAY', 'TIE') else 'live' if week == current_week else 'pending'}

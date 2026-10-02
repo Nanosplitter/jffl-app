@@ -1,7 +1,7 @@
 import type { Cell, Dataset } from './askTools.ts';
 import { datasetIdsOf, sanitizeOption, type ChartSpec } from './chartSpec.ts';
 import {
-  axisStyle, baseOption, emptyChart, esc, fmt, numberList, quantile, tableOf,
+  axisStyle, baseOption, emptyChart, esc, fmt, numberList, quantile, roomForAxisNames, tableOf,
   type BuildEnv, type Card, type ResolvedChart,
 } from './chartKit.ts';
 import { buildRecipe, isRecipe } from './recipes.ts';
@@ -221,6 +221,11 @@ function typedChart(spec: ChartSpec, dataset: Dataset, env: BuildEnv): ResolvedC
 }
 
 export function resolveChart(spec: ChartSpec, env: BuildEnv): ResolvedChart {
+  const chart = buildChart(spec, env);
+  return chart.kind === 'echarts' && chart.option ? { ...chart, option: roomForAxisNames(chart.option) } : chart;
+}
+
+function buildChart(spec: ChartSpec, env: BuildEnv): ResolvedChart {
   if (isRecipe(spec.type)) return buildRecipe(spec, env);
   if (spec.type === 'echarts') {
     const cleaned = sanitizeOption(spec.option, { dataset: env.dataset, managers: () => [] });

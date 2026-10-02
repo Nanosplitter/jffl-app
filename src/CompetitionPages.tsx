@@ -304,6 +304,7 @@ export function LeagueMatchPage() {
   if (!matchup) return <p className="notice">Match not found. <Link to={`/league/${slug}`}>Back to {meta.name}</Link></p>;
   const week = weekly?.week ?? data.week;
   const decided = weekly ? weekly.status === 'final' : week < data.week;
+  const upcoming = !decided && week > data.week;
   const roster = rosters[meta.slug];
   const side = (teamId: string | null, score: number | null, projected: number | null) => {
     const team = teamId ? data.teams.find(item => item.id === teamId) ?? null : null;
@@ -338,7 +339,7 @@ export function LeagueMatchPage() {
   </div>;
   return <div className="match-sheet">
     <Link className="back-link" to={`/league/${slug}`}>← {meta.name}</Link>
-    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1>{heading}</h1><p className="intro-copy">{decided ? 'Final' : 'Live'} league matchup</p></div></section>
+    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1>{heading}</h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
     <p className="competition-updates">{summaryState ? <Fresh data={data} error={summaryState.error} /> : null}</p>
     <article className="match-board" aria-label={heading}>
       <div className="match-board-row">
@@ -357,7 +358,9 @@ export function LeagueMatchPage() {
         <tr><th scope="row">League rank</th><td>{away.team?.rank != null ? `#${away.team.rank}` : '—'}</td><td>{home.team?.rank != null ? `#${home.team.rank}` : '—'}</td></tr>
       </tbody></table>
     </section>
-    <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={[starters(away.teamId, away.manager), starters(home.teamId, home.manager)]} /></section>
+    {upcoming
+      ? <p className="notice">Week {week} has not started. Scores, projections, and starters appear once it is the current week.</p>
+      : <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={[starters(away.teamId, away.manager), starters(home.teamId, home.manager)]} /></section>}
   </div>;
 }
 

@@ -1,11 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Check, Copy, RotateCcw, Send, Square } from 'lucide-react';
 import { ArchiveNav } from './ArchiveNav';
+import { AskCardList } from './AskCards';
 import { ChartView, useDarkMode, type ChartHandle } from './AskCharts';
+import type { SummaryMap } from './competitions';
 import { aiConfigured } from './firebaseApp';
-import { parseAnswer } from './history/answerText.ts';
+import { parseAnswer, type Inline } from './history/answerText.ts';
 import { AgentAborted, fitHistory, runAgent, splitFollowUps, trimHistory, turnCount, type ModelContent } from './history/askAgent.ts';
+import { describeCard, managerLinks, nameMatcher, splitNames, type CardItem } from './history/askCards.ts';
 import type { LivePromptInfo } from './history/askDeclarations.ts';
 import { checkLimits, DAILY_KEY, friendlyError, MAX_INPUT_CHARS, readDaily } from './history/askGuards.ts';
 import { createSession, refreshSession, restoreSources, validationEnv, type Session } from './history/askRuntime.ts';
@@ -13,7 +16,7 @@ import { deserialize, serialize, STORE_KEY, type ChartItem, type ChatMessage } f
 import type { Assistant } from './history/askModel.ts';
 import { DARK_THEME, LIGHT_THEME, createColorMap } from './history/chartKit.ts';
 import { validateSpec } from './history/chartSpec.ts';
-import { copyEmail, renderEmail } from './history/emailCopy.ts';
+import { copyEmail, renderEmail, type EmailPiece } from './history/emailCopy.ts';
 import { archiveStamp, buildShare, decodeShare, encodeShare, packChart, shareUrl, usesLiveData, type BuiltShare, type SharePayload } from './history/share.ts';
 import { asOfLabel, type Archive, type Controls } from './history/askTools.ts';
 import { useLiveArchive } from './useLiveArchive';
@@ -26,6 +29,8 @@ const STARTERS = [
   { title: 'Make me a chart', items: ['Chart the average score per season for each league', 'Who beats whom in the Premier league since 2013?', 'Show Jeff\u2019s career as a timeline'] },
 ];
 
+const NO_SUMMARIES: SummaryMap = {};
+
 const uid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 const read = (storage: Storage | undefined, key: string) => { try { return storage?.getItem(key) ?? null; } catch { return null; } };
 const write = (storage: Storage | undefined, key: string, value: string | null) => { try { if (value === null) storage?.removeItem(key); else storage?.setItem(key, value); } catch { /* storage can be blocked */ } };
@@ -36,10 +41,19 @@ function useColorMap(dark: boolean) {
   return useMemo(() => createColorMap(() => palette.current), []);
 }
 
-function Answer({ text }: { text: string }) {
+function Answer({ text, links }: { text: string; links?: Map<string, string> }) {
+  const matcher = useMemo(() => (links ? nameMatcher(links.keys()) : null), [links]);
+  const seen = new Set<string>();
+  const inline = (parts: Inline[]) => parts.map((part, position) => {
+    const pieces = splitNames(part.text, matcher, seen).map((piece, spot) => {
+      const href = piece.name ? links?.get(piece.name) : undefined;
+      return href ? <Link key={spot} to={href}>{piece.text}</Link> : piece.text;
+    });
+    return part.bold ? <strong key={position}>{pieces}</strong> : <Fragment key={position}>{pieces}</Fragment>;
+  });
   return <div className="ask-answer">{parseAnswer(text).map((block, index) => block.type === 'p'
-    ? <p key={index}>{block.inline.map((part, position) => part.bold ? <strong key={position}>{part.text}</strong> : part.text)}</p>
-    : <ul key={index}>{block.items.map((item, position) => <li key={position}>{item.map((part, spot) => part.bold ? <strong key={spot}>{part.text}</strong> : part.text)}</li>)}</ul>)}</div>;
+    ? <p key={index}>{inline(block.inline)}</p>
+    : <ul key={index}>{block.items.map((item, position) => <li key={position}>{inline(item)}</li>)}</ul>)}</div>;
 }
 
 function ShareBox({ url, onCopy }: { url: string; onCopy: () => void }) {
@@ -50,11 +64,14 @@ function ShareBox({ url, onCopy }: { url: string; onCopy: () => void }) {
   </div>;
 }
 
-function CopyForEmail({ question, text, chartIds, handles, onDone }: {
-  question: string; text: string; chartIds: string[]; handles: Map<string, ChartHandle>; onDone: (message: string) => void;
+function CopyForEmail({ question, text, chartIds, cards, summaries, handles, onDone }: {
+  question: string; text: string; chartIds: string[]; cards: CardItem[]; summaries: SummaryMap; handles: Map<string, ChartHandle>; onDone: (message: string) => void;
 }) {
   const copy = async () => {
-    const pieces = [];
+    const pieces: EmailPiece[] = cards.flatMap(card => {
+      const described = describeCard(summaries, card.spec);
+      return described ? [{ title: described.title, subtitle: described.facts, link: { href: `${window.location.origin}${described.url}`, text: 'Open on the site' } }] : [];
+    });
     for (const id of chartIds) {
       const shot = await handles.get(id)?.snapshot();
       if (shot) pieces.push(shot);
@@ -114,6 +131,8 @@ export function AskPage() {
   const handledPrompt = useRef<string | null>(null);
   const chartHandles = useRef(new Map<string, ChartHandle>());
   const unavailable = !aiConfigured && !import.meta.env.DEV;
+  const managerKey = session.managers.join('|');
+  const links = useMemo(() => managerLinks(managerKey.split('|')), [managerKey]);
 
   // Restore this tab's chat once the live snapshots are in, so charts built on this season can be rebuilt.
   // Charts are validated again, so stored data can never bypass the checks.
@@ -207,11 +226,12 @@ export function AskPage() {
           if (event.type === 'step') { stepText = ''; patch(answerId, { text: '' }); }
           else if (event.type === 'text') { stepText += event.delta; patch(answerId, { text: splitFollowUps(stepText).answer }); }
           else if (event.type === 'tool') setNote(event.note);
+          else if (event.type === 'card') { const card = event.card; patch(answerId, message => ({ cards: [...(message.cards ?? []), card] })); }
           else patch(answerId, message => ({ charts: [...message.charts, { id: event.id, spec: event.spec, warnings: event.warnings }] }));
         },
       });
       const { answer, followUps } = splitFollowUps(result.text);
-      patch(answerId, { text: answer || (result.charts.length ? 'Here is the chart.' : 'I could not put together an answer. Try asking it another way.'), followUps });
+      patch(answerId, { text: answer || (result.charts.length || result.cards.length ? 'Here it is.' : 'I could not put together an answer. Try asking it another way.'), followUps });
     } catch (error) {
       if (controller.signal.aborted || error instanceof AgentAborted) patch(answerId, { error: 'Stopped.' });
       else patch(answerId, { error: error instanceof Error && error.name === 'AssistantUnavailable' ? error.message : friendlyError(error) });
@@ -247,8 +267,9 @@ export function AskPage() {
     try {
       const charts = message.charts.map(chart => packChart(session, chart.spec, chart.id === chartId ? controls : chart.controls));
       const asOf = session.ctx.archive.live?.asOf;
-      const live = asOf && usesLiveData(session, message.charts.map(chart => chart.spec)) ? { l: asOf } : {};
-      const encoded = await encodeShare({ v: 1, a: archiveStamp(session.ctx.archive), ...live, q: question.slice(0, 300), t: message.text.slice(0, 1200), c: charts });
+      const cards = (message.cards ?? []).map(card => card.spec);
+      const live = asOf && (cards.length || usesLiveData(session, message.charts.map(chart => chart.spec))) ? { l: asOf } : {};
+      const encoded = await encodeShare({ v: 1, a: archiveStamp(session.ctx.archive), ...live, q: question.slice(0, 300), t: message.text.slice(0, 1200), c: charts, ...(cards.length ? { k: cards } : {}) });
       const url = shareUrl(window.location.origin, encoded);
       setShareLink({ id: message.id, url });
       try { await navigator.clipboard.writeText(url); setToast('Link copied'); } catch { setToast('Link ready. Copy it below.'); }
@@ -263,6 +284,7 @@ export function AskPage() {
 
   const lastAssistant = [...messages].reverse().find(message => message.role === 'assistant');
   const lastUserIndex = messages.map(message => message.role).lastIndexOf('user');
+  const summaries = archive.live?.summaries ?? NO_SUMMARIES;
 
   return <div className="ask-page">
     <ArchiveNav />
@@ -290,8 +312,9 @@ export function AskPage() {
             <span className="ask-label">Archive assistant</span>
           </div>
           {streaming && !message.text && <p className="ask-progress">{note || 'Working'}…</p>}
-          {message.text && <Answer text={message.text} />}
+          {message.text && <Answer text={message.text} links={links} />}
           {streaming && message.text && note && note !== 'Thinking' && <p className="ask-progress">{note}…</p>}
+          {message.cards?.length ? <AskCardList cards={message.cards} summaries={summaries} /> : null}
           {message.charts.length > 0 && <div className="ask-charts">{message.charts.map(chart => <ChartView
             key={chart.id} ref={handle => { if (handle) chartHandles.current.set(chart.id, handle); else chartHandles.current.delete(chart.id); }}
             spec={chart.spec} session={session} color={color} dark={dark} initialControls={chart.controls}
@@ -301,7 +324,7 @@ export function AskPage() {
           {!streaming && message.id === lastAssistant?.id && message.followUps.length > 0 && <div className="ask-chips" aria-label="Suggested follow-up questions">
             {message.followUps.map(item => <button key={item} type="button" disabled={busy} onClick={() => void send(item)}>{item}</button>)}
           </div>}
-          {!streaming && (message.text || message.charts.length > 0) && <CopyForEmail question={question} text={message.text} chartIds={message.charts.map(chart => chart.id)} handles={chartHandles.current} onDone={setToast} />}
+          {!streaming && (message.text || message.charts.length > 0) && <CopyForEmail question={question} text={message.text} chartIds={message.charts.map(chart => chart.id)} cards={message.cards ?? []} summaries={summaries} handles={chartHandles.current} onDone={setToast} />}
         </div>;
       })}
     </div>
@@ -360,6 +383,8 @@ export function AskSharePage() {
 
   const built = state.status === 'ready' ? state.built : null;
   const currentAsOf = built?.session.ctx.archive.live?.asOf;
+  const managerKey = built?.session.managers.join('|') ?? '';
+  const links = useMemo(() => managerLinks(managerKey ? managerKey.split('|') : []), [managerKey]);
   return <div className="ask-page">
     <ArchiveNav />
     <section className="page-intro"><div>
@@ -373,7 +398,8 @@ export function AskSharePage() {
       {built.stale && <p className="notice">This link was made from an earlier version of the archive, so numbers may differ slightly.</p>}
       {built.liveAsOf && built.liveAsOf !== currentAsOf && <p className="notice">This link used this season’s numbers as of {asOfLabel(built.liveAsOf)}. The charts show {currentAsOf ? `the numbers as of ${asOfLabel(currentAsOf)}` : 'only what is available now'}, so they may have changed since the link was made.</p>}
       {built.skipped > 0 && <p className="notice">{built.skipped} chart{built.skipped === 1 ? '' : 's'} in this link could not be rebuilt and {built.skipped === 1 ? 'was' : 'were'} left out.</p>}
-      {built.text && <div><Answer text={built.text} /><p className="source-note">The written summary comes from the link and has not been checked. The charts below are rebuilt from the archive.</p></div>}
+      {built.text && <div><Answer text={built.text} links={links} /><p className="source-note">The written summary comes from the link and has not been checked. The charts below are rebuilt from the archive.</p></div>}
+      {built.cards.length > 0 && <div><AskCardList cards={built.cards.map((spec, index) => ({ id: `shared-card-${index}`, spec }))} summaries={archive.live?.summaries ?? NO_SUMMARIES} /><p className="source-note">Cards show the latest league numbers, not the numbers when the link was made.</p></div>}
       <div className="ask-charts">{built.charts.map(chart => <ChartView key={chart.id} spec={chart.spec} session={built.session} color={color} dark={dark} initialControls={chart.controls}
         onAsk={prompt => navigate('/archive/ask', { state: { prompt } })} />)}</div>
       <div className="ask-share-bar"><Link className="button" to="/archive/ask"><Check size={15} aria-hidden="true" />Ask your own question</Link></div>

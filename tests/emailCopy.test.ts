@@ -35,3 +35,10 @@ test('a chart with no picture says so in the email', () => {
   const { plain } = renderEmail({ answer: 'See the chart.', pieces: [{ title: 'Missing', image: null }] });
   assert.match(plain, /The chart could not be copied/);
 });
+
+test('a live card copies as its facts and an escaped link', () => {
+  const { html, plain } = renderEmail({ answer: 'Close game.', pieces: [{ title: 'Jason vs Donna, week 3', subtitle: 'Jason 79, Donna 112 (in progress)', link: { href: 'https://jffl.org/league/premier/match/3-1?a=1&b="2"', text: 'Open on the site' } }] });
+  assert.match(plain, /Jason 79, Donna 112 \(in progress\)\nOpen on the site: https:\/\/jffl\.org\/league\/premier\/match\/3-1/);
+  assert.match(html, /href="https:\/\/jffl\.org\/league\/premier\/match\/3-1\?a=1&amp;b=&quot;2&quot;"/);
+  assert.doesNotMatch(plain, /could not be copied/);
+});

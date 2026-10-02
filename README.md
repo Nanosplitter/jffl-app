@@ -85,6 +85,9 @@ How it works:
   (`publicLeagues` and `publicRosters`), never from ESPN directly. `src/history/liveSeason.ts`
   maps ESPN teams to manager nicknames and turns the snapshots into 2026 game and season rows
   plus a 2026-only `player_weeks` table (`query_players`: starters, bench, and points by week).
+  The `schedule` tool lists each manager's league games for every scheduled week, including
+  future ones, and their cup ties (opponents can be "Winner of ..." until earlier rounds finish).
+  Future games never enter the results tables, so they cannot affect records or totals.
   Games still being played have `status: live`, and answers and caveats say so with the
   snapshot time. Records, head-to-head, and week-in-history count finished games only. 2026
   titles stay unknown until decided, and the 2026 draft slot is not available. Past-week
@@ -100,6 +103,14 @@ How it works:
 - Each chart can re-run its saved query locally with new years, leagues, or game types
   ("Adjust this chart"), show its data table, export PNG or CSV, and make a share link.
   Clicking a point asks a follow-up about it.
+- Current-season cards (`src/history/askCards.ts`, `src/AskCards.tsx`): the assistant's
+  `show_card` tool names a league matchup, cup match, team, or league table by manager or league
+  name, at most four per answer. The site checks the name against the snapshot and stores only a
+  small recipe; the card itself (the same match sheet and standings table used elsewhere on the
+  site) is drawn from the latest snapshot and links to the full page. The model never supplies
+  markup or URLs. Manager names in answers link to their 2026 team page, or to their archive
+  profile for past managers (first mention only). Copy for email turns each card into a line of
+  text with a link.
 - JFFL Cup scores are two-week totals; the tools flag mixing them with single weeks, and
   caveats are shown under each chart. Unknown values stay unknown, never zero.
 - The current chat lives in `sessionStorage` for the tab. Nothing is stored on a server. Share
@@ -108,6 +119,7 @@ How it works:
   the archive and makes no model call. The written summary in a link is unverified text and is
   shown as plain text with a note. A link whose charts use 2026 data also holds the snapshot
   time; the receiver's charts use their current snapshot and say the numbers may have changed.
+  Cards in the answer travel as recipes too and always show the receiver's latest numbers.
 - Questions and tool results are sent to Google (Gemini) through Firebase, so the page tells
   visitors not to include personal details.
 
@@ -232,7 +244,7 @@ uses connection/read timeouts, and allows at most one retry of selected transien
 errors. Each league refresh runs independently. A validated summary and roster
 are committed together in a Firestore batch:
 
-- `publicLeagues/{slug}`: teams, standings, current/historical weekly matchups, completed weeks, scoring, freshness.
+- `publicLeagues/{slug}`: teams, standings, weekly matchups for every scheduled week (future weeks are `pending` with null scores; playoff slots appear once ESPN assigns teams), completed weeks, scoring, freshness.
 - `publicRosters/{slug}`: rostered players, slots, weekly and cumulative stats.
 - `_sync/lease`: private synchronization state.
 
