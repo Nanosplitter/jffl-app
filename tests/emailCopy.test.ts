@@ -31,6 +31,15 @@ test('an email copy keeps the question, formatting, chart picture, and table', (
   assert.doesNotMatch(plain, /<b>/);
 });
 
+test('a colored league name becomes a span in the email and plain text loses the tags', () => {
+  const { html, plain } = renderEmail({ answer: 'SeanH won it in {premier}Premier{/premier}, not {green}<b>html</b>{/green}.', pieces: [] });
+  assert.match(html, /<span class="ink-premier" style="color:#4f7a22;">Premier<\/span>/);
+  assert.match(html, /\{green\}&lt;b&gt;html&lt;\/b&gt;\{\/green\}/);
+  assert.doesNotMatch(html, /<b>html<\/b>/);
+  assert.match(plain, /SeanH won it in Premier/);
+  assert.doesNotMatch(plain, /\{premier\}/);
+});
+
 test('a chart with no picture says so in the email', () => {
   const { plain } = renderEmail({ answer: 'See the chart.', pieces: [{ title: 'Missing', image: null }] });
   assert.match(plain, /The chart could not be copied/);

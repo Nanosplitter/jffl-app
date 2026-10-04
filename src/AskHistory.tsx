@@ -47,7 +47,8 @@ function Answer({ text, links }: { text: string; links?: Map<string, string> }) 
   const inline = (parts: Inline[]) => parts.map((part, position) => {
     const pieces = splitNames(part.text, matcher, seen).map((piece, spot) => {
       const href = piece.name ? links?.get(piece.name) : undefined;
-      return href ? <Link key={spot} to={href}>{piece.text}</Link> : piece.text;
+      const body = href ? <Link to={href}>{piece.text}</Link> : piece.text;
+      return part.color ? <span key={spot} className={`ink ink-${part.color}`}>{body}</span> : <Fragment key={spot}>{body}</Fragment>;
     });
     return part.bold ? <strong key={position}>{pieces}</strong> : <Fragment key={position}>{pieces}</Fragment>;
   });

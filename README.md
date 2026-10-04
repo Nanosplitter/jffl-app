@@ -108,9 +108,10 @@ How it works:
   name, at most four per answer. The site checks the name against the snapshot and stores only a
   small recipe; the card itself (the same match sheet and standings table used elsewhere on the
   site) is drawn from the latest snapshot and links to the full page. The model never supplies
-  markup or URLs. Manager names in answers link to their 2026 team page, or to their archive
-  profile for past managers (first mention only). Copy for email turns each card into a line of
-  text with a link.
+  card markup or URLs. It may wrap a phrase in a fixed color tag such as `{premier}…{/premier}`;
+  any other markup stays plain text. Manager names in answers link to their 2026 team page, or
+  to their archive profile for past managers (first mention only). Copy for email turns each
+  card into a line of text with a link.
 - JFFL Cup scores are two-week totals; the tools flag mixing them with single weeks, and
   caveats are shown under each chart. Unknown values stay unknown, never zero.
 - The current chat lives in `sessionStorage` for the tab. Nothing is stored on a server. Share

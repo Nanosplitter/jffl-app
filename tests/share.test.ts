@@ -157,3 +157,41 @@ test('answer text becomes safe blocks: paragraphs, lists, bold, and nothing exec
   assert.equal((blocks[1] as { items: unknown[] }).items.length, 2);
   assert.deepEqual(blocks[2], { type: 'p', inline: [{ text: '<script>alert(1)</script>', bold: false }] });
 });
+
+test('color tags become ink runs, and unknown or unclosed tags stay text', () => {
+  const blocks = parseAnswer('{premier}Premier{/premier} beat {championship}**Championship**{/championship}.\n\n- {league-one}League One{/league-one}: {red}low{/red}\n\n{green}nope{/green} {premier}open');
+  assert.deepEqual(blocks[0], {
+    type: 'p',
+    inline: [
+      { text: 'Premier', bold: false, color: 'premier' },
+      { text: ' beat ', bold: false },
+      { text: 'Championship', bold: true, color: 'championship' },
+      { text: '.', bold: false },
+    ],
+  });
+  assert.equal(blocks[1].type, 'ul');
+  if (blocks[1].type === 'ul') {
+    assert.deepEqual(blocks[1].items[0], [
+      { text: 'League One', bold: false, color: 'league-one' },
+      { text: ': ', bold: false },
+      { text: 'low', bold: false, color: 'red' },
+    ]);
+  }
+  assert.deepEqual(blocks[2], { type: 'p', inline: [{ text: '{green}nope{/green} {premier}open', bold: false }] });
+});
+
+test('a league name left untagged still takes its color, and a chosen color wins', () => {
+  const blocks = parseAnswer('2018 Premier and the Premier League. {red}Premier{/red} stayed red. Not championships.');
+  assert.equal(blocks[0].type, 'p');
+  if (blocks[0].type === 'p') {
+    assert.deepEqual(blocks[0].inline, [
+      { text: '2018 ', bold: false },
+      { text: 'Premier', bold: false, color: 'premier' },
+      { text: ' and the ', bold: false },
+      { text: 'Premier League', bold: false, color: 'premier' },
+      { text: '. ', bold: false },
+      { text: 'Premier', bold: false, color: 'red' },
+      { text: ' stayed red. Not championships.', bold: false },
+    ]);
+  }
+});

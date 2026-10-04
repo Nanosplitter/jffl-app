@@ -47,6 +47,22 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-answer p + p, .ask-answer ul + p, .ask-answer p + ul { margin-top: 12px; }
 .ask-answer ul { margin: 0; padding-left: 20px; }
 .ask-answer strong { font-weight: 700; }
+.ask-answer .ink-premier { color: #4f7a22; }
+.ask-answer .ink-championship { color: #4c76a2; }
+.ask-answer .ink-league-one { color: #8f5e16; }
+.ask-answer .ink-jffl { color: #0d7377; }
+.ask-answer .ink-combined { color: #5c656b; }
+.ask-answer .ink-red { color: #a03e36; }
+.ask-answer .ink-purple { color: #6d4b8a; }
+.ask-answer .ink-orange { color: #9a5a12; }
+:root[data-theme=dark] .ask-answer .ink-premier { color: #8fbf55; }
+:root[data-theme=dark] .ask-answer .ink-championship { color: #8eb4d6; }
+:root[data-theme=dark] .ask-answer .ink-league-one { color: #f0c48a; }
+:root[data-theme=dark] .ask-answer .ink-jffl { color: #3ec0f0; }
+:root[data-theme=dark] .ask-answer .ink-combined { color: #b0b7bc; }
+:root[data-theme=dark] .ask-answer .ink-red { color: #e8aaa3; }
+:root[data-theme=dark] .ask-answer .ink-purple { color: #d2b4ea; }
+:root[data-theme=dark] .ask-answer .ink-orange { color: #f0b27a; }
 .ask-progress { display: flex; align-items: center; gap: 10px; font-size: .74rem; color: var(--muted); }
 .ask-progress::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: ask-pulse 1.1s ease-in-out infinite; }
 @keyframes ask-pulse { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }

@@ -1,4 +1,4 @@
-import { parseAnswer, type Inline } from './answerText.ts';
+import { INK_ON_LIGHT, parseAnswer, type Ink, type Inline } from './answerText.ts';
 import type { Cell } from './askTools.ts';
 
 /** A chart reduced to something an email can hold: a picture, a small table, or both. */
@@ -18,7 +18,14 @@ const TABLE_ROWS = 40;
 
 const esc = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 
-const inlineHtml = (parts: Inline[]) => parts.map(part => part.bold ? `<b>${esc(part.text)}</b>` : esc(part.text)).join('');
+const colored = (text: string, color?: Ink) => {
+  const safe = esc(text);
+  return color ? `<span class="ink-${color}" style="color:${INK_ON_LIGHT[color]};">${safe}</span>` : safe;
+};
+const inlineHtml = (parts: Inline[]) => parts.map(part => {
+  const body = colored(part.text, part.color);
+  return part.bold ? `<b>${body}</b>` : body;
+}).join('');
 const inlinePlain = (parts: Inline[]) => parts.map(part => part.text).join('');
 
 const paragraphStyle = 'margin:0 0 12px;font-family:Calibri,Arial,sans-serif;font-size:16px;line-height:1.45;color:#151719;background-color:transparent;';
@@ -109,7 +116,8 @@ export async function copyEmail(html: string, plain: string): Promise<boolean> {
   host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;background-color:transparent;color:#151719;';
   host.innerHTML = html;
   const paint = document.createElement('style');
-  paint.textContent = '#email-copy-host, #email-copy-host * { background: none !important; background-color: transparent !important; background-image: none !important; box-shadow: none !important; color: #151719 !important; }';
+  const keepInk = (Object.keys(INK_ON_LIGHT) as Ink[]).map(name => `#email-copy-host .ink-${name} { color: ${INK_ON_LIGHT[name]} !important; }`).join(' ');
+  paint.textContent = `#email-copy-host, #email-copy-host * { background: none !important; background-color: transparent !important; background-image: none !important; box-shadow: none !important; color: #151719 !important; } ${keepInk}`;
   document.head.appendChild(paint);
   document.body.appendChild(host);
   const pending = [...host.querySelectorAll('img')].filter(img => !img.complete);
