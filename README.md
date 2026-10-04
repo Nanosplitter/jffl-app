@@ -82,7 +82,8 @@ How it works:
   game and season queries, head-to-head, manager careers, record book, title years,
   draft slots, and week slices. Each game row carries the league each manager
   played in that season, whether the matchup crossed leagues, and both managers'
-  final regular-season ranks. Head-to-head results split regular season, cup, and
+  final regular-season ranks, and the running win and loss streak inside that
+  season. Head-to-head results split regular season, cup, and
   Superbowl. It then asks for a chart by naming a returned dataset.
 - The 2026 season comes from the same Firestore snapshots as the rest of the site
   (`publicLeagues` and `publicRosters`), never from ESPN directly. `src/history/liveSeason.ts`

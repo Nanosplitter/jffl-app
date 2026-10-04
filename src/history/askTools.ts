@@ -80,6 +80,8 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     win: { type: 'number', about: '1 if this side won, otherwise 0' },
     loss: { type: 'number', about: '1 if this side lost, otherwise 0' },
     tie: { type: 'number', about: '1 if tied, otherwise 0' },
+    winStreak: { type: 'number', about: 'Consecutive regular-season wins ending with this game, inside this season only. A loss or tie resets it to 0. Null on cup and Superbowl games, on games still being played, and when the weekly log does not match the season record (including 2002).' },
+    lossStreak: { type: 'number', about: 'Consecutive regular-season losses ending with this game, inside this season only. A win or tie resets it to 0. Null in the same cases as winStreak.' },
     twoWeekCup: { type: 'number', about: '1 for JFFL Cup games, whose scores are two-week totals and are not comparable to a single week' },
     status: { type: 'string', about: 'final, or live for a 2026 game still being played (its score can change)' },
   },
@@ -130,7 +132,7 @@ export const DATA_NOTES = [
   'JFFL Cup games (league JFFL, 2013 onward) use two-week totals. Do not compare those scores with a single week. league on those games is always JFFL; teamLeague and opponentLeague say which league each manager played in, and crossLeague is 1 when those leagues differ.',
   'Ties are separate from wins and losses.',
   'Names are manager nicknames. "team" always means the manager.',
-  'Wins, losses, ties, and points on a season row are the official regular-season totals. teamFinish is the final regular-season rank that year, not the rank at the time of a game, and it only compares with another finish inside the same league. pointsAgainst is null when the weekly log does not match the season record.',
+  'Wins, losses, ties, and points on a season row are the official regular-season totals. teamFinish is the final regular-season rank that year, not the rank at the time of a game, and it only compares with another finish inside the same league. pointsAgainst is null when the weekly log does not match the season record. winStreak and lossStreak count consecutive regular-season results inside one season; a tie resets both, and they do not cross seasons or include cup games.',
 ];
 
 const TABLE_INTRO: Record<TableName, string> = {
@@ -154,6 +156,18 @@ type GameLike = Omit<HistoryGame, 'scoreA' | 'scoreB'> & { scoreA: number | null
 function pointsAllowed(log: { wins: number; losses: number; ties: number; against: number } | undefined, row: HistorySeason) {
   if (!log || row.wins == null || row.losses == null || row.ties == null) return null;
   return log.wins === row.wins && log.losses === row.losses && log.ties === row.ties ? log.against : null;
+}
+
+/** Running result streaks, in game order. A tie resets both. */
+export function streakLengths(results: Array<'W' | 'L' | 'T'>): Array<{ winStreak: number; lossStreak: number }> {
+  let wins = 0;
+  let losses = 0;
+  return results.map(result => {
+    if (result === 'W') { wins += 1; losses = 0; }
+    else if (result === 'L') { losses += 1; wins = 0; }
+    else { wins = 0; losses = 0; }
+    return { winStreak: wins, lossStreak: losses };
+  });
 }
 
 export function prepareTables(archive: Archive): Record<TableName, Row[]> {
@@ -193,10 +207,28 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
         diff: known ? score - other : null, margin: known ? Math.abs(score - other) : null,
         result: known ? score > other ? 'W' : score < other ? 'L' : 'T' : null,
         win: known ? score > other ? 1 : 0 : null, loss: known ? score < other ? 1 : 0 : null, tie: known ? score === other ? 1 : 0 : null,
-        twoWeekCup: twoWeek, status,
+        winStreak: null, lossStreak: null, twoWeekCup: twoWeek, status,
       };
     };
     teamGames.push(side(game.teamA, game.teamB, game.scoreA, game.scoreB), side(game.teamB, game.teamA, game.scoreB, game.scoreA));
+  }
+  const streakEligible = new Set<string>();
+  for (const row of [...archive.seasons, ...(archive.live?.seasons ?? [])]) {
+    if (pointsAllowed(scored.get(`${row.season}|${row.team}`), row) != null) streakEligible.add(`${row.season}|${row.team}`);
+  }
+  const streakGroups = new Map<string, Row[]>();
+  for (const row of teamGames) {
+    if (row.type !== 'Season' || row.status !== 'final' || row.week == null || (row.result !== 'W' && row.result !== 'L' && row.result !== 'T')) continue;
+    const key = `${row.season}|${row.team}`;
+    if (!streakEligible.has(key)) continue;
+    const list = streakGroups.get(key) ?? [];
+    list.push(row);
+    streakGroups.set(key, list);
+  }
+  for (const list of streakGroups.values()) {
+    list.sort((left, right) => (left.week as number) - (right.week as number));
+    const streaks = streakLengths(list.map(row => row.result as 'W' | 'L' | 'T'));
+    list.forEach((row, index) => Object.assign(row, streaks[index]));
   }
   const flag = (rank: number | null, test: (value: number) => boolean) => rank == null ? null : test(rank) ? 1 : 0;
   const seasonRow = (row: HistorySeason & { standing?: number | null }, status: string): Row => ({

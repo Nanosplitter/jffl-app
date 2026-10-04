@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { applyControls, createContext, datasetForModel, parseQuery, resolveEntity, runDataTool, runQuery, type Dataset, type Query } from '../src/history/askTools.ts';
+import { applyControls, createContext, datasetForModel, parseQuery, resolveEntity, runDataTool, runQuery, streakLengths, type Dataset, type Query } from '../src/history/askTools.ts';
 import { parseArchive, type ArchiveFile } from '../src/history/stats.ts';
 import type { SummaryMap } from '../src/competitions.ts';
 import { buildLiveSeason, type RosterMap } from '../src/history/liveSeason.ts';
@@ -348,4 +348,24 @@ test('complete answers stay whole, and finishes, matchups, and points against ar
   assert.equal(series.rows.find(row => row.season === 2022 && row.type === 'Cup' && row.when === 'final')?.winner, 'Ryan');
   assert.ok(series.summary.cup.RyanWins >= 1);
   assert.equal(liveCtx.tables.team_games.find(row => row.season === 2026)?.teamFinish, null);
+});
+
+test('streaks are consecutive regular-season results inside one season', () => {
+  assert.deepEqual(streakLengths(['W', 'W', 'T', 'W', 'L', 'L']).map(row => row.winStreak), [1, 2, 0, 1, 0, 0]);
+  assert.deepEqual(streakLengths(['W', 'W', 'T', 'W', 'L', 'L']).map(row => row.lossStreak), [0, 0, 0, 0, 1, 2]);
+  const michael = ctx.tables.team_games.filter(row => row.season === 2019 && row.team === 'Michael' && row.type === 'Season').sort((left, right) => (left.week as number) - (right.week as number));
+  assert.equal(michael.length, 13);
+  assert.deepEqual(michael.map(row => row.winStreak), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+  assert.ok(michael.every(row => row.lossStreak === 0));
+  assert.equal(ctx.tables.team_games.find(row => row.league === 'JFFL')?.winStreak, null);
+  assert.ok(ctx.tables.team_games.filter(row => row.season === 2002).every(row => row.winStreak == null && row.lossStreak == null));
+  const longest = query('team_games', {
+    filters: [{ field: 'type', op: 'eq', value: 'Season' }, { field: 'status', op: 'eq', value: 'final' }, { field: 'winStreak', op: 'not_null' }],
+    groupBy: ['team', 'season'],
+    aggregates: [{ fn: 'max', field: 'winStreak', as: 'streak' }],
+    sort: [{ field: 'streak', dir: 'desc' }],
+    limit: 5,
+  });
+  assert.equal(longest.rows[0].streak, 13);
+  assert.ok(longest.rows.some(row => row.team === 'Michael' && row.season === 2019));
 });
