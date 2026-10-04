@@ -57,12 +57,12 @@ const queryProperties = {
 export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   {
     name: 'query_games',
-    description: 'Search game results. One row per team per game (each game appears twice, once from each side), so team-level questions such as highest scores, average points, or win counts work directly. league is the competition, so every JFFL Cup game has league JFFL. teamLeague and opponentLeague are the leagues those managers played in that season, and crossLeague is 1 when they differ. For a league\'s record against other leagues, including a round-by-round cup comparison, filter crossLeague = 1 and group by teamLeague (add round for each round) with sum of win, sum of loss, and count. Do not download rows and count them yourself. 2026 games have status live while being played; filter status final for records. Set within to keep whoever held the min or max inside each group (the lowest score in a league-week), then groupBy and count those rows. Returns a datasetId you can pass to render_chart.',
+    description: 'Search game results. One row per team per game (each game appears twice, once from each side), so team-level questions such as highest scores, average points, or win counts work directly. league is the competition, so every JFFL Cup game has league JFFL. teamLeague and opponentLeague are the leagues those managers played in that season, and crossLeague is 1 when they differ. For a league\'s record against other leagues, including a round-by-round cup comparison, filter crossLeague = 1 and group by teamLeague (add round for each round) with sum of win, sum of loss, and count. count counts both sides of a game; use count_distinct on gameId for the number of matchups. teamFinish and opponentFinish are the final regular-season ranks that year, and betterFinish compares them only inside the same league. Do not download rows and count them yourself. 2026 games have status live while being played; filter status final for records. Set within to keep whoever held the min or max inside each group (the lowest score in a league-week), then groupBy and count those rows. Returns a datasetId you can pass to render_chart.',
     parameters: { type: 'object', properties: queryProperties },
   },
   {
     name: 'query_seasons',
-    description: 'Search team-season results: finishes, records, points, draft slot, and championship flags (seasonChamp, superBowlChamp, leagueCupChamp, jfflCupChamp, topThree are 1, 0, or null when unknown). One row per manager per season. The 2026 rows have status live: standing is the current position and undecided titles are null. Returns a datasetId you can pass to render_chart.',
+    description: 'Search team-season results: finishes, records, points, pointsAgainst, draft slot, and championship flags (seasonChamp, superBowlChamp, leagueCupChamp, jfflCupChamp, topThree are 1, 0, or null when unknown). Wins and points on this table are the official regular-season totals. pointsAgainst is null when the weekly log does not match that record, including 2002; leave those nulls out and say so. One row per manager per season. The 2026 rows have status live: standing is the current position and undecided titles are null. Returns a datasetId you can pass to render_chart.',
     parameters: { type: 'object', properties: queryProperties },
   },
   {
@@ -77,7 +77,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'head_to_head',
-    description: 'Regular-season history between two managers: every finished meeting plus wins, losses, and ties. Live 2026 games are left out. Returns a datasetId.',
+    description: 'Every finished meeting between two managers. The summary splits regularSeason, cup, and superBowl, and all is their combined total. The top-level meetings and win counts are the regular season only. Quote the split the question asked for; do not add the groups yourself. Live 2026 games are left out. Returns a datasetId.',
     parameters: { type: 'object', properties: { a: str('First manager nickname.'), b: str('Second manager nickname.') }, required: ['a', 'b'] },
   },
   {
@@ -99,7 +99,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'title_years',
-    description: 'Who won the regular season (best record), the Superbowl, the league cup, and the JFFL Cup each year, by league. Also counts how often the best record won the Superbowl. 2026 titles are null until decided.',
+    description: 'Who won the regular season (best record), the Superbowl, the league cup, and the JFFL Cup each year, by league. The rows are the full list for the years requested. Also counts how often the best record won the Superbowl. 2026 titles are null until decided.',
     parameters: { type: 'object', properties: { league: str(`Optional league: ${LEAGUES.join(', ')}.`), from: int('First season, 2002 or later.'), to: int('Last season, 2026 or earlier.') } },
   },
   {
@@ -203,6 +203,11 @@ How to work
 - "This week" or "this season" means the 2026 season in progress. For upcoming opponents or a remaining schedule, use schedule; describe future games as scheduled, without picking winners.
 - To find who held the highest or lowest value inside each group, set within, then group and count the kept rows. For who scored the lowest in their league-week the most times in a season: filter type Season and score not_null, within { groupBy: ["season", "league", "week"], fn: "min", field: "score" }, groupBy ["season", "team"], count as weeks, sort weeks desc. Use fn "max" for the highest score in the week. Leave league out of within.groupBy for the lowest score in the whole archive that week. Ties for the extreme all count. Do not download raw weeks to count this yourself; the tool returns the short list.
 - league on a game is the competition. A JFFL Cup game always has league JFFL. teamLeague is the league that manager played in that season, opponentLeague is the opponent's, and crossLeague is 1 when those differ. For which league beat other leagues, a league's cup record, or a round-by-round comparison, make one query_games call: filter league JFFL, type Cup, status final, and crossLeague 1; groupBy round and teamLeague (omit round for the overall record); aggregate sum of win as wins, sum of loss as losses, and count as games. That result is the full record. Do not download games and count them, and do not change an earlier total because the user names a winner. If a figure is challenged, run this query again.
+- count on team_games counts one row per team, so each game is counted twice. For how many matchups were played, use count_distinct on gameId.
+- teamFinish and opponentFinish are the final regular-season rank that year, 1 best. They are not the standing during the week of the game. betterFinish is 1 when this manager finished ahead of the opponent in the same league, 0 when behind, and null across leagues, on a tied finish, or when a finish is unknown, including 2026 until the season ends. Use betterFinish for how often the better regular-season team won, and for upsets.
+- head_to_head lists every finished meeting. Use its summary: the top-level win counts are the regular season, and cup, superBowl, and all are separate totals. Quote the split the question asked for.
+- title_years is every season in the range, including who won the JFFL Cup. Use it for a list of champions.
+- Wins, losses, ties, and points on a season row are the official regular-season totals. Do not rebuild them by summing games. pointsAgainst is points allowed, and it is null when the weekly log does not match that record, including 2002. If a sum says some rows had no value, those rows are missing from the total; say so.
 - You may divide two numbers that came from the same tool result, such as wins divided by games. Every other number you state has to be a value a tool returned.
 - If a name could be a typo or could match more than one manager, call resolve_entity. If several managers match, ask which one the user means before answering.
 - Report sample sizes when they are small (under 10 games or seasons) and say the result is a small sample.

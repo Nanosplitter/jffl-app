@@ -1,6 +1,6 @@
 import {
   JFFL_CUP, LEAGUE_CUP, SUPER_BOWL, WEEKLY,
-  careers, draftBuckets, pairGames, rate, recordBook, roundLabel, titleYears,
+  careers, draftBuckets, rate, recordBook, roundLabel, titleYears,
   type HistoryGame, type HistorySeason,
 } from './stats.ts';
 import { finishedGames, REGULAR_WEEKS, type LiveSeason } from './liveSeason.ts';
@@ -53,6 +53,8 @@ export const DEFAULT_LIMIT = 60;
 export const GROUPED_LIMIT = 300;
 const MODEL_ROWS = 40;
 const MODEL_PREVIEW = 25;
+/** A finished result up to this size is the answer, so the model sees every row. title_years is 42 rows and used to be cut off at 2019. */
+const COMPLETE_ROWS = 80;
 
 export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType; about: string }>> = {
   team_games: {
@@ -61,11 +63,15 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     type: { type: 'string', about: 'Season (regular season), Cup, or Superbowl' },
     round: { type: 'string', about: 'Week number for Season games. Cup rounds are labels such as 1, 2, 3, 4, or 5-Final.' },
     week: { type: 'number', about: 'Regular-season week, null for Cup and Superbowl games' },
+    gameId: { type: 'string', about: 'Same value on both sides of one game. count counts team-rows, so each game is counted twice. Use count_distinct on gameId for the number of matchups.' },
     team: { type: 'string', about: 'Manager nickname for this side of the game' },
     teamLeague: { type: 'string', about: 'League this manager played in that season. Null when that season row is missing. This is the column for "which league was this team in."' },
     opponent: { type: 'string', about: 'Opposing manager nickname' },
     opponentLeague: { type: 'string', about: 'League the opponent played in that season. Null when that season row is missing.' },
     crossLeague: { type: 'number', about: '1 when teamLeague and opponentLeague differ, 0 when they are the same league, null when either league is unknown. Filter crossLeague = 1 to keep inter-league matchups only.' },
+    teamFinish: { type: 'number', about: 'This manager\'s final regular-season rank that year, 1 best. Null when unknown, including 2026 until the season ends. Not the rank during the week of the game.' },
+    opponentFinish: { type: 'number', about: 'Opponent\'s final regular-season rank that year, 1 best. Null when unknown. Compare it with teamFinish only inside one league (crossLeague 0).' },
+    betterFinish: { type: 'number', about: '1 when this manager finished the regular season ahead of the opponent in the same league, 0 when behind. Null when the leagues differ, the finishes are equal, or either finish is unknown.' },
     score: { type: 'number', about: 'This side\u2019s score (null if ESPN has not reported it yet)' },
     opponentScore: { type: 'number', about: 'Opponent score' },
     diff: { type: 'number', about: 'score minus opponentScore (negative means a loss)' },
@@ -86,7 +92,8 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     rankFinal: { type: 'number', about: 'Superbowl finish, 1 is champion' },
     jfflRank: { type: 'number', about: 'JFFL Cup finish, 1 is champion (2013 onward)' },
     cupRank: { type: 'number', about: 'League cup finish, 1 is champion' },
-    points: { type: 'number', about: 'Total regular-season points scored (2026: so far)' },
+    points: { type: 'number', about: 'Total regular-season points scored (2026: so far). This is the official total; do not rebuild it by summing games.' },
+    pointsAgainst: { type: 'number', about: 'Points allowed in regular-season games. Null when the weekly log does not match the season record, including every 2002 season. Never treat that null as zero.' },
     pointsPerWeek: { type: 'number', about: 'Average points per week' },
     wins: { type: 'number', about: 'Regular-season wins' },
     losses: { type: 'number', about: 'Regular-season losses' },
@@ -123,6 +130,7 @@ export const DATA_NOTES = [
   'JFFL Cup games (league JFFL, 2013 onward) use two-week totals. Do not compare those scores with a single week. league on those games is always JFFL; teamLeague and opponentLeague say which league each manager played in, and crossLeague is 1 when those leagues differ.',
   'Ties are separate from wins and losses.',
   'Names are manager nicknames. "team" always means the manager.',
+  'Wins, losses, ties, and points on a season row are the official regular-season totals. teamFinish is the final regular-season rank that year, not the rank at the time of a game, and it only compares with another finish inside the same league. pointsAgainst is null when the weekly log does not match the season record.',
 ];
 
 const TABLE_INTRO: Record<TableName, string> = {
@@ -142,22 +150,46 @@ export function schemaDoc() {
 
 type GameLike = Omit<HistoryGame, 'scoreA' | 'scoreB'> & { scoreA: number | null; scoreB: number | null; status?: string };
 
+/** Points allowed, only when the weekly log reproduces that season's official record. */
+function pointsAllowed(log: { wins: number; losses: number; ties: number; against: number } | undefined, row: HistorySeason) {
+  if (!log || row.wins == null || row.losses == null || row.ties == null) return null;
+  return log.wins === row.wins && log.losses === row.losses && log.ties === row.ties ? log.against : null;
+}
+
 export function prepareTables(archive: Archive): Record<TableName, Row[]> {
-  const leagueOf = new Map<string, string>();
-  for (const row of [...archive.seasons, ...(archive.live?.seasons ?? [])]) leagueOf.set(`${row.season}|${row.team}`, row.league);
+  const seasonOf = new Map<string, { league: string; finish: number | null }>();
+  for (const row of [...archive.seasons, ...(archive.live?.seasons ?? [])]) seasonOf.set(`${row.season}|${row.team}`, { league: row.league, finish: row.rankSeason });
   const teamGames: Row[] = [];
   const games: GameLike[] = [...archive.games, ...(archive.live?.games ?? [])];
+  const scored = new Map<string, { wins: number; losses: number; ties: number; against: number }>();
   for (const game of games) {
     const twoWeek = game.type === 'Cup' && game.league === 'JFFL' ? 1 : 0;
     const status = game.status ?? 'final';
+    const gameId = `${game.season}|${game.league}|${game.type}|${game.round}|${[game.teamA, game.teamB].sort().join('|')}`;
+    if (game.type === 'Season' && status === 'final' && game.scoreA != null && game.scoreB != null) {
+      const bump = (team: string, score: number, other: number) => {
+        const key = `${game.season}|${team}`;
+        const tally = scored.get(key) ?? { wins: 0, losses: 0, ties: 0, against: 0 };
+        if (score > other) tally.wins += 1; else if (score < other) tally.losses += 1; else tally.ties += 1;
+        tally.against += other;
+        scored.set(key, tally);
+      };
+      bump(game.teamA, game.scoreA, game.scoreB);
+      bump(game.teamB, game.scoreB, game.scoreA);
+    }
     const side = (team: string, opponent: string, score: number | null, other: number | null): Row => {
       const known = score !== null && other !== null;
-      const teamLeague = leagueOf.get(`${game.season}|${team}`) ?? null;
-      const opponentLeague = leagueOf.get(`${game.season}|${opponent}`) ?? null;
+      const teamInfo = seasonOf.get(`${game.season}|${team}`);
+      const opponentInfo = seasonOf.get(`${game.season}|${opponent}`);
+      const teamLeague = teamInfo?.league ?? null;
+      const opponentLeague = opponentInfo?.league ?? null;
+      const teamFinish = teamInfo?.finish ?? null;
+      const opponentFinish = opponentInfo?.finish ?? null;
       const crossLeague = teamLeague && opponentLeague ? teamLeague === opponentLeague ? 0 : 1 : null;
+      const betterFinish = crossLeague === 0 && teamFinish != null && opponentFinish != null && teamFinish !== opponentFinish ? teamFinish < opponentFinish ? 1 : 0 : null;
       return {
-        season: game.season, league: game.league, type: game.type, round: game.round, week: game.week,
-        team, teamLeague, opponent, opponentLeague, crossLeague, score, opponentScore: other,
+        season: game.season, league: game.league, type: game.type, round: game.round, week: game.week, gameId,
+        team, teamLeague, opponent, opponentLeague, crossLeague, teamFinish, opponentFinish, betterFinish, score, opponentScore: other,
         diff: known ? score - other : null, margin: known ? Math.abs(score - other) : null,
         result: known ? score > other ? 'W' : score < other ? 'L' : 'T' : null,
         win: known ? score > other ? 1 : 0 : null, loss: known ? score < other ? 1 : 0 : null, tie: known ? score === other ? 1 : 0 : null,
@@ -171,7 +203,7 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
     season: row.season, team: row.team, league: row.league,
     rankSeason: row.rankSeason, standing: row.standing === undefined ? row.rankSeason : row.standing,
     rankFinal: row.rankFinal, jfflRank: row.jfflRank, cupRank: row.cupRank,
-    points: row.points, pointsPerWeek: row.pointsPerWeek, wins: row.wins, losses: row.losses, ties: row.ties,
+    points: row.points, pointsPerWeek: row.pointsPerWeek, pointsAgainst: pointsAllowed(scored.get(`${row.season}|${row.team}`), row), wins: row.wins, losses: row.losses, ties: row.ties,
     draft: row.draft, pointsRank: row.pointsRank,
     seasonChamp: flag(row.rankSeason, value => value === 1),
     superBowlChamp: flag(row.rankFinal, value => value === 1),
@@ -476,6 +508,11 @@ export function runQuery(tables: Record<TableName, Row[]>, table: TableName, que
   if (table === 'player_weeks' && filtered.some(row => row.starter === null)) caveats.push(UNKNOWN_SLOT_CAVEAT);
   if (filtered.length === 0) caveats.push('No rows matched the filters.');
   if (truncated) caveats.push(`Showing the first ${limit} of ${rows.length} rows.`);
+  for (const spec of query.aggregates ?? []) {
+    if (!spec.field || spec.fn === 'count' || spec.fn === 'count_distinct' || spec.fn === 'rate') continue;
+    const skipped = filtered.filter(row => row[spec.field!] == null).length;
+    if (skipped) caveats.push(`${skipped} rows have no ${spec.field} and are left out of ${aggregateName(spec)}.`);
+  }
   const kept = rows.slice(0, limit);
   return { ok: true, value: { columns: inferColumns(names, kept, query.groupBy?.length || query.aggregates?.length ? undefined : table), rows: kept, matched: filtered.length, truncated, caveats } };
 }
@@ -621,19 +658,25 @@ export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<s
       if (!a) return fail(managerError(archive, String(args.a ?? '')));
       if (!b) return fail(managerError(archive, String(args.b ?? '')));
       if (a === b) return fail('Choose two different managers.');
-      const games = pairGames(resultGames(archive), a, b);
-      let aWins = 0; let bWins = 0; let ties = 0;
-      for (const game of games) {
-        const aScore = game.teamA === a ? game.scoreA : game.scoreB;
-        const bScore = game.teamA === a ? game.scoreB : game.scoreA;
-        if (aScore === bScore) ties += 1; else if (aScore > bScore) aWins += 1; else bWins += 1;
-      }
-      const rows = games.map(game => ({ ...gameRow(game, a), winner: game.scoreA === game.scoreB ? 'Tie' : (game.teamA === a ? game.scoreA > game.scoreB : game.scoreB > game.scoreA) ? a : b }));
+      const finished = resultGames(archive).filter(game => [game.teamA, game.teamB].includes(a) && [game.teamA, game.teamB].includes(b));
+      const tally = (list: HistoryGame[]) => {
+        let aWins = 0; let bWins = 0; let ties = 0;
+        for (const game of list) {
+          const aScore = game.teamA === a ? game.scoreA : game.scoreB;
+          const bScore = game.teamA === a ? game.scoreB : game.scoreA;
+          if (aScore === bScore) ties += 1; else if (aScore > bScore) aWins += 1; else bWins += 1;
+        }
+        return { meetings: list.length, [`${a}Wins`]: aWins, [`${b}Wins`]: bWins, ties };
+      };
+      const regular = tally(finished.filter(game => game.type === 'Season'));
+      const rows = [...finished]
+        .sort((left, right) => left.season - right.season || (left.week ?? 99) - (right.week ?? 99))
+        .map(game => ({ ...gameRow(game, a), winner: game.scoreA === game.scoreB ? 'Tie' : (game.teamA === a ? game.scoreA > game.scoreB : game.scoreB > game.scoreA) ? a : b }));
       return {
-        ok: true, title: `${a} vs ${b}`, columns: inferColumns(['season', 'league', 'when', 'team', 'opponent', 'score', 'opponentScore', 'diff', 'winner'], rows), rows: rows.map(row => ({ ...row })),
+        ok: true, title: `${a} vs ${b}`, columns: inferColumns(['season', 'league', 'type', 'when', 'team', 'opponent', 'score', 'opponentScore', 'diff', 'winner'], rows), rows: rows.map(row => ({ ...row })),
         matched: rows.length, truncated: false,
-        caveats: ['Regular-season meetings only. Cup and Superbowl games are not included.', ...liveNote, ...(rows.length ? [] : ['They have no regular-season meetings.'])],
-        summary: { a, b, meetings: games.length, [`${a}Wins`]: aWins, [`${b}Wins`]: bWins, ties },
+        caveats: ['The summary is the record. meetings and the win counts beside it are the regular season. cup, superBowl, and all are already totaled; do not add those groups yourself.', ...liveNote, ...(rows.length ? [] : ['They have no finished meetings.'])],
+        summary: { a, b, ...regular, regularSeason: regular, cup: tally(finished.filter(game => game.type === 'Cup')), superBowl: tally(finished.filter(game => game.type === 'Superbowl')), all: tally(finished) },
       };
     }
     case 'manager_career': {
@@ -785,7 +828,7 @@ function columnStats(columns: Column[], rows: Row[]) {
 }
 
 export function datasetForModel(dataset: Dataset) {
-  const all = dataset.rows.length <= MODEL_ROWS;
+  const all = dataset.rows.length <= MODEL_ROWS || (!dataset.truncated && dataset.rows.length <= COMPLETE_ROWS);
   return {
     ok: true,
     datasetId: dataset.id,

@@ -101,9 +101,15 @@ test('manager names resolve with typos and partial matches', () => {
 test('head to head matches the series table and rejects unknown names', () => {
   const result = runDataTool(ctx, 'head_to_head', { a: 'becky', b: 'Jeff' });
   assert.equal(result.ok, true);
-  assert.deepEqual((result as { summary: unknown }).summary, { a: 'Becky', b: 'Jeff', meetings: 14, BeckyWins: 0, JeffWins: 14, ties: 0 });
-  const wayne = runDataTool(ctx, 'head_to_head', { a: 'SeanT', b: 'Wayne' });
-  assert.equal((wayne as { rows: unknown[] }).rows.length, 25);
+  const summary = (result as { summary: { meetings: number; BeckyWins: number; JeffWins: number; ties: number; regularSeason: { meetings: number }; all: { meetings: number }; cup: { meetings: number }; superBowl: { meetings: number } } }).summary;
+  assert.equal(summary.meetings, 14);
+  assert.equal(summary.JeffWins, 14);
+  assert.equal(summary.BeckyWins, 0);
+  assert.equal(summary.ties, 0);
+  assert.equal(summary.regularSeason.meetings, 14);
+  assert.equal(summary.all.meetings, summary.regularSeason.meetings + summary.cup.meetings + summary.superBowl.meetings);
+  const wayne = runDataTool(ctx, 'head_to_head', { a: 'SeanT', b: 'Wayne' }) as { rows: Array<Record<string, unknown>> };
+  assert.equal(wayne.rows.filter(row => row.type === 'Season').length, 25);
   const missing = runDataTool(ctx, 'head_to_head', { a: 'Zzzz', b: 'Jeff' });
   assert.equal(missing.ok, false);
 });
@@ -306,4 +312,40 @@ test('records, head to head, and careers only count finished 2026 results', () =
   const titles = liveRun('title_years', { from: 2026, to: 2026 });
   assert.ok(titles.rows.length >= 3 && titles.rows.every(row => row.superBowl === null && row.bestRecord === null));
   assert.ok(titles.caveats.some(text => text.includes('in progress')));
+});
+
+test('complete answers stay whole, and finishes, matchups, and points against are computed', () => {
+  const titles = runDataTool(ctx, 'title_years', {}) as { columns: Dataset['columns']; rows: Array<Record<string, unknown>>; caveats: string[]; truncated: boolean; matched: number };
+  const seen = datasetForModel({ id: 'titles', title: 't', columns: titles.columns, rows: titles.rows, source: { tool: 'title_years', args: {} }, caveats: titles.caveats, truncated: titles.truncated, matched: titles.matched });
+  assert.equal(seen.rows.length, titles.rows.length);
+  assert.equal(seen.rows.length > 25, true);
+  assert.equal('note' in seen, false);
+  assert.equal(titles.rows.find(row => row.season === 2022 && row.league === 'League One')?.jfflCup, 'Ryan');
+
+  const finals = query('team_games', {
+    filters: [{ field: 'league', op: 'eq', value: 'JFFL' }, { field: 'round', op: 'eq', value: '5-Final' }],
+    aggregates: [{ fn: 'count_distinct', field: 'gameId', as: 'games' }, { fn: 'count', as: 'sides' }],
+  });
+  assert.deepEqual(finals.rows[0], { games: 13, sides: 26 });
+  const ryan = ctx.tables.team_games.find(row => row.season === 2022 && row.team === 'Ryan' && row.round === '5-Final' && row.league === 'JFFL');
+  const tom = ctx.tables.team_games.find(row => row.gameId === ryan?.gameId && row.team === 'Tom');
+  assert.equal(ryan?.opponent, 'Tom');
+  assert.equal(tom?.gameId, ryan?.gameId);
+  assert.equal(ryan?.betterFinish, null);
+
+  const ahead = ctx.tables.team_games.find(row => row.type === 'Season' && row.betterFinish === 1);
+  assert.ok(ahead && ahead.crossLeague === 0 && (ahead.teamFinish as number) < (ahead.opponentFinish as number));
+  assert.equal(ctx.tables.team_games.find(row => row.gameId === ahead?.gameId && row.team === ahead?.opponent)?.betterFinish, 0);
+
+  assert.equal(ctx.tables.seasons.find(row => row.season === 2002 && row.team === 'Jason')?.pointsAgainst, null);
+  const allowed = ctx.tables.seasons.find(row => row.season === 2022 && row.team === 'Ryan')?.pointsAgainst;
+  assert.equal(typeof allowed, 'number');
+  assert.ok((allowed as number) > 0);
+  const summed = query('seasons', { filters: [{ field: 'team', op: 'eq', value: 'Jason' }], aggregates: [{ fn: 'sum', field: 'pointsAgainst', as: 'allowed' }] });
+  assert.ok(summed.caveats.some(text => text.includes('no pointsAgainst')));
+
+  const series = runDataTool(ctx, 'head_to_head', { a: 'Ryan', b: 'Tom' }) as { rows: Array<Record<string, unknown>>; summary: { cup: { RyanWins: number } } };
+  assert.equal(series.rows.find(row => row.season === 2022 && row.type === 'Cup' && row.when === 'final')?.winner, 'Ryan');
+  assert.ok(series.summary.cup.RyanWins >= 1);
+  assert.equal(liveCtx.tables.team_games.find(row => row.season === 2026)?.teamFinish, null);
 });
