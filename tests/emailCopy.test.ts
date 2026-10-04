@@ -12,9 +12,9 @@ test('an email copy keeps the question, formatting, chart picture, and table', (
       { title: 'Counts', table: { columns: ['Team', 'Weeks'], rows: [['A&B', 3], ['<c>', null], ...Array.from({ length: 40 }, () => ['X', 1])] } },
     ],
   });
-  assert.match(html, /<b>Who scored the lowest\?<\/b>/);
-  assert.match(html, /<b>most<\/b>/);
-  assert.match(html, /<li style="background-color:transparent;color:#151719;">Week 3<\/li>/);
+  assert.match(html, /<b style="font-weight:bold;color:#000000;-webkit-text-fill-color:#000000;">Who scored the lowest\?<\/b>/);
+  assert.match(html, /<b style="font-weight:bold;color:#000000;-webkit-text-fill-color:#000000;">most<\/b>/);
+  assert.match(html, /<li style="background-color:transparent;color:#151719;-webkit-text-fill-color:#151719;">Week 3<\/li>/);
   assert.match(html, /src="data:image\/png;base64,aaaa"/);
   assert.match(html, /width="800"/);
   assert.match(html, /Ties count\./);
@@ -33,7 +33,7 @@ test('an email copy keeps the question, formatting, chart picture, and table', (
 
 test('a colored league name becomes a span in the email and plain text loses the tags', () => {
   const { html, plain } = renderEmail({ answer: 'SeanH won it in {premier}Premier{/premier}, not {green}<b>html</b>{/green}.', pieces: [] });
-  assert.match(html, /<span class="ink-premier" style="color:#4f7a22;">Premier<\/span>/);
+  assert.match(html, /<span class="ink-premier" style="color:#4f7a22;-webkit-text-fill-color:#4f7a22;">Premier<\/span>/);
   assert.match(html, /\{green\}&lt;b&gt;html&lt;\/b&gt;\{\/green\}/);
   assert.doesNotMatch(html, /<b>html<\/b>/);
   assert.match(plain, /SeanH won it in Premier/);

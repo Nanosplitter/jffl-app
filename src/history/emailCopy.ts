@@ -18,17 +18,24 @@ const TABLE_ROWS = 40;
 
 const esc = (value: string) => value.replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!);
 
+/** Near-black body ink. Bold is true black so a mail app cannot restyle the tag as grey. */
+const TEXT = '#151719';
+const BOLD = '#000000';
+const fill = (color: string) => `color:${color};-webkit-text-fill-color:${color};`;
+
 const colored = (text: string, color?: Ink) => {
   const safe = esc(text);
-  return color ? `<span class="ink-${color}" style="color:${INK_ON_LIGHT[color]};">${safe}</span>` : safe;
+  return color ? `<span class="ink-${color}" style="${fill(INK_ON_LIGHT[color])}">${safe}</span>` : safe;
 };
+/** Color sits on the bold tag. Mail apps give bare `<b>` a grey of their own and ignore the paragraph color. */
+const boldHtml = (inner: string, color = BOLD) => `<b style="font-weight:bold;${fill(color)}">${inner}</b>`;
 const inlineHtml = (parts: Inline[]) => parts.map(part => {
   const body = colored(part.text, part.color);
-  return part.bold ? `<b>${body}</b>` : body;
+  return part.bold ? boldHtml(body, part.color ? INK_ON_LIGHT[part.color] : BOLD) : body;
 }).join('');
 const inlinePlain = (parts: Inline[]) => parts.map(part => part.text).join('');
 
-const paragraphStyle = 'margin:0 0 12px;font-family:Calibri,Arial,sans-serif;font-size:16px;line-height:1.45;color:#151719;background-color:transparent;';
+const paragraphStyle = `margin:0 0 12px;font-family:Calibri,Arial,sans-serif;font-size:16px;line-height:1.45;${fill(TEXT)}background-color:transparent;`;
 const mutedStyle = 'margin:0 0 12px;font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.45;color:#62686d;background-color:transparent;';
 
 function tableHtml(columns: string[], rows: Cell[][]) {
@@ -58,7 +65,7 @@ export function renderEmail(input: { question?: string; answer: string; pieces: 
     html.push(`<p style="${style}">${text}</p>`);
   };
   if (input.question?.trim()) {
-    pushParagraph(`<b>${esc(input.question.trim())}</b>`);
+    pushParagraph(boldHtml(esc(input.question.trim())));
     plain.push(input.question.trim(), '');
   }
   for (const block of parseAnswer(input.answer)) {
@@ -66,12 +73,12 @@ export function renderEmail(input: { question?: string; answer: string; pieces: 
       pushParagraph(inlineHtml(block.inline));
       plain.push(inlinePlain(block.inline), '');
     } else {
-      html.push(`<ul style="margin:0 0 12px;padding-left:22px;font-family:Calibri,Arial,sans-serif;font-size:16px;line-height:1.45;color:#151719;background-color:transparent;">${block.items.map(item => `<li style="background-color:transparent;color:#151719;">${inlineHtml(item)}</li>`).join('')}</ul>`);
+      html.push(`<ul style="margin:0 0 12px;padding-left:22px;font-family:Calibri,Arial,sans-serif;font-size:16px;line-height:1.45;${fill(TEXT)}background-color:transparent;">${block.items.map(item => `<li style="background-color:transparent;${fill(TEXT)}">${inlineHtml(item)}</li>`).join('')}</ul>`);
       plain.push(...block.items.map(item => `- ${inlinePlain(item)}`), '');
     }
   }
   for (const piece of input.pieces) {
-    pushParagraph(`<b>${esc(piece.title)}</b>`);
+    pushParagraph(boldHtml(esc(piece.title)));
     plain.push(piece.title);
     if (piece.subtitle) {
       pushParagraph(esc(piece.subtitle), mutedStyle);
@@ -80,7 +87,7 @@ export function renderEmail(input: { question?: string; answer: string; pieces: 
     if (piece.cards?.length) {
       for (const card of piece.cards) {
         const note = card.note ? ` (${esc(card.note)})` : '';
-        pushParagraph(`<b>${esc(card.label)}:</b> ${esc(card.value)}${note}`);
+        pushParagraph(`${boldHtml(`${esc(card.label)}:`)} ${esc(card.value)}${note}`);
         plain.push(`${card.label}: ${card.value}${card.note ? ` (${card.note})` : ''}`);
       }
     }
@@ -113,11 +120,12 @@ export async function copyEmail(html: string, plain: string): Promise<boolean> {
   const host = document.createElement('div');
   host.id = 'email-copy-host';
   host.setAttribute('aria-hidden', 'true');
-  host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;background-color:transparent;color:#151719;';
+  host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1200px;background-color:transparent;color:#151719;-webkit-text-fill-color:#151719;color-scheme:light;';
   host.innerHTML = html;
   const paint = document.createElement('style');
-  const keepInk = (Object.keys(INK_ON_LIGHT) as Ink[]).map(name => `#email-copy-host .ink-${name} { color: ${INK_ON_LIGHT[name]} !important; }`).join(' ');
-  paint.textContent = `#email-copy-host, #email-copy-host * { background: none !important; background-color: transparent !important; background-image: none !important; box-shadow: none !important; color: #151719 !important; } ${keepInk}`;
+  const importantFill = (color: string) => `color:${color} !important;-webkit-text-fill-color:${color} !important;`;
+  const keepInk = (Object.keys(INK_ON_LIGHT) as Ink[]).map(name => `#email-copy-host .ink-${name} { ${importantFill(INK_ON_LIGHT[name])} }`).join(' ');
+  paint.textContent = `#email-copy-host, #email-copy-host * { background: none !important; background-color: transparent !important; background-image: none !important; box-shadow: none !important; ${importantFill(TEXT)} } #email-copy-host b { font-weight:bold !important; ${importantFill(BOLD)} } ${keepInk}`;
   document.head.appendChild(paint);
   document.body.appendChild(host);
   const pending = [...host.querySelectorAll('img')].filter(img => !img.complete);
@@ -127,11 +135,12 @@ export async function copyEmail(html: string, plain: string): Promise<boolean> {
   })));
   const root = document.documentElement;
   const previous = {
-    htmlBg: root.style.background, htmlColor: root.style.color,
+    htmlBg: root.style.background, htmlColor: root.style.color, htmlScheme: root.style.colorScheme,
     bodyBg: document.body.style.background, bodyColor: document.body.style.color,
   };
   root.style.background = 'transparent';
   root.style.color = '#151719';
+  root.style.colorScheme = 'light';
   document.body.style.background = 'transparent';
   document.body.style.color = '#151719';
   const selection = window.getSelection();
@@ -146,6 +155,7 @@ export async function copyEmail(html: string, plain: string): Promise<boolean> {
   paint.remove();
   root.style.background = previous.htmlBg;
   root.style.color = previous.htmlColor;
+  root.style.colorScheme = previous.htmlScheme;
   document.body.style.background = previous.bodyBg;
   document.body.style.color = previous.bodyColor;
   if (copied) return true;
