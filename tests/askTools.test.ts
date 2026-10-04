@@ -201,7 +201,38 @@ test('the model sees a compact preview, not every row', () => {
   const seen = datasetForModel(dataset) as { rows: unknown[]; columnStats?: Record<string, { max: number }>; note?: string };
   assert.equal(seen.rows.length, 25);
   assert.ok(seen.note?.includes('ds9'));
+  assert.match(seen.note ?? '', /do not add, count, or rate/i);
   assert.equal(seen.columnStats?.score.max, Math.max(...big.rows.map(row => row.score as number)));
+});
+
+test('cup rows carry each manager\'s league so inter-league records group in one query', () => {
+  const ryanFinal = ctx.tables.team_games.find(row => row.season === 2022 && row.team === 'Ryan' && row.league === 'JFFL' && row.round === '5-Final');
+  assert.ok(ryanFinal);
+  assert.equal(ryanFinal.teamLeague, 'League One');
+  assert.equal(ryanFinal.opponent, 'Tom');
+  assert.equal(ryanFinal.opponentLeague, 'Premier');
+  assert.equal(ryanFinal.crossLeague, 1);
+  assert.equal(ryanFinal.win, 1);
+  const sameLeague = ctx.tables.team_games.find(row => row.season === 2022 && row.team === 'Ryan' && row.opponent === 'J-Seitz');
+  assert.equal(sameLeague?.teamLeague, 'League One');
+  assert.equal(sameLeague?.opponentLeague, 'League One');
+  assert.equal(sameLeague?.crossLeague, 0);
+  const cup = ctx.tables.team_games.filter(row => row.league === 'JFFL');
+  assert.ok(cup.length > 0 && cup.every(row => row.teamLeague != null && row.opponentLeague != null && row.crossLeague != null));
+  const finals = query('team_games', {
+    filters: [
+      { field: 'league', op: 'eq', value: 'JFFL' },
+      { field: 'round', op: 'eq', value: '5-Final' },
+      { field: 'crossLeague', op: 'eq', value: 1 },
+      { field: 'status', op: 'eq', value: 'final' },
+    ],
+    groupBy: ['teamLeague'],
+    aggregates: [{ fn: 'sum', field: 'win', as: 'wins' }, { fn: 'sum', field: 'loss', as: 'losses' }, { fn: 'count', as: 'games' }],
+  });
+  assert.deepEqual(finals.rows.find(row => row.teamLeague === 'League One'), { teamLeague: 'League One', wins: 1, losses: 1, games: 2 });
+  const premier = finals.rows.find(row => row.teamLeague === 'Premier');
+  assert.equal(premier?.wins, 6);
+  assert.equal(premier?.losses, 1);
 });
 
 // ---------- The season in progress ----------
@@ -223,6 +254,9 @@ test('archive rows are final and live 2026 rows carry their status', () => {
   assert.ok(rows.some(row => row.status === 'live') && rows.some(row => row.status === 'final'));
   const seasons = liveCtx.tables.seasons.filter(row => row.season === 2026);
   assert.equal(seasons.length, 30);
+  const sample = seasons[0];
+  const played = rows.find(row => row.team === sample.team);
+  assert.equal(played?.teamLeague, sample.league);
   assert.ok(seasons.every(row => row.status === 'live' && row.seasonChamp === null && row.topThree === null));
   assert.equal(liveCtx.tables.seasons.find(row => row.season === 2025)?.standing, liveCtx.tables.seasons.find(row => row.season === 2025)?.rankSeason);
 });

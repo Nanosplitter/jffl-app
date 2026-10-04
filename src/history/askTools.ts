@@ -57,12 +57,15 @@ const MODEL_PREVIEW = 25;
 export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType; about: string }>> = {
   team_games: {
     season: { type: 'number', about: 'Season year, 2002 to 2026 (2026 is in progress)' },
-    league: { type: 'string', about: 'Combined (single league before 2013), Premier, Championship, League One, or JFFL (cross-league cup)' },
+    league: { type: 'string', about: 'The competition: Combined, Premier, Championship, League One, or JFFL. Every JFFL Cup game has league JFFL, whichever leagues the managers play in. Use teamLeague for a manager\'s league that season.' },
     type: { type: 'string', about: 'Season (regular season), Cup, or Superbowl' },
-    round: { type: 'string', about: 'Week number for Season games, otherwise a round label such as Final' },
+    round: { type: 'string', about: 'Week number for Season games. Cup rounds are labels such as 1, 2, 3, 4, or 5-Final.' },
     week: { type: 'number', about: 'Regular-season week, null for Cup and Superbowl games' },
     team: { type: 'string', about: 'Manager nickname for this side of the game' },
+    teamLeague: { type: 'string', about: 'League this manager played in that season. Null when that season row is missing. This is the column for "which league was this team in."' },
     opponent: { type: 'string', about: 'Opposing manager nickname' },
+    opponentLeague: { type: 'string', about: 'League the opponent played in that season. Null when that season row is missing.' },
+    crossLeague: { type: 'number', about: '1 when teamLeague and opponentLeague differ, 0 when they are the same league, null when either league is unknown. Filter crossLeague = 1 to keep inter-league matchups only.' },
     score: { type: 'number', about: 'This side\u2019s score (null if ESPN has not reported it yet)' },
     opponentScore: { type: 'number', about: 'Opponent score' },
     diff: { type: 'number', about: 'score minus opponentScore (negative means a loss)' },
@@ -117,7 +120,7 @@ export const DATA_NOTES = [
   'Rows with status live are games still being played. Their scores can change. Records and "best ever" questions should use status final.',
   '2026 titles stay unknown (null) until they are decided. Player-level data (player_weeks) exists only for 2026.',
   '2002 has standings and Superbowl results but almost no weekly game scores.',
-  'JFFL Cup games (league JFFL, 2013 onward) use two-week totals. Do not compare those scores with a single week.',
+  'JFFL Cup games (league JFFL, 2013 onward) use two-week totals. Do not compare those scores with a single week. league on those games is always JFFL; teamLeague and opponentLeague say which league each manager played in, and crossLeague is 1 when those leagues differ.',
   'Ties are separate from wins and losses.',
   'Names are manager nicknames. "team" always means the manager.',
 ];
@@ -140,6 +143,8 @@ export function schemaDoc() {
 type GameLike = Omit<HistoryGame, 'scoreA' | 'scoreB'> & { scoreA: number | null; scoreB: number | null; status?: string };
 
 export function prepareTables(archive: Archive): Record<TableName, Row[]> {
+  const leagueOf = new Map<string, string>();
+  for (const row of [...archive.seasons, ...(archive.live?.seasons ?? [])]) leagueOf.set(`${row.season}|${row.team}`, row.league);
   const teamGames: Row[] = [];
   const games: GameLike[] = [...archive.games, ...(archive.live?.games ?? [])];
   for (const game of games) {
@@ -147,9 +152,12 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
     const status = game.status ?? 'final';
     const side = (team: string, opponent: string, score: number | null, other: number | null): Row => {
       const known = score !== null && other !== null;
+      const teamLeague = leagueOf.get(`${game.season}|${team}`) ?? null;
+      const opponentLeague = leagueOf.get(`${game.season}|${opponent}`) ?? null;
+      const crossLeague = teamLeague && opponentLeague ? teamLeague === opponentLeague ? 0 : 1 : null;
       return {
         season: game.season, league: game.league, type: game.type, round: game.round, week: game.week,
-        team, opponent, score, opponentScore: other,
+        team, teamLeague, opponent, opponentLeague, crossLeague, score, opponentScore: other,
         diff: known ? score - other : null, margin: known ? Math.abs(score - other) : null,
         result: known ? score > other ? 'W' : score < other ? 'L' : 'T' : null,
         win: known ? score > other ? 1 : 0 : null, loss: known ? score < other ? 1 : 0 : null, tie: known ? score === other ? 1 : 0 : null,
@@ -787,7 +795,7 @@ export function datasetForModel(dataset: Dataset) {
     rowsMatched: dataset.matched,
     truncated: dataset.truncated,
     rows: all ? dataset.rows : dataset.rows.slice(0, MODEL_PREVIEW),
-    ...(all ? {} : { note: `Only the first ${MODEL_PREVIEW} of ${dataset.rows.length} rows are shown here. All rows are in ${dataset.id} for charts.`, columnStats: columnStats(dataset.columns, dataset.rows) }),
+    ...(all ? {} : { note: `Only the first ${MODEL_PREVIEW} of ${dataset.rows.length} rows are shown. This is a sample: do not add, count, or rate it. Call the query again with groupBy and aggregates so the tool totals every matching row. All rows are in ${dataset.id} for charts.`, columnStats: columnStats(dataset.columns, dataset.rows) }),
     ...(dataset.summary ? { summary: dataset.summary } : {}),
     caveats: dataset.caveats,
   };

@@ -180,6 +180,8 @@ test('every tool declaration is valid for Gemini and the prompt carries the sche
   assert.match(prompt, /\{premier\}Premier\{\/premier\}/);
   assert.match(prompt, /\{championship\}/);
   assert.match(prompt, /\{league-one\}/);
+  assert.match(prompt, /teamLeague/);
+  assert.match(prompt, /crossLeague/);
 });
 
 test('the local test assistant exercises the whole path on the real archive', async () => {

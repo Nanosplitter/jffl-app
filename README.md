@@ -80,7 +80,10 @@ How it works:
 - The model never sees the whole archive and never types numbers. It calls tools
   (`src/history/askTools.ts`) that run exact queries over the bundled `archive.json`:
   game and season queries, head-to-head, manager careers, record book, title years,
-  draft slots, and week slices. It then asks for a chart by naming a returned dataset.
+  draft slots, and week slices. Each game row also carries the league each manager
+  played in that season, so a cup question such as one league's record against the
+  others is one grouped query rather than a join the model has to do itself. It then
+  asks for a chart by naming a returned dataset.
 - The 2026 season comes from the same Firestore snapshots as the rest of the site
   (`publicLeagues` and `publicRosters`), never from ESPN directly. `src/history/liveSeason.ts`
   maps ESPN teams to manager nicknames and turns the snapshots into 2026 game and season rows
