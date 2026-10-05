@@ -138,7 +138,8 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .starter-id { min-width: 0; }
 .starter-id.right { justify-self: end; }
 .starter-id.right .player-identity { flex-direction: row-reverse; text-align: right; }
-.starter-id.right .player-name, .starter-id.right .player-meta { justify-content: flex-end; }
+.starter-id.right .player-name { flex-direction: row-reverse; justify-content: flex-start; align-items: flex-start; }
+.starter-id.right .player-meta { justify-content: flex-end; }
 .starter-score { min-width: 0; }
 .starter-score.left { text-align: right; padding-right: 16px; }
 .starter-score.right { text-align: left; padding-left: 16px; }
