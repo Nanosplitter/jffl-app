@@ -77,7 +77,7 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-team-stats dt { font-size: .62rem; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .ask-team-stats dd { margin: 2px 0 0; font-weight: 600; }
 .ask-answer a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
-.ask-answer a:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
+.ask-answer a:hover { color: inherit; text-decoration-color: currentColor; }
 .ask-answer .ink a,
 .ask-answer .ink a:hover { color: inherit; }
 

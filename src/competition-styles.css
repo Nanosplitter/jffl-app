@@ -26,6 +26,7 @@
 .featured-cup-matches > .cup-match { flex: 0 0 calc((100% - 32px) / 3); width: calc((100% - 32px) / 3); max-width: calc((100% - 32px) / 3); }
 .cup-match { display: block; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 2px; overflow: hidden; min-width: 0; }
 a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none; border-color: var(--accent); }
+a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decoration: underline; text-underline-offset: 3px; }
 .cup-match.highlighted { border-color: var(--accent); border-left-width: 4px; }
 .cup-match > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 14px 8px; font-size: .6rem; color: var(--muted); }
 .cup-body { display: grid; gap: 10px; padding: 0 14px 14px; }
@@ -186,7 +187,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .season-league .eyebrow { font-size: .59rem; margin-bottom: 8px; }
 .season-league h2.league-label { font-size: 1.9rem; font-weight: 700; color: var(--text); }
 .season-league h2 a { font-size: inherit; color: inherit; }
-.season-league h2 a:hover { color: var(--accent-ink); text-decoration: none; }
+.season-league h2 a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .commissioner-table th, .commissioner-table td { padding: 14px 12px; font-size: .74rem; }
 .commissioner-table th { font-size: .62rem; }
 .commissioner-table th:first-child, .commissioner-table td:first-child { width: 3.4rem; padding-left: 0.85rem; }
@@ -217,7 +218,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .week-recap .week-card-head strong { margin: 0; font-size: 1.7rem; line-height: 1; }
 .week-recap .week-face { display: flex; align-items: center; gap: 10px; color: inherit; }
 .week-recap .week-face:hover { text-decoration: none; }
-.week-recap .week-face:hover .week-name { color: var(--accent-ink); }
+.week-recap .week-face:hover .week-name { text-decoration: underline; text-underline-offset: 3px; }
 .week-recap .week-face .team-logo { width: 40px; height: 40px; flex-basis: 40px; }
 .week-recap .week-face > span,
 .week-recap .week-name { display: block; margin-top: 0; color: var(--text); line-height: 1.15; }
@@ -238,6 +239,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .week-leaderboard .league-ink.league-one { color: #8f5e16; }
 .week-recap .week-pair { display: grid; gap: 8px; margin-top: 10px; color: inherit; }
 .week-recap .week-pair:hover { text-decoration: none; }
+.week-recap .week-pair:hover .week-name { text-decoration: underline; text-underline-offset: 3px; }
 .week-recap .week-pair > span { display: flex; align-items: center; gap: 8px; margin-top: 0; color: var(--text); font-size: .78rem; }
 .week-recap .week-pair .team-logo { width: 26px; height: 26px; flex-basis: 26px; }
 .week-recap .week-club .week-who,
@@ -250,7 +252,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .week-club li { flex: 1 1 11.5rem; max-width: 15rem; min-width: 0; }
 .week-club a { display: flex; align-items: center; gap: 8px; color: inherit; }
 .week-club a:hover { text-decoration: none; }
-.week-club a:hover .week-name { color: var(--accent-ink); }
+.week-club a:hover .week-name { text-decoration: underline; text-underline-offset: 3px; }
 .week-club .team-logo { width: 28px; height: 28px; flex-basis: 28px; }
 .standouts th:nth-child(2) { text-align: right; }
 .week-leaderboard th:nth-child(3),
@@ -296,6 +298,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .trophy-race[data-league="league-one"] { --league: #157a48; }
 .trophy-race[data-league="jffl"] { --league: #0d7377; }
 .trophy-race:hover { text-decoration: none; color: inherit; background: color-mix(in srgb, var(--league) 7%, var(--surface)); }
+.trophy-race:hover strong { text-decoration: underline; text-underline-offset: 3px; }
 .trophy-logo { width: 44px; height: 44px; object-fit: contain; }
 .trophy-copy { min-width: 0; }
 .trophy-copy .eyebrow { margin: 0 0 3px; color: var(--league); font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; }
@@ -553,8 +556,9 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
   a.title-winner:hover > .title-tip, .title-winner a:hover > .title-tip, .title-jffl a:hover > .title-tip { display: block; }
 }
 a.title-winner:focus-visible > .title-tip, .title-winner a:focus-visible > .title-tip, .title-jffl a:focus-visible > .title-tip { display: block; }
-a.title-winner:hover { color: var(--text); text-decoration: none; }
-a.title-winner:hover, .title-winner a:hover { color: var(--accent-ink); }
+a.title-winner:hover, .title-winner a:hover { color: inherit; text-decoration: none; }
+a.title-winner:hover > span:not(.sr-only):not(.title-race):not(.title-tip),
+.title-winner a:hover > span:not(.title-tip) { text-decoration: underline; text-underline-offset: 3px; }
 .title-span-2 { grid-column: span 2; }
 .title-span-3 { grid-column: span 3; }
 .title-winner.wide { background: color-mix(in srgb, var(--accent) 18%, var(--canvas)); box-shadow: inset 3px 0 0 var(--accent); }
@@ -586,7 +590,7 @@ a.title-winner:hover, .title-winner a:hover { color: var(--accent-ink); }
 .archive-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; margin-bottom: 8px; }
 .archive-links a { display: block; border-top: 1px solid var(--line); padding: 16px 0 18px; }
 .archive-links a:hover { text-decoration: none; }
-.archive-links a:hover strong { color: var(--accent-ink); }
+.archive-links a:hover strong { text-decoration: underline; text-underline-offset: 3px; }
 .archive-links strong { display: block; font-size: 1.2rem; }
 .archive-links span { display: block; margin-top: 6px; color: var(--muted); font-size: .74rem; line-height: 1.6; }
 .draft-bars { display: grid; gap: 14px; margin: 8px 0 24px; }
