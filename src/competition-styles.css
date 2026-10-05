@@ -470,23 +470,17 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
   .recap-metrics span { font-size: .64rem; }
   .week-leaderboard, .standouts table { width: 100%; table-layout: fixed; }
   .standouts th:nth-child(2) { width: 2.6rem; }
-  .standouts th:nth-child(3) { width: 4.4rem; }
-  .standouts th:nth-child(4) { width: 4.6rem; }
+  .standouts th:nth-child(3) { width: 5.2rem; }
   .standouts th, .standouts td { padding-left: 4px; padding-right: 4px; }
-  .standouts .league-label { display: inline-block; max-width: 100%; white-space: normal; line-height: 1.15; font-size: .6rem; }
   .standouts .player-name { white-space: normal; }
   .week-leaderboard th { white-space: normal; line-height: 1.1; }
   .week-leaderboard th:nth-child(1) { width: 1.6rem; }
   .week-leaderboard th:nth-child(3) { width: 4.7rem; }
-  .week-leaderboard th:nth-child(4) { width: 3.8rem; }
-  .week-leaderboard th:nth-child(5) { width: 4.5rem; }
+  .week-leaderboard th:nth-child(4) { width: 4.4rem; }
   .week-leaderboard th, .week-leaderboard td { padding-top: 10px; padding-bottom: 10px; padding-left: 4px; padding-right: 4px; }
   .week-leaderboard .team-identity { gap: 4px; min-width: 0; max-width: 100%; }
   .week-leaderboard .team-logo { width: 16px; height: 16px; flex-basis: 16px; }
-  .week-leaderboard .league-label,
-  .week-leaderboard .week-result { white-space: normal; line-height: 1.15; }
-  .week-leaderboard .league-label { display: inline-block; max-width: 100%; font-size: .6rem; }
-  .week-leaderboard .week-result { font-size: .72rem; }
+  .week-leaderboard .week-result { white-space: normal; line-height: 1.15; font-size: .72rem; }
   .week-leaderboard .hundred-tag { display: none; }
   .week-bar { width: 22px; flex-basis: 22px; }
   .week-leaderboard .week-score { gap: 4px; }
