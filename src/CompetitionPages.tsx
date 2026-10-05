@@ -587,7 +587,7 @@ export function WeeklyPage() {
         </Link></li>;
       })}</ul></article>
     </div>
-    {week===currentWeek&&<section className="surface week-board could-have-board"><div className="surface-heading"><h2>Could have had ’em</h2></div><p className="could-note">The fewest start and bench moves that turn a loss or a tie into a win.</p>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:swings.length?<ul className="could-have">{swings.map(swing=>{
+    {week===currentWeek&&<section className="surface week-board could-have-board"><div className="surface-heading"><h2>Could have had ’em</h2></div><p className="could-note">Hindsight is always 20/20. The fewest start and bench moves that turn a loss or a tie into a win.</p>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:swings.length?<ul className="could-have">{swings.map(swing=>{
       const manager=managerFor(swing.slug, swing.teamId)?.manager??'Team';
       const opponent=managerFor(swing.slug, swing.opponentId)?.manager??'Team';
       return <li key={`${swing.slug}-${swing.teamId}`}>
