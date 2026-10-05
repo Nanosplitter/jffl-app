@@ -217,7 +217,7 @@ a.team-sheet:hover { color: inherit; text-decoration: none; box-shadow: inset 0 
 .team-sheet-copy { flex: 1; min-width: 0; }
 .team-sheet-name, .team-sheet-note { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .team-sheet-name { font-size: .86rem; font-weight: 600; line-height: 1.3; }
-.team-sheet-side.winner .team-sheet-name { color: var(--accent-ink); }
+.team-sheet-side.winner .team-sheet-name:not(.league-ink) { color: var(--accent-ink); }
 .team-sheet-detail, .team-sheet-note { margin-top: 3px; color: var(--muted); font-size: .68rem; line-height: 1.35; }
 .team-sheet-detail { display: block; min-height: 2.7em; max-height: 2.7em; overflow: hidden; }
 .team-sheet-note { min-height: 1.35em; }

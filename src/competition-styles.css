@@ -48,7 +48,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .bracket-logo { width: 16px; height: 16px; object-fit: contain; display: block; }
 .bracket-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; font-weight: 600; line-height: 1.2; }
 .bracket-row.open-slot .bracket-name { color: var(--muted); font-weight: 500; }
-.bracket-row.winner .bracket-name, .bracket-row.winner .bracket-score { color: var(--accent-ink); }
+.bracket-row.winner .bracket-name:not(.league-ink), .bracket-row.winner .bracket-score { color: var(--accent-ink); }
 .bracket-score { font-family: 'Barlow Condensed', sans-serif; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
 .bracket-tree { --bracket-gap: 16px; --bracket-line: calc(50% - 0.5px); }
 .bracket-tree .bracket-columns { align-items: stretch; gap: var(--bracket-gap); width: 100%; }
@@ -144,7 +144,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .cup-team { display: block; font-size: .61rem; line-height: 1.45; color: var(--muted); margin-top: 3px; }
 .cup-team .cup-league { color: var(--muted); }
 .cup-placeholder { display: block; font-size: .72rem; line-height: 1.6; }
-.cup-winner .cup-manager, .cup-winner .score { color: var(--accent-ink); }
+.cup-winner .cup-manager:not(.league-ink), .cup-winner .score { color: var(--accent-ink); }
 .bracket-controls { display: flex; align-items: center; gap: 16px; padding: 20px 0; margin-bottom: 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .week-picker { display: flex; flex-direction: column; gap: 8px; font-size: .68rem; color: var(--muted); }
 .week-picker select { min-width: 185px; padding: 10px 36px 10px 14px; }
