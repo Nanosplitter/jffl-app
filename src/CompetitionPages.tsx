@@ -218,12 +218,7 @@ function startersFor(players: RosteredPlayer[], teamId: string) {
 }
 
 function benchFor(players: RosteredPlayer[], teamId: string) {
-  return players.filter(player => player.teamId === teamId && player.group === 'bench').sort((a, b) => {
-    if (a.weekPoints == null && b.weekPoints == null) return compareByLineup(a, b);
-    if (a.weekPoints == null) return 1;
-    if (b.weekPoints == null) return -1;
-    return b.weekPoints - a.weekPoints || compareByLineup(a, b);
-  });
+  return players.filter(player => player.teamId === teamId && player.group === 'bench').sort(compareByLineup);
 }
 
 function StarterScore({ player, align }: { player?: RosteredPlayer; align: 'left' | 'right' }) {
