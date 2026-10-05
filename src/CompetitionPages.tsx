@@ -61,12 +61,15 @@ function feederLabel(label: string) {
   return `${round} · Match ${parsed[2]}`;
 }
 
-export function MatchCard({ match, weeks, data, highlighted, index, layout = 'board', cupId }: { match: CupMatch; weeks: number[]; data: SummaryMap; highlighted: string; index: number; layout?: 'board' | 'slot'; cupId: string }) {
+export function MatchCard({ match, weeks, data, highlighted, index, layout = 'board', cupId, players = undefined }: { match: CupMatch; weeks: number[]; data: SummaryMap; highlighted: string; index: number; layout?: 'board' | 'slot'; cupId: string; players?: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> | null }) {
   const status = match.status === 'tied' ? 'Old fashioned duel' : match.status === 'live' && match.replay ? 'Replay week' : { bye:'Bye · advances', waiting:'', live:'', final:'Final', unavailable:'Waiting for score data' }[match.status];
   const selected = highlighted && [match.a.participant?.key, match.b.participant?.key].includes(highlighted);
   const share = match.status === 'bye' ? null : totalShare(match.a.total, match.b.total);
+  const open = match.status === 'live' || match.status === 'waiting';
+  const chance = open && players ? cupMatchChance(match, data, players) : null;
+  const odds = chance && chance !== 'level' ? chance : null;
   const sideName = (side: CupMatch['a']) => side.participant?.manager ?? (side.label || 'TBD');
-  const label = `Cup matchup ${index + 1}, ${weekPhrase(weeks)}. ${sideName(match.a)} ${match.status === 'bye' ? 'bye' : points(match.a.total)}. ${sideName(match.b)} ${match.status === 'bye' ? 'bye' : points(match.b.total)}.`;
+  const label = `Cup matchup ${index + 1}, ${weekPhrase(weeks)}. ${sideName(match.a)} ${match.status === 'bye' ? 'bye' : points(match.a.total)}. ${sideName(match.b)} ${match.status === 'bye' ? 'bye' : points(match.b.total)}.${odds ? ` ${sideName(match.a)} ${odds.left} percent chance to advance. ${sideName(match.b)} ${odds.right} percent.` : ''}`;
   if (layout === 'slot') return <Link className={`bracket-node cup-${match.status} ${selected ? 'highlighted' : ''}`} to={matchUrl(cupId, match.id)} aria-label={label}>
     {[match.a, match.b].map((side, sideIndex) => {
       const participant = side.participant;
@@ -103,14 +106,27 @@ export function MatchCard({ match, weeks, data, highlighted, index, layout = 'bo
           </div>;
         })}
       </div>
-      {share && <div className="win-bar" role="img" aria-label={`${sideName(match.a)} ${share.away} percent of the scored points. ${sideName(match.b)} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
+      {odds ? <div className="cup-odds"><p className="cup-odds-read"><span className={odds.left > odds.right ? 'favored' : ''}>{odds.left}%</span><span className={odds.right > odds.left ? 'favored' : ''}>{odds.right}%</span></p><div className="win-bar" role="img" aria-label={`${sideName(match.a)} ${odds.left} percent chance to advance. ${sideName(match.b)} ${odds.right} percent.`}><span className={odds.left > odds.right ? 'favored' : ''} style={{ width: `${odds.left}%` }} /><span className={odds.right > odds.left ? 'favored' : ''} style={{ width: `${odds.right}%` }} /></div></div> : players !== null && share && <div className="win-bar" role="img" aria-label={`${sideName(match.a)} ${share.away} percent of the scored points. ${sideName(match.b)} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
     </div>
   </Link>;
+}
+
+function cupRosterSlugs(cupId: string): LeagueSlug[] {
+  if (cupId === 'jffl') return LEAGUES.map(league => league.slug);
+  return LEAGUES.some(league => league.slug === cupId) ? [cupId as LeagueSlug] : [];
+}
+
+function rosterPlayers(slugs: LeagueSlug[], rosters: ReturnType<typeof useRosters>) {
+  return Object.fromEntries(slugs.map(slug => [slug, rosters[slug]?.data?.players ?? null])) as Partial<Record<LeagueSlug, RosteredPlayer[] | null>>;
 }
 
 export function CupHubPage() {
   usePageLabel('Cups');
   const { data } = useCompetitionData();
+  const rosterSlugs = cupRosterSlugs('jffl');
+  const rosters = useRosters(rosterSlugs);
+  const players = rosterPlayers(rosterSlugs, rosters);
+  const rostersReady = rosterSlugs.every(slug => rosters[slug]?.data || rosters[slug]?.error);
   const jffl = buildCup('jffl', data);
   const live = jffl.rounds.flatMap(round => round.matches.flatMap((match, index) => match.status === 'live' ? [{ match, index, weeks: match.weeks, roundName: round.name }] : []));
   const roundNames = [...new Set(live.map(item => item.roundName))];
@@ -123,7 +139,7 @@ export function CupHubPage() {
       return <Link key={id} className={`cup-tile ${id}`} to={`/cups/${id}`}><p className="eyebrow">{id === 'jffl' ? 'TWO-WEEK TIES' : 'SINGLE-WEEK TIES'}</p><h2>{cup.name}</h2><p>{cup.champion ? <><span className={leagueInk(cup.champion.slug)}>{cup.champion.manager}</span> · Champion</> : `${active.name} · ${active.weeks.length > 1 ? 'Weeks' : 'Week'} ${active.weeks.join(' + ')}`}</p><span className="tile-link">Open bracket<ArrowUpRight size={17} /></span></Link>;
     })}</div>
     <details className="explainer"><summary>How the cups work</summary><p>Your ESPN score counts in your regular league matchup and in any cup tie scheduled for that week. JFFL Cup totals combine two weeks; league cups use one week. Scores retain each league’s scoring rules, even when the same NFL player appears on both sides.</p><p>Winners advance only after every scoring leg is final. A level tie plays again the next week, a second week in a league cup and a third week in the JFFL Cup. If that replay is also level, they settle it with an old fashioned duel.</p></details>
-    {live.length > 0 && <><div className="section-heading"><h2>{liveTitle}</h2><Link className="text-link" to="/cups/jffl">All matchups<ArrowUpRight size={14} /></Link></div><div className="featured-cup-matches">{live.map(({ match, index, weeks }) => <MatchCard key={match.id} match={match} weeks={weeks} data={data} highlighted="" index={index} cupId="jffl" />)}</div></>}
+    {live.length > 0 && <><div className="section-heading"><h2>{liveTitle}</h2><Link className="text-link" to="/cups/jffl">All matchups<ArrowUpRight size={14} /></Link></div><div className="featured-cup-matches">{live.map(({ match, index, weeks }) => <MatchCard key={match.id} match={match} weeks={weeks} data={data} highlighted="" index={index} cupId="jffl" players={rostersReady ? players : null} />)}</div></>}
   </>;
 }
 
@@ -163,6 +179,10 @@ export function CupPage() {
   }, [cupId, location.search]);
   useEffect(() => { setSelectedRound('all'); }, [cupId]);
   const cup = CUP_IDS.includes(cupId as CupId) ? buildCup(cupId as CupId, data) : null;
+  const rosterSlugs = cupRosterSlugs(cupId);
+  const rosters = useRosters(rosterSlugs);
+  const players = rosterPlayers(rosterSlugs, rosters);
+  const rostersReady = rosterSlugs.every(slug => rosters[slug]?.data || rosters[slug]?.error);
   usePageLabel(cup?.name ?? null);
   if (!cup) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
   const participants = MANAGERS.filter(item => cupId === 'jffl' || item.slug === cupId);
@@ -177,7 +197,8 @@ export function CupPage() {
       return <section className="bracket-round" key={round.name}><header className="round-heading"><div><p className="eyebrow">{round.weeks.length>1?'WEEKS':'WEEK'} {round.weeks.join(' + ')}</p><h2>{selectedRound === 'all' ? <button type="button" className="round-jump" onClick={() => setSelectedRound(String(roundIndex))} aria-label={`Open ${round.name}`}>{round.name}<ArrowUpRight size={16} aria-hidden="true" /></button> : round.name}</h2></div><span>{average == null ? '— avg' : `${points(average)} avg`}</span></header><div className="round-matches">{(leagueCup && tree && roundIndex === 0 ? [round.matches[0] ?? null, null, null, round.matches[1] ?? null] : round.matches).map((match, index) => {
         if (!match) return <div className="bracket-slot bracket-spacer" key={`spacer-${index}`} aria-hidden="true" />;
         const matchIndex = leagueCup && roundIndex === 0 ? (index === 0 ? 0 : 1) : index;
-        const card = <MatchCard key={tree ? undefined : match.id} match={match} weeks={match.weeks} data={data} highlighted={highlighted} index={matchIndex} layout={selectedRound === 'all' || match.status === 'waiting' ? 'slot' : 'board'} cupId={cupId} />;
+        const board = selectedRound !== 'all' && match.status !== 'waiting';
+        const card = <MatchCard key={tree ? undefined : match.id} match={match} weeks={match.weeks} data={data} highlighted={highlighted} index={matchIndex} layout={board ? 'board' : 'slot'} cupId={cupId} players={board ? (rostersReady ? players : null) : undefined} />;
         return tree ? <div className={`bracket-slot${leagueCup && roundIndex === 0 ? ' play-in' : ''}`} key={match.id}>{card}</div> : card;
       })}</div></section>;
     })}</div></div>

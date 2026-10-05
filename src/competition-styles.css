@@ -38,6 +38,8 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .cup-side .matchup-logo { width: 42px; height: 42px; flex-basis: 42px; }
 .cup-side .score { font-size: 1.7rem; }
 .cup-match .win-bar { width: 100%; }
+.cup-match .cup-odds { display: grid; gap: 8px; }
+.cup-match .cup-odds-read { font-size: .8rem; }
 .status-tag { font-size: .6rem; line-height: 1.5; text-align: right; }
 .status-tag.status-tied, .status-tag.status-unavailable { color: var(--warning); }
 .bracket-node { display: flex; flex-direction: column; width: 100%; height: 68px; background: var(--surface); border: 1px solid var(--line); border-radius: 2px; overflow: hidden; min-width: 0; }
