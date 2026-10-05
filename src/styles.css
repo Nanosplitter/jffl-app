@@ -316,7 +316,7 @@ select {
 .week-pulse .pulse-key { font-weight: 700; color: var(--text); }
 .pulse-match-dot { text-align: center; }
 .week-pulse .pulse-match span { margin: 0; font-size: inherit; line-height: inherit; }
-.week-pulse .pulse-match-gap { justify-self: end; margin-left: 8px; white-space: nowrap; text-align: right; }
+.week-pulse .pulse-match span.pulse-match-gap { justify-self: end; margin-left: 22px; white-space: nowrap; text-align: right; }
 .week-pulse .pulse-match .pulse-plusminus { margin-right: 1px; font-size: .8em; }
 .pulse-club { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
 .pulse-club li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; font-size: .7rem; line-height: 1.35; }
