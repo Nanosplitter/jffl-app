@@ -296,6 +296,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .could-result-old { color: var(--muted); font-weight: 600; }
 .could-result-new { font-weight: 600; }
 .could-score strong { color: #2f7a32; }
+.could-score .could-result-old strong { color: #a03e36; }
 .could-arrow, .swap-arrow { color: var(--muted); }
 .could-against { grid-column: 1 / -1; margin: 2px 0 0; color: var(--muted); font-size: .74rem; }
 .could-against a { font-weight: 600; }
@@ -316,6 +317,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .swap-out .swap-name { color: var(--muted); }
 .swap-out b { color: #a03e36; }
 :root[data-theme=dark] .could-score strong, :root[data-theme=dark] .swap-in b { color: #7dce6a; }
+:root[data-theme=dark] .could-score .could-result-old strong { color: #f0a09a; }
 :root[data-theme=dark] .swap-out b { color: #f0a09a; }
 @media (max-width: 580px) {
   .could-have, .could-have > li, .swap-row { display: block; }

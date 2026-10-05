@@ -568,7 +568,7 @@ export function WeeklyPage() {
       return <li key={`${swing.slug}-${swing.teamId}`}>
         <div className="could-match">
           <Link className={`could-manager ${leagueInk(swing.slug)}`} to={teamUrl(swing.slug, swing.teamId)}>{manager}</Link>
-          <Link className="could-score" to={`/league/${swing.slug}/match/${swing.matchId}`}><span className="could-result could-result-old">{points(swing.score)}–{points(swing.opponentScore)}</span><span className="could-arrow" aria-hidden="true">→</span><span className="could-result could-result-new"><strong>{points(swing.wouldScore)}</strong>–{points(swing.opponentScore)}</span><span className="sr-only"> against {opponent}</span></Link>
+          <Link className="could-score" to={`/league/${swing.slug}/match/${swing.matchId}`}><span className="could-result could-result-old"><strong>{points(swing.score)}</strong>–{points(swing.opponentScore)}</span><span className="could-arrow" aria-hidden="true">→</span><span className="could-result could-result-new"><strong>{points(swing.wouldScore)}</strong>–{points(swing.opponentScore)}</span><span className="sr-only"> against {opponent}</span></Link>
           <p className="could-against">vs <Link className={leagueInk(swing.slug)} to={teamUrl(swing.slug, swing.opponentId)}>{opponent}</Link></p>
         </div>
         {swing.swaps.map(swap => <div className="swap-row" key={`${swap.start.id}-${swap.sit.id}`}><SwapPlayer player={swap.sit} tone="out" /><span className="swap-arrow" aria-hidden="true">→</span><span className="sr-only"> could have started </span><SwapPlayer player={swap.start} tone="in" /></div>)}
