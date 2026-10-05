@@ -284,16 +284,38 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .standouts strong { font-size: .8rem; }
 .standout-managers { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
 .standout-managers a { font-weight: 600; line-height: 1.3; }
-.lineup-swings-board { margin-top: 8px; }
-.swing-note { margin: -6px 0 14px; color: var(--muted); font-size: .74rem; line-height: 1.45; }
-.lineup-swings { list-style: none; margin: 0; padding: 0 0 8px; }
-.lineup-swings li { padding: 14px 0; border-top: 1px solid var(--line); }
-.lineup-swings li:first-child { border-top: 0; padding-top: 2px; }
-.swing-match { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; min-width: 0; font-size: .84rem; }
-.swing-match > span { color: var(--muted); }
-.swing-result { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 700; white-space: nowrap; }
-.swing-moves { margin: 6px 0 0; color: var(--muted); font-size: .74rem; line-height: 1.5; }
-.swing-moves a { font-weight: 600; }
+.could-have-board { margin-top: 8px; }
+.could-have { list-style: none; margin: 0; padding: 0 0 8px; }
+.could-have li + li { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
+.could-match { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: baseline; }
+.could-manager { font-size: .95rem; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.could-score { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; font-weight: 700; color: inherit; white-space: nowrap; }
+.could-score:hover { text-decoration: none; }
+.could-score span:first-child { color: var(--muted); font-weight: 600; }
+.could-score strong { color: #2f7a32; }
+.could-arrow, .swap-arrow { color: var(--muted); }
+.could-against { grid-column: 1 / -1; margin: 2px 0 0; color: var(--muted); font-size: .74rem; }
+.could-against a { font-weight: 600; }
+.swap-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 12px; }
+.swap-arrow { text-align: center; }
+.swap-player { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: calc(50% - 22px); flex: 0 1 auto; color: inherit; }
+.swap-player:hover { text-decoration: none; }
+.swap-player:hover .swap-name { text-decoration: underline; text-underline-offset: 3px; }
+.swap-player .player-headshot, .swap-player .nfl-portrait { width: 42px; height: 42px; flex-basis: 42px; border-radius: 4px; }
+.swap-copy { min-width: 0; }
+.swap-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .8rem; line-height: 1.2; }
+.swap-copy small { display: block; margin-top: 2px; color: var(--muted); font-size: .66rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.swap-player b { flex: none; margin-left: 8px; font-variant-numeric: tabular-nums; font-size: .9rem; }
+.swap-in b { color: #2f7a32; }
+.swap-out .swap-name { color: var(--muted); }
+.swap-out b { color: #a03e36; }
+:root[data-theme=dark] .could-score strong, :root[data-theme=dark] .swap-in b { color: #7dce6a; }
+:root[data-theme=dark] .swap-out b { color: #f0a09a; }
+@media (max-width: 580px) {
+  .swap-row { gap: 6px; }
+  .swap-player { max-width: 100%; flex-basis: 100%; }
+  .swap-arrow { transform: rotate(90deg); }
+}
 .trophy-races { margin-bottom: 35px; }
 .trophy-intro { padding: 16px 0 2px; }
 .trophy-intro h2 { font-size: 1.5rem; text-transform: uppercase; }

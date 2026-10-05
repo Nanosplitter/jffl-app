@@ -79,18 +79,28 @@ export interface LineupCandidate {
   group: 'starter' | 'bench' | 'ir';
   eligibleSlots: readonly string[];
   weekPoints: number | null;
+  position?: string;
+  proTeam?: string;
 }
 
 export interface LineupMove {
   id: string;
   name: string;
   points: number;
+  position: string;
+  proTeam: string;
+}
+
+export interface LineupSwap {
+  start: LineupMove;
+  sit: LineupMove;
 }
 
 export interface LineupSwing {
   score: number;
   start: LineupMove[];
   sit: LineupMove[];
+  swaps: LineupSwap[];
 }
 
 const toCents = (value: number) => Math.round(value * 100);
@@ -99,8 +109,10 @@ function canFillSlot(player: LineupCandidate, slot: string) {
   return player.slot === slot || player.eligibleSlots.includes(slot);
 }
 
+const MAX_SWAPS = 2;
+
 /**
- * The fewest start/sit moves that would have beaten the opponent.
+ * The fewest start/sit moves, and no more than two, that would have beaten the opponent.
  * A starter with no posted score keeps the match undecided. A missing bench
  * score is left out rather than treated as zero.
  */
@@ -131,17 +143,18 @@ export function lineupWouldWin(
     return [slot, fits];
   }));
 
-  let best: { changes: number; sumCents: number; picked: LineupCandidate[] } | null = null;
+  let best: { changes: number; sumCents: number; picked: LineupCandidate[]; placement: LineupCandidate[] } | null = null;
   const used = new Set<LineupCandidate>();
   const picked: LineupCandidate[] = [];
+  const placement: (LineupCandidate | undefined)[] = [];
 
   const consider = (sumCents: number, changes: number) => {
     const nextScore = toCents(teamScore) + sumCents - starterSum;
-    if (nextScore <= toCents(opponentScore) || changes === 0) return;
+    if (nextScore <= toCents(opponentScore) || changes === 0 || changes > MAX_SWAPS) return;
     const signature = picked.map(player => player.id).join('\0');
     const bestSignature = best?.picked.map(player => player.id).join('\0') ?? '';
     if (best && (changes > best.changes || (changes === best.changes && (sumCents < best.sumCents || (sumCents === best.sumCents && signature >= bestSignature))))) return;
-    best = { changes, sumCents, picked: picked.slice() };
+    best = { changes, sumCents, picked: picked.slice(), placement: placement.slice() as LineupCandidate[] };
   };
 
   const walk = (step: number, sumCents: number, changes: number) => {
@@ -153,28 +166,51 @@ export function lineupWouldWin(
     }
     const optimistic = sumCents + ceiling.slice(0, left).reduce((total, value) => total + value, 0);
     if (toCents(teamScore) + optimistic - starterSum <= toCents(opponentScore)) return;
-    const { slot } = order[step];
+    const { slot, index } = order[step];
     for (const player of options.get(slot) ?? []) {
       if (used.has(player)) continue;
       const nextChanges = changes + (starterSet.has(player) ? 0 : 1);
-      if (best && nextChanges > best.changes) continue;
+      if (nextChanges > MAX_SWAPS || (best && nextChanges > best.changes)) continue;
       used.add(player);
       picked.push(player);
+      placement[index] = player;
       walk(step + 1, sumCents + toCents(player.weekPoints ?? 0), nextChanges);
       picked.pop();
+      placement[index] = undefined;
       used.delete(player);
     }
   };
   walk(0, 0, 0);
-  const result = best as { changes: number; sumCents: number; picked: LineupCandidate[] } | null;
+  const result = best as { changes: number; sumCents: number; picked: LineupCandidate[]; placement: LineupCandidate[] } | null;
   if (!result) return null;
 
   const chosen = new Set(result.picked);
-  const move = (player: LineupCandidate): LineupMove => ({ id: player.id, name: player.name, points: player.weekPoints ?? 0 });
+  const move = (player: LineupCandidate): LineupMove => ({
+    id: player.id,
+    name: player.name,
+    points: player.weekPoints ?? 0,
+    position: player.position ?? '',
+    proTeam: player.proTeam ?? '',
+  });
   const start = result.picked.filter(player => !starterSet.has(player)).map(move).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
   const sit = starters.filter(player => !chosen.has(player)).map(move).sort((a, b) => b.points - a.points || a.name.localeCompare(b.name));
   if (!start.length || start.length !== sit.length) return null;
-  return { score: (toCents(teamScore) + result.sumCents - starterSum) / 100, start, sit };
+  const pairedStart = new Set<string>();
+  const pairedSit = new Set<string>();
+  const swaps: LineupSwap[] = [];
+  starters.forEach((prev, index) => {
+    const next = result.placement[index];
+    if (!next || next === prev || starterSet.has(next) || chosen.has(prev)) return;
+    swaps.push({ start: move(next), sit: move(prev) });
+    pairedStart.add(next.id);
+    pairedSit.add(prev.id);
+  });
+  const restStart = start.filter(player => !pairedStart.has(player.id));
+  const restSit = sit.filter(player => !pairedSit.has(player.id));
+  restStart.forEach((player, index) => { if (restSit[index]) swaps.push({ start: player, sit: restSit[index] }); });
+  swaps.sort((a, b) => b.start.points - a.start.points || a.start.name.localeCompare(b.start.name));
+  if (swaps.length !== start.length) return null;
+  return { score: (toCents(teamScore) + result.sumCents - starterSum) / 100, start, sit, swaps };
 }
 
 /** Every game tied with the closest margin, then the next-closest games until `minimum`. */

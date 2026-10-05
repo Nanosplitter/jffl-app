@@ -13,8 +13,8 @@ import { Fresh, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
 import { cupMatchChance } from './cupOdds';
 import { TeamIdentity } from './TeamIdentity';
-import { PlayerIdentity } from './PlayerIdentity';
-import { compareByLineup, historicalStarters, lineupWouldWin, type LineupSwing } from './lineups';
+import { PlayerIdentity, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
+import { compareByLineup, historicalStarters, lineupWouldWin, type LineupMove, type LineupSwing } from './lineups';
 
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
 
@@ -501,12 +501,18 @@ function WeekPair({ data, slug, id, homeId, awayId, homeScore, awayScore }: { da
   </Link>;
 }
 
-function SwingMoves({ players }: { players: { id: string; name: string; points: number }[] }) {
-  return players.map((player, index) => <span key={player.id}>
-    {index > 0 && (index === players.length - 1 ? ' and ' : ', ')}
-    <Link to={`/players/${player.id}`}>{player.name}</Link>
-    {` (${points(player.points)})`}
-  </span>);
+function SwapPlayer({ player, tone }: { player: LineupMove; tone: 'in' | 'out' }) {
+  const headshot = playerHeadshotUrl(player);
+  const portrait = headshot ?? (player.proTeam ? nflLogoUrl(player.proTeam) : null);
+  const meta = [player.proTeam, player.position].filter(Boolean).join(' · ');
+  return <Link className={`swap-player swap-${tone}`} to={`/players/${player.id}`}>
+    {portrait && <img className={headshot ? 'player-headshot' : 'nfl-portrait'} src={portrait} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
+    <span className="swap-copy">
+      <span className="swap-name">{player.name}</span>
+      {meta && <small>{meta}</small>}
+    </span>
+    <b>{points(player.points)}</b>
+  </Link>;
 }
 
 function StandoutBoard({ title, rows, ready }: { title: string; rows: ReturnType<typeof standoutGroups>; ready: boolean }) {
@@ -556,13 +562,18 @@ export function WeeklyPage() {
         </Link></li>;
       })}</ul></article>
     </div>
-    {week===currentWeek&&<section className="surface week-board lineup-swings-board"><div className="surface-heading"><h2>A different lineup would have won</h2></div><p className="swing-note">The fewest start and bench moves that turn a loss or a tie into a win. A match stays off the list while any starter is still to play.</p>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:swings.length?<ul className="lineup-swings">{swings.map(swing=>{
+    {week===currentWeek&&<section className="surface week-board could-have-board"><div className="surface-heading"><h2>Could have had ’em</h2></div>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:swings.length?<ul className="could-have">{swings.map(swing=>{
       const manager=managerFor(swing.slug, swing.teamId)?.manager??'Team';
       const opponent=managerFor(swing.slug, swing.opponentId)?.manager??'Team';
-      const tied=Math.round(swing.score*100)===Math.round(swing.opponentScore*100);
-      const verb=tied?swing.final?'tied':'is level with':swing.final?'trailed':'trails';
-      return <li key={`${swing.slug}-${swing.teamId}`}><div className="swing-match"><Link className={leagueInk(swing.slug)} to={teamUrl(swing.slug, swing.teamId)}>{manager}</Link><span>{verb}</span><Link className={leagueInk(swing.slug)} to={teamUrl(swing.slug, swing.opponentId)}>{opponent}</Link><Link className="swing-result" to={`/league/${swing.slug}/match/${swing.matchId}`}>{points(swing.score)}–{points(swing.opponentScore)}</Link></div><p className="swing-moves">Start <SwingMoves players={swing.start} /> instead of <SwingMoves players={swing.sit} />. That lineup would have scored {points(swing.wouldScore)}–{points(swing.opponentScore)}.</p></li>;
-    })}</ul>:<p className="empty-inline">No finished lineup would have flipped a match.</p>}</section>}
+      return <li key={`${swing.slug}-${swing.teamId}`}>
+        <div className="could-match">
+          <Link className={`could-manager ${leagueInk(swing.slug)}`} to={teamUrl(swing.slug, swing.teamId)}>{manager}</Link>
+          <Link className="could-score" to={`/league/${swing.slug}/match/${swing.matchId}`}><span>{points(swing.score)}</span><span className="could-arrow" aria-hidden="true">→</span><strong>{points(swing.wouldScore)}</strong><span className="sr-only">, against {opponent} {points(swing.opponentScore)}</span></Link>
+          <p className="could-against">vs <Link className={leagueInk(swing.slug)} to={teamUrl(swing.slug, swing.opponentId)}>{opponent}</Link> {points(swing.opponentScore)}</p>
+        </div>
+        {swing.swaps.map(swap => <div className="swap-row" key={`${swap.start.id}-${swap.sit.id}`}><SwapPlayer player={swap.start} tone="in" /><span className="swap-arrow" aria-hidden="true">→</span><span className="sr-only"> instead of </span><SwapPlayer player={swap.sit} tone="out" /></div>)}
+      </li>;
+    })}</ul>:<p className="empty-inline">No one was a move or two away.</p>}</section>}
     <section className="surface week-board"><div className="surface-heading"><h2>Scoring leaderboard</h2></div><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly scoring leaderboard"><table className="week-leaderboard"><thead><tr><th>#</th><th>Manager</th><th>Points</th><th>Matchup</th></tr></thead><tbody>{scores.map((row, index) => {
       const ahead = row.opponent !== null && row.score > row.opponent;
       const behind = row.opponent !== null && row.score < row.opponent;

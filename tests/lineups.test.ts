@@ -110,11 +110,9 @@ test('one eligible start/sit is enough when it passes the opponent', () => {
   ];
   const opponent = [spot('opp', 'WR', 'starter', 12, ['WR'], 'Opponent')];
   const swing = lineupWouldWin(team, opponent, 10, 12);
-  assert.deepEqual(swing, {
-    score: 20,
-    start: [{ id: 'in', name: 'Started', points: 14 }],
-    sit: [{ id: 'sit', name: 'Sat', points: 4 }],
-  });
+  const started = { id: 'in', name: 'Started', points: 14, position: '', proTeam: '' };
+  const sat = { id: 'sit', name: 'Sat', points: 4, position: '', proTeam: '' };
+  assert.deepEqual(swing, { score: 20, start: [started], sit: [sat], swaps: [{ start: started, sit: sat }] });
 });
 
 test('a lineup that only ties, or a player in the wrong slot, does not count as a win', () => {
@@ -236,4 +234,34 @@ test('a team that already won stays off the list, including a tie that a bench s
     16,
   );
   assert.equal(adjusted?.score, 22);
+});
+
+test('two swaps stay paired with the slot they filled, and a third move stays off the list', () => {
+  const paired = lineupWouldWin(
+    [
+      spot('low', 'WR', 'starter', 0, ['WR'], 'Low'),
+      spot('big', 'RB', 'starter', 6, ['RB'], 'Big'),
+      spot('high', 'WR', 'bench', 10, ['WR'], 'High'),
+      spot('mid', 'RB', 'bench', 9, ['RB'], 'Mid'),
+    ],
+    [spot('opp', 'WR', 'starter', 18, ['WR'])],
+    6,
+    18,
+  );
+  assert.deepEqual(paired?.swaps.map(swap => [swap.start.id, swap.sit.id]), [['high', 'low'], ['mid', 'big']]);
+
+  const three = lineupWouldWin(
+    [
+      spot('a', 'WR', 'starter', 0, ['WR']),
+      spot('b', 'RB', 'starter', 0, ['RB']),
+      spot('c', 'TE', 'starter', 0, ['TE']),
+      spot('d', 'WR', 'bench', 5, ['WR']),
+      spot('e', 'RB', 'bench', 5, ['RB']),
+      spot('f', 'TE', 'bench', 5, ['TE']),
+    ],
+    [spot('opp', 'WR', 'starter', 12, ['WR'])],
+    0,
+    12,
+  );
+  assert.equal(three, null);
 });
