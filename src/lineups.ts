@@ -109,10 +109,8 @@ function canFillSlot(player: LineupCandidate, slot: string) {
   return player.slot === slot || player.eligibleSlots.includes(slot);
 }
 
-const MAX_SWAPS = 2;
-
 /**
- * The fewest start/sit moves, and no more than two, that would have beaten the opponent.
+ * The fewest start/sit moves that would have beaten the opponent.
  * A starter with no posted score keeps the match undecided. A missing bench
  * score is left out rather than treated as zero.
  */
@@ -150,7 +148,7 @@ export function lineupWouldWin(
 
   const consider = (sumCents: number, changes: number) => {
     const nextScore = toCents(teamScore) + sumCents - starterSum;
-    if (nextScore <= toCents(opponentScore) || changes === 0 || changes > MAX_SWAPS) return;
+    if (nextScore <= toCents(opponentScore) || changes === 0) return;
     const signature = picked.map(player => player.id).join('\0');
     const bestSignature = best?.picked.map(player => player.id).join('\0') ?? '';
     if (best && (changes > best.changes || (changes === best.changes && (sumCents < best.sumCents || (sumCents === best.sumCents && signature >= bestSignature))))) return;
@@ -170,7 +168,7 @@ export function lineupWouldWin(
     for (const player of options.get(slot) ?? []) {
       if (used.has(player)) continue;
       const nextChanges = changes + (starterSet.has(player) ? 0 : 1);
-      if (nextChanges > MAX_SWAPS || (best && nextChanges > best.changes)) continue;
+      if (best && nextChanges > best.changes) continue;
       used.add(player);
       picked.push(player);
       placement[index] = player;

@@ -236,7 +236,7 @@ test('a team that already won stays off the list, including a tie that a bench s
   assert.equal(adjusted?.score, 22);
 });
 
-test('two swaps stay paired with the slot they filled, and a third move stays off the list', () => {
+test('two swaps stay paired with the slot they filled, and a third move still counts', () => {
   const paired = lineupWouldWin(
     [
       spot('low', 'WR', 'starter', 0, ['WR'], 'Low'),
@@ -263,5 +263,6 @@ test('two swaps stay paired with the slot they filled, and a third move stays of
     0,
     12,
   );
-  assert.equal(three, null);
+  assert.equal(three?.score, 15);
+  assert.equal(three?.swaps.length, 3);
 });

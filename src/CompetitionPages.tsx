@@ -571,7 +571,7 @@ export function WeeklyPage() {
           <Link className="could-score" to={`/league/${swing.slug}/match/${swing.matchId}`}><span>{points(swing.score)}</span><span className="could-arrow" aria-hidden="true">→</span><strong>{points(swing.wouldScore)}</strong><span className="sr-only">, against {opponent} {points(swing.opponentScore)}</span></Link>
           <p className="could-against">vs <Link className={leagueInk(swing.slug)} to={teamUrl(swing.slug, swing.opponentId)}>{opponent}</Link> {points(swing.opponentScore)}</p>
         </div>
-        {swing.swaps.map(swap => <div className="swap-row" key={`${swap.start.id}-${swap.sit.id}`}><SwapPlayer player={swap.start} tone="in" /><span className="swap-arrow" aria-hidden="true">→</span><span className="sr-only"> instead of </span><SwapPlayer player={swap.sit} tone="out" /></div>)}
+        {swing.swaps.map(swap => <div className="swap-row" key={`${swap.start.id}-${swap.sit.id}`}><SwapPlayer player={swap.sit} tone="out" /><span className="swap-arrow" aria-hidden="true">→</span><span className="sr-only"> could have started </span><SwapPlayer player={swap.start} tone="in" /></div>)}
       </li>;
     })}</ul>:<p className="empty-inline">No one was a move or two away.</p>}</section>}
     <section className="surface week-board"><div className="surface-heading"><h2>Scoring leaderboard</h2></div><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly scoring leaderboard"><table className="week-leaderboard"><thead><tr><th>#</th><th>Manager</th><th>Points</th><th>Matchup</th></tr></thead><tbody>{scores.map((row, index) => {
