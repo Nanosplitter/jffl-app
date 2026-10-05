@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { Fragment, lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search, Shield, Sun, Moon } from 'lucide-react';
 import { localPreview, useRosters, useSummaries } from './data';
@@ -106,10 +106,10 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
   if (!scores.some(row => row.score > 0)) return null;
   const high = scores[0];
   const close = closestOpen(margins);
-  const hundred = scores.filter(row => row.score >= 100).length;
+  const club = scores.filter(row => row.score >= 100);
   const closeNames = close ? [close.homeTeamId, close.awayTeamId].map(id => managerFor(close.slug, id ?? '')?.manager ?? 'Team') : [];
   const closeTo = close ? `/league/${close.slug}/match/${close.id}` : '/weekly';
-  return <nav className="week-pulse" aria-label="This week"><Link to="/weekly"><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerFor(high.slug, high.id)?.manager ?? 'Team' : '—'}</strong><span>{high ? `${points(high.score)} · ${leagueMeta(high.slug)?.name}` : 'Awaiting scores'}</span></Link><Link to={closeTo}><p className="eyebrow">CLOSEST MARGIN</p><strong>{close ? `${points(close.margin)} pts` : '—'}</strong><span>{close ? <><span className={leagueInk(close.slug)}>{closeNames[0]}</span> {points(close.homeScore)} · <span className={leagueInk(close.slug)}>{closeNames[1]}</span> {points(close.awayScore)}</> : 'Awaiting scores'}</span></Link><Link to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? hundred : '—'}</strong>{scores.length ? null : <span>Awaiting scores</span>}</Link></nav>;
+  return <nav className="week-pulse" aria-label="This week"><Link to="/weekly"><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerFor(high.slug, high.id)?.manager ?? 'Team' : '—'}</strong><span>{high ? `${points(high.score)} · ${leagueMeta(high.slug)?.name}` : 'Awaiting scores'}</span></Link><Link to={closeTo}><p className="eyebrow">CLOSEST MARGIN</p><strong>{close ? `${points(close.margin)} pts` : '—'}</strong><span>{close ? <><span className={leagueInk(close.slug)}>{closeNames[0]}</span> {points(close.homeScore)} · <span className={leagueInk(close.slug)}>{closeNames[1]}</span> {points(close.awayScore)}</> : 'Awaiting scores'}</span></Link><Link to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <span>{club.map((row, index) => <Fragment key={`${row.slug}-${row.id}`}>{index > 0 && ' · '}<span className={leagueInk(row.slug)}>{managerFor(row.slug, row.id)?.manager ?? 'Team'}</span> {points(row.score)}</Fragment>)}</span> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link></nav>;
 }
 
 function CupStrip({ data, players }: { data: SummaryMap; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
