@@ -506,7 +506,7 @@ function SwapPlayer({ player, tone }: { player: LineupMove; tone: 'in' | 'out' }
   const portrait = headshot ?? (player.proTeam ? nflLogoUrl(player.proTeam) : null);
   const meta = [player.proTeam, player.position].filter(Boolean).join(' · ');
   return <Link className={`swap-player swap-${tone}`} to={`/players/${player.id}`}>
-    {portrait && <img className={headshot ? 'player-headshot' : 'nfl-portrait'} src={portrait} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
+    <span className="swap-photo">{portrait && <img className={headshot ? 'player-headshot' : 'nfl-portrait'} src={portrait} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}</span>
     <span className="swap-copy">
       <span className="swap-name">{player.name}</span>
       {meta && <small>{meta}</small>}

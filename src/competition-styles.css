@@ -286,9 +286,10 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .standout-managers a { font-weight: 600; line-height: 1.3; }
 .could-have-board { margin-top: 8px; }
 .could-note { margin: -6px 0 14px; color: var(--muted); font-size: .74rem; line-height: 1.45; }
-.could-have { list-style: none; margin: 0; padding: 0 0 8px; }
+.could-have { list-style: none; margin: 0; padding: 0 0 8px; display: grid; grid-template-columns: 42px minmax(0, 1fr) 2.75rem 1.5rem 42px minmax(0, 1fr) 2.75rem; column-gap: 10px; align-items: center; }
+.could-have > li { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; row-gap: 10px; align-items: center; }
 .could-have li + li { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
-.could-match { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: baseline; }
+.could-match { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 16px; align-items: baseline; grid-column: 1 / -1; }
 .could-manager { font-size: .95rem; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .could-score { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; font-weight: 700; color: inherit; white-space: nowrap; }
 .could-score:hover { text-decoration: none; }
@@ -297,25 +298,29 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .could-arrow, .swap-arrow { color: var(--muted); }
 .could-against { grid-column: 1 / -1; margin: 2px 0 0; color: var(--muted); font-size: .74rem; }
 .could-against a { font-weight: 600; }
-.swap-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 12px; }
-.swap-arrow { text-align: center; }
-.swap-player { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: calc(50% - 22px); flex: 0 1 auto; color: inherit; }
+.swap-row { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; align-items: center; }
+.swap-arrow { grid-column: 4; text-align: center; }
+.swap-player { display: grid; grid-template-columns: subgrid; align-items: center; min-width: 0; color: inherit; }
+.swap-row > .swap-player:first-of-type { grid-column: 1 / 4; }
+.swap-row > .swap-player:last-of-type { grid-column: 5 / 8; }
 .swap-player:hover { text-decoration: none; }
 .swap-player:hover .swap-name { text-decoration: underline; text-underline-offset: 3px; }
-.swap-player .player-headshot, .swap-player .nfl-portrait { width: 42px; height: 42px; flex-basis: 42px; border-radius: 4px; }
-.swap-copy { min-width: 0; }
+.swap-photo { grid-column: 1; width: 42px; height: 42px; }
+.swap-photo .player-headshot, .swap-photo .nfl-portrait { width: 42px; height: 42px; border-radius: 4px; display: block; }
+.swap-copy { grid-column: 2; min-width: 0; }
 .swap-name { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: .8rem; line-height: 1.2; }
 .swap-copy small { display: block; margin-top: 2px; color: var(--muted); font-size: .66rem; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.swap-player b { flex: none; margin-left: 8px; font-variant-numeric: tabular-nums; font-size: .9rem; }
+.swap-player b { grid-column: 3; justify-self: end; margin: 0; font-variant-numeric: tabular-nums; font-size: .9rem; }
 .swap-in b { color: #2f7a32; }
 .swap-out .swap-name { color: var(--muted); }
 .swap-out b { color: #a03e36; }
 :root[data-theme=dark] .could-score strong, :root[data-theme=dark] .swap-in b { color: #7dce6a; }
 :root[data-theme=dark] .swap-out b { color: #f0a09a; }
 @media (max-width: 580px) {
-  .swap-row { gap: 6px; }
-  .swap-player { max-width: 100%; flex-basis: 100%; }
-  .swap-arrow { transform: rotate(90deg); }
+  .could-have, .could-have > li, .swap-row { display: block; }
+  .swap-row { margin-top: 4px; }
+  .swap-player { display: grid; grid-template-columns: 42px minmax(0, 1fr) 2.75rem; grid-column: auto; column-gap: 10px; width: 100%; margin-top: 8px; }
+  .swap-arrow { display: block; width: 42px; margin: 4px 0 0; transform: rotate(90deg); text-align: center; }
 }
 .trophy-races { margin-bottom: 35px; }
 .trophy-intro { padding: 16px 0 2px; }
