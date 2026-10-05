@@ -15,7 +15,7 @@ import { cupMatchChance } from './cupOdds';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
 import { compareByLineup, historicalStarters, lineupWouldWin, type LineupMove, type LineupSwing } from './lineups';
-import { BackLink, usePageLabel } from './BackLink';
+import { usePageLabel } from './BackLink';
 
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
 
@@ -169,7 +169,7 @@ export function CupPage() {
   const leagueCup = cupId !== 'jffl';
   const balanced = cup.rounds.every((round, index) => index === 0 || round.matches.length * 2 === cup.rounds[index - 1].matches.length);
   const tree = selectedRound === 'all' && (balanced || leagueCup);
-  return <><BackLink to="/cups">← All cups</BackLink><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. A tie plays a third week.' : 'One-week scores. A tie plays the next week. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className={`champion-pill ${leagueInk(cup.champion.slug)}`}><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
+  return <><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. A tie plays a third week.' : 'One-week scores. A tie plays the next week. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className={`champion-pill ${leagueInk(cup.champion.slug)}`}><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
     <div className="bracket-controls"><ManagerHighlight participants={participants} highlighted={highlighted} onChange={setHighlighted} />{selectedRound !== 'all' && <button type="button" className="round-back" onClick={() => setSelectedRound('all')}>Full bracket</button>}</div>
     <div className={`bracket-scroll ${selectedRound !== 'all' ? 'single-round' : tree ? 'bracket-tree' : 'bracket-flow'}${leagueCup && tree ? ' league-bracket' : ''}`} tabIndex={0} role="region" aria-label={selectedRound === 'all' ? `${cup.name} full bracket. Scroll horizontally to see later rounds.` : `${cup.name} selected round`}><div className="bracket-columns">{cup.rounds.map((round, roundIndex) => {
       if (selectedRound !== 'all' && String(roundIndex) !== selectedRound) return null;
@@ -272,7 +272,6 @@ export function CupMatchPage() {
   const odds = chance && chance !== 'level' ? chance : null;
   const oddsLabel = odds ? `${left.title} has a ${odds.left} percent chance to advance. ${right.title} has a ${odds.right} percent chance to advance. Finished weeks count as played. Each starter still to play uses an ESPN projection, widened by that player's weekly range.` : '';
   return <div className="match-sheet">
-    <BackLink to={`/cups/${cupId}`}>← {cup.name}</BackLink>
     <section className="page-intro"><div><p className="eyebrow">{cup.name.toUpperCase()} <span>/</span> {round.name.toUpperCase()} <span>/</span> MATCH {index + 1}</p><h1>{match.status === 'bye' ? <span className={leagueInk(left.participant?.slug ?? right.participant?.slug)}><RankMark value={(left.participant ? left : right).seed} />{heading}</span> : <><span className={leagueInk(left.participant?.slug)}><RankMark value={left.seed} />{sideTitle(match.a)}</span> vs <span className={leagueInk(right.participant?.slug)}><RankMark value={right.seed} />{sideTitle(match.b)}</span></>}</h1><p className="intro-copy">{match.status === 'bye' ? status : <>{weekPhrase(match.weeks)} · {status}{match.winner ? <> · <span className={leagueInk(match.winner.slug)}>{match.winner.manager}</span> advances</> : null}</>}</p></div></section>
     <UpdateStrip data={data} />
     {match.status === 'bye' ? <p className="source-note">{sideTitle(match.a.participant ? match.a : match.b)} has a bye in {round.name} and advances.</p> : <>
@@ -367,7 +366,6 @@ export function LeagueMatchPage() {
     </div>
   </div>;
   return <div className="match-sheet">
-    <BackLink to={`/league/${slug}`}>← {meta.name}</BackLink>
     <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1>{away.team ? <Link className={leagueInk(meta.slug)} to={teamUrl(meta.slug, away.team.id)}><RankMark value={away.team.rank} />{away.manager}</Link> : away.manager} vs {home.team ? <Link className={leagueInk(meta.slug)} to={teamUrl(meta.slug, home.team.id)}><RankMark value={home.team.rank} />{home.manager}</Link> : home.manager}</h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
     <p className="competition-updates">{summaryState ? <Fresh data={data} error={summaryState.error} /> : null}</p>
     <article className="match-board" aria-label={heading}>

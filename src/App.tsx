@@ -25,7 +25,7 @@ import { TeamIdentity } from './TeamIdentity';
 import { pointShare, TeamMatchSheet } from './TeamMatchSheet';
 import { PlayerIdentity, injuryLabel, injuryName } from './PlayerIdentity';
 import { canStillSwing, closestListed, closestOpen, compareByLineup, pointsStillToPlay, slotLabel, slotsLabel } from './lineups';
-import { BackLink, BackTrail, usePageLabel } from './BackLink';
+import { BackTrail, SiteBack, usePageLabel } from './BackLink';
 
 const leagueMeta = (slug: string) => LEAGUES.find(league => league.slug === slug);
 const teamLink = (slug: string, id: string) => `/league/${slug}/team/${id}`;
@@ -188,7 +188,7 @@ function LeaguePage() {
   const summaries = useSummaries();
   if (!meta) return <NotFound />;
   const state = summaries[meta.slug];
-  return <><BackLink to="/"><ChevronLeft size={16} />All leagues</BackLink><section className="page-intro league-intro"><div className="league-title"><LeagueMark slug={slug} size="large" /><div><p className="eyebrow">JFFL <span>/</span> 2026 SEASON</p><h1>{meta.name}</h1></div></div><a className="button secondary" href={`https://fantasy.espn.com/football/league?leagueId=${meta.espnId}`} target="_blank" rel="noreferrer">View on ESPN<ExternalLink size={14} /></a></section>{state.data ? <div className="league-layout" data-matchups={state.data.matchups.length}><div className="section-heading"><div><h2>Week {state.data.week} scoreboard</h2></div><Fresh data={state.data} error={state.error} /></div>{(() => { const matchups = state.data!.matchups; const card = (matchup: Matchup, className = '') => <MatchupCard key={matchup.id} className={className} matchup={matchup} data={state.data!} to={`/league/${meta.slug}/match/${matchup.id}`} />; const standings = <section className="surface standings-panel"><div className="surface-heading"><h2>Standings</h2><Link to={`/players?league=${slug}`}>Browse players</Link></div><Standings data={state.data!} /></section>; const scoring = <section className="surface scoring"><div className="surface-heading"><h2>Scoring</h2></div>{state.data!.scoring.length ? <dl>{state.data!.scoring.map((item, index) => <div key={index}><dt>{scoringLabel(item.name)}</dt><dd>{points(item.points)}</dd></div>)}</dl> : <p className="muted">Scoring details are not supplied.</p>}</section>; return matchups.length === 5 ? <><div className="board-main">{card(matchups[0])}{card(matchups[1])}{card(matchups[3], 'slot-3')}{card(matchups[4], 'slot-4')}{standings}</div><div className="board-side">{card(matchups[2], 'slot-2')}{scoring}</div></> : <>{matchups.map(matchup => card(matchup))}{standings}{scoring}</>; })()}</div> : <Waiting error={state.error} />}</>;
+  return <><section className="page-intro league-intro"><div className="league-title"><LeagueMark slug={slug} size="large" /><div><p className="eyebrow">JFFL <span>/</span> 2026 SEASON</p><h1>{meta.name}</h1></div></div><a className="button secondary" href={`https://fantasy.espn.com/football/league?leagueId=${meta.espnId}`} target="_blank" rel="noreferrer">View on ESPN<ExternalLink size={14} /></a></section>{state.data ? <div className="league-layout" data-matchups={state.data.matchups.length}><div className="section-heading"><div><h2>Week {state.data.week} scoreboard</h2></div><Fresh data={state.data} error={state.error} /></div>{(() => { const matchups = state.data!.matchups; const card = (matchup: Matchup, className = '') => <MatchupCard key={matchup.id} className={className} matchup={matchup} data={state.data!} to={`/league/${meta.slug}/match/${matchup.id}`} />; const standings = <section className="surface standings-panel"><div className="surface-heading"><h2>Standings</h2><Link to={`/players?league=${slug}`}>Browse players</Link></div><Standings data={state.data!} /></section>; const scoring = <section className="surface scoring"><div className="surface-heading"><h2>Scoring</h2></div>{state.data!.scoring.length ? <dl>{state.data!.scoring.map((item, index) => <div key={index}><dt>{scoringLabel(item.name)}</dt><dd>{points(item.points)}</dd></div>)}</dl> : <p className="muted">Scoring details are not supplied.</p>}</section>; return matchups.length === 5 ? <><div className="board-main">{card(matchups[0])}{card(matchups[1])}{card(matchups[3], 'slot-3')}{card(matchups[4], 'slot-4')}{standings}</div><div className="board-side">{card(matchups[2], 'slot-2')}{scoring}</div></> : <>{matchups.map(matchup => card(matchup))}{standings}{scoring}</>; })()}</div> : <Waiting error={state.error} />}</>;
 }
 
 const STAT_ORDER = ['Pass attempts', 'Completions', 'Pass yards', 'Pass TD', 'Interceptions', 'Rush attempts', 'Rush yards', 'Rush TD', 'Receptions', 'Rec yards', 'Rec TD', 'Targets', 'Fumbles', 'Fumbles lost', 'Field goals', 'Extra points', 'Defensive TD', 'Defensive INT', 'Fumble recoveries', 'Safeties', 'Sacks', 'Points allowed', 'Yards allowed'];
@@ -232,7 +232,6 @@ function TeamPage() {
   const players = roster?.data?.players.filter(player => player.teamId === teamId) ?? [];
   const mismatched = roster?.data && roster.data.updatedAt !== data.updatedAt;
   return <>
-    <BackLink to={`/league/${slug}`}><ChevronLeft size={16} />{meta.name}</BackLink>
     <section className="page-intro">
       <div>
         <p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> TEAM</p>
@@ -371,7 +370,6 @@ function PlayerPage() {
     return rank(a) - rank(b) || a.localeCompare(b);
   });
   return <>
-    <BackLink to="/players"><ChevronLeft size={16} />Players</BackLink>
     <section className="page-intro">
       <div>
         <p className="eyebrow">2026 SEASON <span>/</span> PLAYER</p>
@@ -460,6 +458,7 @@ export default function App() {
     <BackTrail />
     <main id="main" tabIndex={-1}>
       {localPreview && <p className="notice preview-notice">Local preview · real ESPN snapshot.</p>}
+      <SiteBack />
       <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<PlayerPage/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
     </main>
     <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores</span><span>Refreshes every 3 minutes · ESPN updates may be delayed</span></footer>

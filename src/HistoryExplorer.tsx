@@ -13,7 +13,7 @@ import {
 } from './history/stats.ts';
 import { leagueInk, leagueOfManager, leagueSlug } from './reference';
 import { points } from './ui';
-import { BackLink, usePageLabel } from './BackLink';
+import { usePageLabel } from './BackLink';
 
 const dash = '\u2013';
 const managerUrl = (name: string) => `/archive/managers/${encodeURIComponent(name)}`;
@@ -240,6 +240,7 @@ const BOOKS = [
 ] as const;
 
 export function RecordsPage() {
+  usePageLabel('Record book');
   const [bookId, setBookId] = useState<(typeof BOOKS)[number]['id']>('weekly');
   const book = BOOKS.find(item => item.id === bookId) ?? BOOKS[0];
   const board = useMemo(() => recordBook(history.games, book.pick), [book]);
@@ -357,6 +358,7 @@ function TitlesBoard() {
 }
 
 export function TitlesPage() {
+  usePageLabel('Titles');
   return <Shell eyebrow="2002–2025 / THREE RACES" title="Titles" copy="The regular-season winner, the Superbowl champion, and the league cup champion are often three different managers.">
     <div className="archive-stats"><span><strong>{overlap.same}</strong> of {overlap.leagues} Superbowls won by that league’s top record</span></div>
     <TitlesBoard />
@@ -365,6 +367,7 @@ export function TitlesPage() {
 }
 
 export function RivalsPage() {
+  usePageLabel('Head-to-head');
   const [left, setLeft] = useState('SeanT');
   const [right, setRight] = useState('Wayne');
   const lopsided = useMemo(() => [...series].filter(item => item.meetings >= 10 && item.winsA + item.winsB > 0)
@@ -579,7 +582,6 @@ export function ManagerArchivePage() {
   if (!career) return <Shell eyebrow="LEAGUE ARCHIVE" title="Manager not found" copy="That name is not in the workbook through 2025."><p><Link to="/archive/managers">All managers</Link></p></Shell>;
   const label = (count: number, singular: string, plural: string) => `${count} ${count === 1 ? singular : plural}`;
   return <Shell eyebrow={`${career.first}–${career.last} / ${career.seasons} SEASONS`} title={<InkName name={career.team} />} copy={`${label(career.seasonTitles, 'season title', 'season titles')}, ${label(career.superBowls, 'Superbowl', 'Superbowls')}, ${label(career.leagueCups, 'league cup', 'league cups')}, ${label(career.jfflCups, 'JFFL Cup', 'JFFL Cups')}.`}>
-    <p><BackLink to="/archive/managers">All managers</BackLink></p>
     <div className="recap-metrics">
       <article><p className="eyebrow">RECORD</p><strong>{career.wins}{dash}{career.losses}{career.ties ? `${dash}${career.ties}` : ''}</strong><span>Regular-season games in the team-season table.</span></article>
       <article><p className="eyebrow">WEEKLY HIGH</p><strong>{weeklyHigh ? points(weeklyHigh.score) : '—'}</strong><span>{weeklyHigh ? `${weeklyHigh.season} ${weeklyHigh.league} ${roundLabel(weeklyHigh)} vs ${weeklyHigh.opponent}` : 'No weekly score'}</span></article>
@@ -607,6 +609,7 @@ function slotTip(slot: { slot: number; seasons: number; titles: number; topThree
 }
 
 export function DraftPage() {
+  usePageLabel('Draft');
   const dark = useDarkMode();
   const option = useMemo(() => draftGroups(
     dark,
@@ -630,6 +633,7 @@ function WeekHighChart({ highs, week }: { highs: ScoreLine[]; week: number }) {
 }
 
 export function WeekHistoryPage() {
+  usePageLabel('Week in history');
   const [week, setWeek] = useState(5);
   const board = useMemo(() => weekSlice(history.games, week), [week]);
   const highs = useMemo(() => {

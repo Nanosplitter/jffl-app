@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Keybo
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Check, Copy, RotateCcw, Send, Square } from 'lucide-react';
 import { ArchiveNav } from './ArchiveNav';
+import { usePageLabel } from './BackLink';
 import { AskCardList } from './AskCards';
 import { ChartView, useDarkMode, type ChartHandle } from './AskCharts';
 import type { SummaryMap } from './competitions';
@@ -100,6 +101,7 @@ const livePrompt = (archive: Archive): LivePromptInfo | null => archive.live
 const promptKey = (info: LivePromptInfo | null) => info ? `${info.season}:${info.week}:${info.players}` : 'none';
 
 export function AskPage() {
+  usePageLabel('Ask the archive');
   const dark = useDarkMode();
   const color = useColorMap(dark);
   const navigate = useNavigate();
@@ -353,6 +355,7 @@ export function AskPage() {
 }
 
 export function AskSharePage() {
+  usePageLabel('Shared answer');
   const dark = useDarkMode();
   const color = useColorMap(dark);
   const navigate = useNavigate();
