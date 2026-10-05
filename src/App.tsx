@@ -16,6 +16,7 @@ const AskSharePage = lazy(() => import('./AskHistory').then(module => ({ default
 const DraftPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.DraftPage })));
 const WeekHistoryPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.WeekHistoryPage })));
 import { leagueInk, managerFor } from './reference';
+import { RankMark, cupSeed } from './RankMark';
 import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from './competitions';
 import { projectedWinChance } from './projections';
 import { scoringLabel } from './scoring';
@@ -73,7 +74,7 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
     const manager = team ? managerFor(data.slug, team.id)?.manager ?? team.name : 'Bye';
     return <div className={`matchup-side ${index === 1 ? 'home' : 'away'}`} key={index}>
       {board && team?.logoUrl && <img className="matchup-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
-      <div className="matchup-team">{team ? (to ? <span className="matchup-name">{board ? <><span className={`board-manager ${leagueInk(data.slug)}`}>{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity className={leagueInk(data.slug)} team={team} />}</span> : <Link to={teamLink(data.slug, team.id)}>{board ? <><span className={`board-manager ${leagueInk(data.slug)}`}>{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity className={leagueInk(data.slug)} team={team} />}</Link>) : <span>Bye</span>}<strong className="score">{team ? points(score) : '—'}</strong>{team && !board && <small>{record(team)}</small>}{team && !decided && projected != null && <small className="proj-line">{board ? 'Proj' : 'Projected'} {points(projected)}{pct != null ? ` · ${pct}%` : ''}</small>}{team && result && <small className="proj-line">{result}</small>}</div>
+      <div className="matchup-team">{team ? (to ? <span className="matchup-name">{board ? <><span className={`board-manager ${leagueInk(data.slug)}`}><RankMark value={team.rank} />{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity className={leagueInk(data.slug)} team={team} mark={team.rank} />}</span> : <Link to={teamLink(data.slug, team.id)}>{board ? <><span className={`board-manager ${leagueInk(data.slug)}`}><RankMark value={team.rank} />{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity className={leagueInk(data.slug)} team={team} mark={team.rank} />}</Link>) : <span>Bye</span>}<strong className="score">{team ? points(score) : '—'}</strong>{team && !board && <small>{record(team)}</small>}{team && !decided && projected != null && <small className="proj-line">{board ? 'Proj' : 'Projected'} {points(projected)}{pct != null ? ` · ${pct}%` : ''}</small>}{team && result && <small className="proj-line">{result}</small>}</div>
     </div>;
   };
   const face = <>
@@ -94,8 +95,13 @@ function managerName(slug: LeagueSlug, id: string | null) {
   return managerFor(slug, id ?? '')?.manager ?? 'Team';
 }
 
-function PulseMatch({ to, slug, leftId, leftScore, rightId, rightScore, margin, emphasize }: { to: string; slug: LeagueSlug; leftId: string | null; leftScore: number | null; rightId: string | null; rightScore: number | null; margin?: number; emphasize?: 'left' | 'margin' }) {
-  return <li><Link className="pulse-match" to={to}><span className={`pulse-match-name ${leagueInk(slug)}`}>{managerName(slug, leftId)}</span><span className={`pulse-match-score${emphasize === 'left' ? ' pulse-key' : ''}`}>{points(leftScore)}</span><span className="pulse-match-dot" aria-hidden="true">·</span><span className={`pulse-match-name ${leagueInk(slug)}`}>{managerName(slug, rightId)}</span><span className="pulse-match-score">{points(rightScore)}</span>{margin != null && <span className="pulse-match-gap" aria-label={`margin ${points(margin)}`}><span className="pulse-plusminus" aria-hidden="true">±</span><span className={emphasize === 'margin' ? 'pulse-key' : ''}>{points(margin)}</span></span>}</Link></li>;
+function standing(loaded: LeagueSummary[], slug: LeagueSlug, id: string | null) {
+  if (!id) return null;
+  return loaded.find(item => item.slug === slug)?.teams.find(team => team.id === id)?.rank ?? null;
+}
+
+function PulseMatch({ to, slug, leftId, leftScore, leftRank, rightId, rightScore, rightRank, margin, emphasize }: { to: string; slug: LeagueSlug; leftId: string | null; leftScore: number | null; leftRank?: number | null; rightId: string | null; rightScore: number | null; rightRank?: number | null; margin?: number; emphasize?: 'left' | 'margin' }) {
+  return <li><Link className="pulse-match" to={to}><span className={`pulse-match-name ${leagueInk(slug)}`}><RankMark value={leftRank} />{managerName(slug, leftId)}</span><span className={`pulse-match-score${emphasize === 'left' ? ' pulse-key' : ''}`}>{points(leftScore)}</span><span className="pulse-match-dot" aria-hidden="true">·</span><span className={`pulse-match-name ${leagueInk(slug)}`}><RankMark value={rightRank} />{managerName(slug, rightId)}</span><span className="pulse-match-score">{points(rightScore)}</span>{margin != null && <span className="pulse-match-gap" aria-label={`margin ${points(margin)}`}><span className="pulse-plusminus" aria-hidden="true">±</span><span className={emphasize === 'margin' ? 'pulse-key' : ''}>{points(margin)}</span></span>}</Link></li>;
 }
 
 function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
@@ -127,11 +133,11 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
   return <nav className="week-pulse" aria-label="This week">
     <div className="pulse-cell">
       <Link className="pulse-head" to={highTo}><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerName(high.slug, high.id) : '—'}</strong></Link>
-      {top.length ? <ul className="pulse-rows">{top.map(({ row, to, opponentId, opponentScore }) => <PulseMatch key={`${row.slug}-${row.id}`} to={to} slug={row.slug} leftId={row.id} leftScore={row.score} rightId={opponentId} rightScore={opponentScore} emphasize="left" />)}</ul> : <span>Awaiting scores</span>}
+      {top.length ? <ul className="pulse-rows">{top.map(({ row, to, opponentId, opponentScore }) => <PulseMatch key={`${row.slug}-${row.id}`} to={to} slug={row.slug} leftId={row.id} leftScore={row.score} leftRank={standing(loaded, row.slug, row.id)} rightId={opponentId} rightScore={opponentScore} rightRank={standing(loaded, row.slug, opponentId)} emphasize="left" />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">
       <Link className="pulse-head" to={closeTo}><p className="eyebrow">CLOSEST MARGIN</p><strong>{close ? `${points(close.margin)} ${close.margin === 1 ? 'pt' : 'pts'}` : '—'}</strong></Link>
-      {closeRows.length ? <ul className="pulse-rows pulse-margins">{closeRows.map(matchup => <PulseMatch key={`${matchup.slug}-${matchup.id}`} to={`/league/${matchup.slug}/match/${matchup.id}`} slug={matchup.slug} leftId={matchup.homeTeamId} leftScore={matchup.homeScore} rightId={matchup.awayTeamId} rightScore={matchup.awayScore} margin={matchup.margin} emphasize="margin" />)}</ul> : <span>Awaiting scores</span>}
+      {closeRows.length ? <ul className="pulse-rows pulse-margins">{closeRows.map(matchup => <PulseMatch key={`${matchup.slug}-${matchup.id}`} to={`/league/${matchup.slug}/match/${matchup.id}`} slug={matchup.slug} leftId={matchup.homeTeamId} leftScore={matchup.homeScore} leftRank={standing(loaded, matchup.slug, matchup.homeTeamId)} rightId={matchup.awayTeamId} rightScore={matchup.awayScore} rightRank={standing(loaded, matchup.slug, matchup.awayTeamId)} margin={matchup.margin} emphasize="margin" />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">
       <Link className="pulse-head" to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <ul className="pulse-club">{club.map(row => <li key={`${row.slug}-${row.id}`}><span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span><span className="pulse-club-score pulse-key">{points(row.score)}</span></li>)}</ul> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link>
@@ -153,7 +159,7 @@ function CupStrip({ data, players }: { data: SummaryMap; players: Partial<Record
     const quiet = focus ? null : cup.champion ? <><span className={leagueInk(cup.champion.slug)}>{cup.champion.manager}</span> · Champion</> : 'Bracket';
     return { cup, round, focus, quiet };
   });
-  return <section className="home-cups"><div className="panel-section-title"><h3>Cups</h3><Link to="/cups">All brackets</Link></div><div className="home-cup-row">{cups.map(({ cup, round, focus, quiet }) => <div key={cup.id} className="home-cup"><Link className="home-cup-title" to={`/cups/${cup.id}`}><p className="eyebrow">{round.name} · {round.weeks.length > 1 ? `Weeks ${round.weeks.join('+')}` : `Week ${round.weeks[0]}`}</p><strong className={leagueInk(cup.id)}><span className="home-cup-name">{cup.name}</span><ArrowUpRight size={15} aria-hidden="true" /></strong></Link>{focus ? <Link className="home-cup-line" to={`/cups/${cup.id}/match/${focus.id}`}><span className="home-cup-kicker">Closest</span><span className={leagueInk(focus.a.participant?.slug)}>{focus.a.participant?.manager ?? 'TBD'}</span> {points(focus.a.total)} · <span className={leagueInk(focus.b.participant?.slug)}>{focus.b.participant?.manager ?? 'TBD'}</span> {points(focus.b.total)}</Link> : <span className="home-cup-line">{quiet}</span>}</div>)}</div></section>;
+  return <section className="home-cups"><div className="panel-section-title"><h3>Cups</h3><Link to="/cups">All brackets</Link></div><div className="home-cup-row">{cups.map(({ cup, round, focus, quiet }) => <div key={cup.id} className="home-cup"><Link className="home-cup-title" to={`/cups/${cup.id}`}><p className="eyebrow">{round.name} · {round.weeks.length > 1 ? `Weeks ${round.weeks.join('+')}` : `Week ${round.weeks[0]}`}</p><strong className={leagueInk(cup.id)}><span className="home-cup-name">{cup.name}</span><ArrowUpRight size={15} aria-hidden="true" /></strong></Link>{focus ? <Link className="home-cup-line" to={`/cups/${cup.id}/match/${focus.id}`}><span className="home-cup-kicker">Closest</span><span className={leagueInk(focus.a.participant?.slug)}><RankMark value={cupSeed(cup.id, focus.a.participant)} />{focus.a.participant?.manager ?? 'TBD'}</span> {points(focus.a.total)} · <span className={leagueInk(focus.b.participant?.slug)}><RankMark value={cupSeed(cup.id, focus.b.participant)} />{focus.b.participant?.manager ?? 'TBD'}</span> {points(focus.b.total)}</Link> : <span className="home-cup-line">{quiet}</span>}</div>)}</div></section>;
 }
 
 function Overview() {
@@ -256,7 +262,7 @@ function TeamPage() {
               const manager = sideTeam ? managerFor(meta.slug, sideTeam.id)?.manager ?? sideTeam.name : 'Bye';
               const result = decided && score != null && opponent != null ? score > opponent ? 'Won' : score < opponent ? 'Lost' : 'Tie' : null;
               const note = !sideTeam ? '' : !decided && projected != null ? `${record(sideTeam)} · Proj ${points(projected)}` : result ? `${record(sideTeam)} · ${result}` : record(sideTeam);
-              return { key: teamId ?? 'bye', logoUrl: sideTeam?.logoUrl, name: manager, league: sideTeam ? meta.slug : null, detail: sideTeam?.name ?? 'Bye', score: sideTeam ? points(score) : '—', note };
+              return { key: teamId ?? 'bye', logoUrl: sideTeam?.logoUrl, name: manager, mark: sideTeam?.rank, league: sideTeam ? meta.slug : null, detail: sideTeam?.name ?? 'Bye', score: sideTeam ? points(score) : '—', note };
             };
             return <TeamMatchSheet label={`Week ${data.week} · League`} status={decided ? 'Final' : undefined} to={`/league/${meta.slug}/match/${matchup.id}`} bar={bar} sides={[
               leagueSide(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore),
@@ -276,6 +282,7 @@ function TeamPage() {
                 key: participant?.key ?? side.label,
                 logoUrl: sideTeam?.logoUrl,
                 name: participant?.manager ?? (item.match.status === 'bye' ? 'Bye' : 'TBD'),
+                mark: cupSeed(item.cupId, participant),
                 league: participant?.slug,
                 detail: participant ? `${crossLeague && leagueName ? `${leagueName} · ` : ''}${sideTeam?.name ?? 'Team'}` : side.label || 'TBD',
                 score: item.match.status === 'bye' ? '—' : points(side.total),

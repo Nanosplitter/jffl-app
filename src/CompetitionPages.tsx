@@ -4,6 +4,7 @@ import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight } 
 import { useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
 import { MANAGERS, TIMELINE, leagueInk, leagueOfManager, managerFor, type ManagerReference } from './reference';
+import { RankMark, cupSeed } from './RankMark';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
 import { chartTheme, horizontalBars } from './history/archiveCharts';
 import { esc } from './history/chartKit';
@@ -75,9 +76,8 @@ export function MatchCard({ match, weeks, data, highlighted, index, layout = 'bo
       const showScore = !!participant && match.status !== 'bye' && match.status !== 'waiting' && side.total !== null;
       const detail = participant ? `${LEAGUES.find(item => item.slug === participant.slug)?.name ?? ''} · ${team?.name ?? 'Team data loading'}` : side.label;
       return <div className={`bracket-row ${winner ? 'winner' : ''} ${openSlot ? 'open-slot' : ''}`} key={sideIndex} title={detail || undefined}>
-        <span className="bracket-seed">{seed ?? ''}</span>
         {team?.logoUrl ? <img className="bracket-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="bracket-logo" aria-hidden="true" />}
-        <span className={`bracket-name ${participant ? leagueInk(participant.slug) : ''}`}>{name}{winner && <span className="sr-only"> · Advances</span>}</span>
+        <span className={`bracket-name ${participant ? leagueInk(participant.slug) : ''}`}><RankMark value={seed} />{name}{winner && <span className="sr-only"> · Advances</span>}</span>
         <span className="bracket-score">{showScore ? points(side.total) : ''}</span>
       </div>;
     })}
@@ -93,7 +93,7 @@ export function MatchCard({ match, weeks, data, highlighted, index, layout = 'bo
           return <div className={`cup-side ${sideIndex === 1 ? 'home' : 'away'} ${winner ? 'cup-winner' : ''}`} key={sideIndex}>
             {team?.logoUrl && <img className="matchup-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
             <div className="cup-side-copy">
-              {participant ? <span className={`cup-manager ${leagueInk(participant.slug)}`}><span className="cup-seed">{match.id.startsWith('jffl-') ? participant.jfflSeed : participant.leagueSeed}</span>{participant.manager}{winner && <span className="sr-only"> · Advances</span>}</span> : <span className="muted cup-placeholder">{side.label || 'TBD'}</span>}
+              {participant ? <span className={`cup-manager ${leagueInk(participant.slug)}`}><span><RankMark value={cupSeed(match.id.startsWith('jffl-') ? 'jffl' : 'league', participant)} />{participant.manager}</span>{winner && <span className="sr-only"> · Advances</span>}</span> : <span className="muted cup-placeholder">{side.label || 'TBD'}</span>}
               {participant && <small className="cup-team"><span className="cup-league">{LEAGUES.find(item => item.slug === participant.slug)?.name}</span> · {team?.name ?? 'Team data loading'}</small>}
               <strong className="score">{match.status === 'bye' ? '—' : points(side.total)}</strong>
               {weeks.length > 1 && match.status !== 'bye' && <small className="proj-line">{weeks.map((week, legIndex) => `W${week} ${points(side.legs[legIndex])}`).join(' · ')}</small>}
@@ -185,17 +185,17 @@ function MatchIdentity({ participant, team, seed, title, align }: { participant:
   return <div className={`match-id ${align}`}>
     {team?.logoUrl && <img className="matchup-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
     <div className="match-id-copy">
-      {participant ? <Link className={`cup-manager ${leagueInk(participant.slug)}`} to={teamUrl(participant.slug, participant.teamId)}><span className="cup-seed">{seed}</span>{participant.manager}</Link> : <span className="muted cup-placeholder">{title}</span>}
+      {participant ? <Link className={`cup-manager ${leagueInk(participant.slug)}`} to={teamUrl(participant.slug, participant.teamId)}><span><RankMark value={seed} />{participant.manager}</span></Link> : <span className="muted cup-placeholder">{title}</span>}
       {participant && <small className="cup-team"><span className="cup-league">{LEAGUES.find(item => item.slug === participant.slug)?.name}</span> · {team?.name ?? 'Team data loading'}</small>}
     </div>
   </div>;
 }
 
-function StarterCompare({ sides }: { sides: { title: string; players: RosteredPlayer[]; message: string | null }[] }) {
+function StarterCompare({ sides }: { sides: { title: string; mark?: number | null; players: RosteredPlayer[]; message: string | null }[] }) {
   const [left, right] = sides;
   const count = Math.max(left.players.length, right.players.length);
   return <div className="starter-compare">
-    <div className="starter-head"><p className={leagueInk(leagueOfManager(left.title))}>{left.title}</p><span /><span /><p className={leagueInk(leagueOfManager(right.title))}>{right.title}</p></div>
+    <div className="starter-head"><p className={leagueInk(leagueOfManager(left.title))}><RankMark value={left.mark} />{left.title}</p><span /><span /><p className={leagueInk(leagueOfManager(right.title))}><RankMark value={right.mark} />{right.title}</p></div>
     <div className="starter-body">
       {(left.message || right.message) && <div className="starter-row starter-status"><p className="empty-inline">{left.message}</p><span /><span /><p className="empty-inline">{right.message}</p></div>}
       {Array.from({ length: count }, (_, index) => {
@@ -256,7 +256,7 @@ export function CupMatchPage() {
   const right = sideProfile(match.b);
   return <div className="match-sheet">
     <Link className="back-link" to={`/cups/${cupId}`}>← {cup.name}</Link>
-    <section className="page-intro"><div><p className="eyebrow">{cup.name.toUpperCase()} <span>/</span> {round.name.toUpperCase()} <span>/</span> MATCH {index + 1}</p><h1>{match.status === 'bye' ? <span className={leagueInk(left.participant?.slug ?? right.participant?.slug)}>{heading}</span> : <><span className={leagueInk(left.participant?.slug)}>{sideTitle(match.a)}</span> vs <span className={leagueInk(right.participant?.slug)}>{sideTitle(match.b)}</span></>}</h1><p className="intro-copy">{match.status === 'bye' ? status : <>{weekPhrase(match.weeks)} · {status}{match.winner ? <> · <span className={leagueInk(match.winner.slug)}>{match.winner.manager}</span> advances</> : null}</>}</p></div></section>
+    <section className="page-intro"><div><p className="eyebrow">{cup.name.toUpperCase()} <span>/</span> {round.name.toUpperCase()} <span>/</span> MATCH {index + 1}</p><h1>{match.status === 'bye' ? <span className={leagueInk(left.participant?.slug ?? right.participant?.slug)}><RankMark value={(left.participant ? left : right).seed} />{heading}</span> : <><span className={leagueInk(left.participant?.slug)}><RankMark value={left.seed} />{sideTitle(match.a)}</span> vs <span className={leagueInk(right.participant?.slug)}><RankMark value={right.seed} />{sideTitle(match.b)}</span></>}</h1><p className="intro-copy">{match.status === 'bye' ? status : <>{weekPhrase(match.weeks)} · {status}{match.winner ? <> · <span className={leagueInk(match.winner.slug)}>{match.winner.manager}</span> advances</> : null}</>}</p></div></section>
     <UpdateStrip data={data} />
     {match.status === 'bye' ? <p className="source-note">{sideTitle(match.a.participant ? match.a : match.b)} has a bye in {round.name} and advances.</p> : <>
       <article className="match-board" aria-label={heading}>
@@ -283,7 +283,7 @@ export function CupMatchPage() {
         const historical = !current && participant && roster?.data ? historicalStarters(roster.data.weeklyLineups, participant.teamId, week) : null;
         const players = current && roster?.data ? startersFor(roster.data.players, participant!.teamId) : historical ?? [];
         const message = !participant ? 'Opponent is not set yet.' : roster?.loading && !roster.data ? 'Loading starters…' : roster?.error && !roster.data ? 'Starter list is unavailable.' : !current && historical === null ? 'Starter scores for this week are not in the latest snapshot yet.' : players.length ? null : 'No starters in this snapshot.';
-        return { title: sideTitle(side), players, message };
+        return { title: sideTitle(side), mark: side.participant ? (cupId === 'jffl' ? side.participant.jfflSeed : side.participant.leagueSeed) : null, players, message };
       })} /></section>)}
     </>}
   </div>;
@@ -317,29 +317,29 @@ export function LeagueMatchPage() {
   const share = pointShare(away.score, home.score);
   const bar = chance ? { left: chance.away, right: chance.home, label: `From ESPN projected totals. ${away.manager} ${chance.away} percent. ${home.manager} ${chance.home} percent.` } : share ? { left: share.left, right: share.right, label: `${away.manager} ${share.left} percent of the scored points. ${home.manager} ${share.right} percent.` } : null;
   const leading = (score: number | null, opponent: number | null) => score != null && opponent != null && score > opponent;
-  const starters = (teamId: string | null, manager: string) => {
-    if (!teamId) return { title: manager, players: [] as RosteredPlayer[], message: 'Bye' };
-    if (roster?.loading && !roster.data) return { title: manager, players: [] as RosteredPlayer[], message: 'Loading starters…' };
-    if (roster?.error && !roster.data) return { title: manager, players: [] as RosteredPlayer[], message: 'Starter list is unavailable.' };
+  const starters = (teamId: string | null, manager: string, mark: number | null) => {
+    if (!teamId) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Bye' };
+    if (roster?.loading && !roster.data) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Loading starters…' };
+    if (roster?.error && !roster.data) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Starter list is unavailable.' };
     const current = data.week === week;
     if (current && roster?.data) {
       const players = startersFor(roster.data.players, teamId);
-      return { title: manager, players, message: players.length ? null : 'No starters in this snapshot.' };
+      return { title: manager, mark, players, message: players.length ? null : 'No starters in this snapshot.' };
     }
     const historical = roster?.data ? historicalStarters(roster.data.weeklyLineups, teamId, week) : null;
-    if (historical === null) return { title: manager, players: [] as RosteredPlayer[], message: 'Starter scores for this week are not in the latest snapshot yet.' };
-    return { title: manager, players: historical, message: historical.length ? null : 'No starters in this snapshot.' };
+    if (historical === null) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Starter scores for this week are not in the latest snapshot yet.' };
+    return { title: manager, mark, players: historical, message: historical.length ? null : 'No starters in this snapshot.' };
   };
   const identity = (entry: typeof away, align: 'left' | 'right') => <div className={`match-id ${align}`}>
     {entry.team?.logoUrl && <img className="matchup-logo" src={entry.team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
     <div className="match-id-copy">
-      {entry.team ? <Link className={`cup-manager ${leagueInk(meta.slug)}`} to={teamUrl(meta.slug, entry.team.id)}>{entry.manager}</Link> : <span className="muted">Bye</span>}
+      {entry.team ? <Link className={`cup-manager ${leagueInk(meta.slug)}`} to={teamUrl(meta.slug, entry.team.id)}><span><RankMark value={entry.team.rank} />{entry.manager}</span></Link> : <span className="muted">Bye</span>}
       {entry.team && <small className="cup-team">{entry.team.name}</small>}
     </div>
   </div>;
   return <div className="match-sheet">
     <Link className="back-link" to={`/league/${slug}`}>← {meta.name}</Link>
-    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1><span className={leagueInk(meta.slug)}>{away.manager}</span> vs <span className={leagueInk(meta.slug)}>{home.manager}</span></h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
+    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1><span className={leagueInk(meta.slug)}><RankMark value={away.team?.rank} />{away.manager}</span> vs <span className={leagueInk(meta.slug)}><RankMark value={home.team?.rank} />{home.manager}</span></h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
     <p className="competition-updates">{summaryState ? <Fresh data={data} error={summaryState.error} /> : null}</p>
     <article className="match-board" aria-label={heading}>
       <div className="match-board-row">
@@ -360,7 +360,7 @@ export function LeagueMatchPage() {
     </section>
     {upcoming
       ? <p className="notice">Week {week} has not started. Scores, projections, and starters appear once it is the current week.</p>
-      : <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={[starters(away.teamId, away.manager), starters(home.teamId, home.manager)]} /></section>}
+      : <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={[starters(away.teamId, away.manager, away.team?.rank ?? null), starters(home.teamId, home.manager, home.team?.rank ?? null)]} /></section>}
   </div>;
 }
 
@@ -450,7 +450,7 @@ function WeekPair({ data, slug, id, homeId, awayId, homeScore, awayScore }: { da
       return <span key={side.id ?? 'bye'}>
         <TeamMark logoUrl={team?.logoUrl} />
         <span className="week-who">
-          <span className={`week-name ${side.id ? leagueInk(slug) : ''}`}>{side.id ? managerFor(slug, side.id)?.manager ?? 'Team' : 'Bye'}</span>
+          <span className={`week-name ${side.id ? leagueInk(slug) : ''}`}><RankMark value={team?.rank} />{side.id ? managerFor(slug, side.id)?.manager ?? 'Team' : 'Bye'}</span>
           {team?.name && <span className="week-team">{team.name}</span>}
         </span>
         <b className={leading ? 'leading' : ''}>{points(side.score)}</b>

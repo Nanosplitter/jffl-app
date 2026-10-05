@@ -42,10 +42,9 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .status-tag.status-tied, .status-tag.status-unavailable { color: var(--warning); }
 .bracket-node { display: flex; flex-direction: column; width: 100%; height: 68px; background: var(--surface); border: 1px solid var(--line); border-radius: 2px; overflow: hidden; min-width: 0; }
 .bracket-node.highlighted { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
-.bracket-row { flex: 1; display: grid; grid-template-columns: 18px 16px minmax(0,1fr) 2.4rem; align-items: center; gap: 6px; padding: 0 8px; min-width: 0; }
+.bracket-row { flex: 1; display: grid; grid-template-columns: 16px minmax(0,1fr) 2.4rem; align-items: center; gap: 6px; padding: 0 8px; min-width: 0; }
 .bracket-row + .bracket-row { border-top: 1px solid var(--line); }
 .bracket-row.winner { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.bracket-seed { font-size: .62rem; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
 .bracket-logo { width: 16px; height: 16px; object-fit: contain; display: block; }
 .bracket-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .78rem; font-weight: 600; line-height: 1.2; }
 .bracket-row.open-slot .bracket-name { color: var(--muted); font-weight: 500; }
@@ -140,8 +139,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .starter-score strong { display: block; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .starter-score small { display: block; margin-top: 2px; color: var(--muted); font-size: .6rem; line-height: 1.35; }
 .starter-score.yet small { color: var(--accent-ink); }
-.cup-manager { display: flex; align-items: center; gap: 7px; font-size: .85rem; font-weight: 600; line-height: 1.35; }
-.cup-seed { color: var(--muted); font-size: .65rem; font-weight: 400; min-width: 14px; }
+.cup-manager { display: flex; align-items: center; font-size: .85rem; font-weight: 600; line-height: 1.35; }
 .cup-team { display: block; font-size: .61rem; line-height: 1.45; color: var(--muted); margin-top: 3px; }
 .cup-team .cup-league { color: var(--muted); }
 .cup-placeholder { display: block; font-size: .72rem; line-height: 1.6; }

@@ -4,6 +4,7 @@ import type { SummaryMap } from './competitions';
 import { cupMatchView, matchupView, teamUrl, type CardItem, type CardSpec } from './history/askCards.ts';
 import { projectedWinChance } from './projections';
 import { leagueInk, managerFor } from './reference';
+import { cupSeed } from './RankMark';
 import { pointShare, TeamMatchSheet, type SheetSide } from './TeamMatchSheet';
 import { LEAGUES, type LeagueSlug } from './types';
 import { points, record } from './ui';
@@ -24,7 +25,7 @@ function MatchupCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 
     const team = teamId ? summary.teams.find(item => item.id === teamId) : undefined;
     const result = decided && score != null && opponent != null ? score > opponent ? 'Won' : score < opponent ? 'Lost' : 'Tie' : null;
     const note = !team ? '' : !decided && chance && projected != null ? `${record(team)} · Proj ${points(projected)}` : result ? `${record(team)} · ${result}` : record(team);
-    return { key: teamId ?? 'bye', logoUrl: team?.logoUrl, name: team ? managerFor(spec.league, team.id)?.manager ?? team.name : 'Bye', league: team ? spec.league : null, detail: team?.name ?? 'Bye', score: team ? points(score) : '—', note, winner: result === 'Won' };
+    return { key: teamId ?? 'bye', logoUrl: team?.logoUrl, name: team ? managerFor(spec.league, team.id)?.manager ?? team.name : 'Bye', mark: team?.rank, league: team ? spec.league : null, detail: team?.name ?? 'Bye', score: team ? points(score) : '—', note, winner: result === 'Won' };
   };
   return <TeamMatchSheet label={`${shortLeague(spec.league)} · Week ${spec.week}`} status={decided ? 'Final' : status === 'live' ? 'Live' : 'Not started'} to={view.url} bar={bar} sides={[
     side(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore),
@@ -46,6 +47,7 @@ function CupMatchCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind:
     return {
       key: person?.key ?? entry.label, logoUrl: team?.logoUrl,
       name: person?.manager ?? (match.status === 'bye' ? 'Bye' : 'TBD'),
+      mark: cupSeed(spec.cup, person),
       league: person?.slug,
       detail: person ? `${spec.cup === 'jffl' ? `${shortLeague(person.slug)} · ` : ''}${team?.name ?? 'Team'}` : entry.label || 'TBD',
       score: match.status === 'bye' ? '—' : points(entry.total), note: legs, winner: !!person && person.key === match.winner?.key,

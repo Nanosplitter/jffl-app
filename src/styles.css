@@ -46,6 +46,8 @@
 body { margin: 0; }
 a { color: inherit; text-decoration: none; }
 a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.rank-mark { font-size: .62em; font-weight: 650; line-height: 0; margin-right: .22em; color: var(--muted); }
+h1 .rank-mark { font-size: .4em; }
 button, input, select { font: inherit; }
 button, a, input, select, summary { touch-action: manipulation; }
 button, summary { cursor: pointer; }
@@ -316,6 +318,7 @@ select {
 .week-pulse .pulse-key { font-weight: 700; color: var(--text); }
 .pulse-match-dot { text-align: center; }
 .week-pulse .pulse-match span { margin: 0; font-size: inherit; line-height: inherit; }
+.week-pulse .pulse-match .rank-mark { display: inline; margin: 0 .22em 0 0; font-size: .62em; font-weight: 650; line-height: 0; color: var(--muted); vertical-align: super; }
 .week-pulse .pulse-match span.pulse-match-gap { justify-self: end; margin-left: 22px; white-space: nowrap; text-align: right; }
 .week-pulse .pulse-match .pulse-plusminus { margin-right: 1px; font-size: .8em; }
 .pulse-club { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
