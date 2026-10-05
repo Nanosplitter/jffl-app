@@ -305,17 +305,12 @@ select {
 .week-pulse strong { font-family: 'Barlow Condensed', Impact, sans-serif; font-size: 1.7rem; font-weight: 600; display: block; line-height: 1.15; }
 .week-pulse span { display: block; margin-top: 6px; color: var(--muted); font-size: .7rem; line-height: 1.45; }
 .week-pulse span span { display: inline; margin-top: 0; }
-.week-pulse .pulse-kicker { margin-top: 10px; }
-.pulse-line { display: block; margin-top: 6px; color: var(--muted); font-size: .7rem; line-height: 1.45; text-decoration: none; }
-.pulse-line:hover { text-decoration: underline; text-underline-offset: 3px; }
-.week-pulse .pulse-line span { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
+.pulse-rows { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.pulse-rows a { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; color: inherit; font-size: .7rem; line-height: 1.35; text-decoration: none; }
+.pulse-rows a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.pulse-row-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.week-pulse .pulse-rows span { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
 .pulse-side { white-space: nowrap; }
-.pulse-lines { list-style: none; margin: 2px 0 0; padding: 0; }
-.pulse-lines .pulse-line { margin-top: 4px; }
-.pulse-rank { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
-.pulse-rank a { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; color: inherit; font-size: .7rem; line-height: 1.35; text-decoration: none; }
-.pulse-rank a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.week-pulse .pulse-rank span { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
 .pulse-club { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
 .pulse-club li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; font-size: .7rem; line-height: 1.35; }
 .pulse-club li > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search, Shield, Sun, Moon } from 'lucide-react';
 import { localPreview, useRosters, useSummaries } from './data';
@@ -94,13 +94,8 @@ function managerName(slug: LeagueSlug, id: string | null) {
   return managerFor(slug, id ?? '')?.manager ?? 'Team';
 }
 
-function PulseSides({ slug, leftId, leftScore, rightId, rightScore, margin }: { slug: LeagueSlug; leftId: string | null; leftScore: number | null; rightId: string | null; rightScore: number | null; margin?: number }) {
-  return <>
-    <span className="pulse-side"><span className={leagueInk(slug)}>{managerName(slug, leftId)}</span> {points(leftScore)}</span>
-    {' · '}
-    <span className="pulse-side"><span className={leagueInk(slug)}>{managerName(slug, rightId)}</span> {points(rightScore)}</span>
-    {margin != null && <span className="pulse-margin"> · {points(margin)} {margin === 1 ? 'pt' : 'pts'}</span>}
-  </>;
+function PulseRow({ to, label, figure }: { to: string; label: ReactNode; figure: number | null | undefined }) {
+  return <li><Link to={to}><span className="pulse-row-label">{label}</span><span className="pulse-club-score">{points(figure)}</span></Link></li>;
 }
 
 function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
@@ -122,7 +117,7 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
   const highOpponent = highMatch && high ? (highMatch.homeTeamId === high.id
     ? { id: highMatch.awayTeamId, score: highMatch.awayScore }
     : { id: highMatch.homeTeamId, score: highMatch.homeScore }) : undefined;
-  const top = scores.slice(0, 3);
+  const rest = scores.slice(1, 3);
   const close = closestOpen(margins);
   const closeRows = closestListed(margins);
   const club = scores.filter(row => row.score >= 100);
@@ -131,12 +126,11 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
   return <nav className="week-pulse" aria-label="This week">
     <div className="pulse-cell">
       <Link className="pulse-head" to={highTo}><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerName(high.slug, high.id) : '—'}</strong></Link>
-      {high && highMatch ? <Link className="pulse-line" to={highTo}><PulseSides slug={high.slug} leftId={high.id} leftScore={high.score} rightId={highOpponent?.id ?? null} rightScore={highOpponent?.score ?? null} /></Link> : <span>Awaiting scores</span>}
-      {top.length > 0 && <><span className="pulse-kicker">Top 3</span><ul className="pulse-rank">{top.map(row => <li key={`${row.slug}-${row.id}`}><Link to={`/league/${row.slug}/match/${row.matchId}`}><span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span><span className="pulse-club-score">{points(row.score)}</span></Link></li>)}</ul></>}
+      {high && highMatch ? <ul className="pulse-rows"><PulseRow to={highTo} figure={high.score} label={<><span className={leagueInk(high.slug)}>{managerName(high.slug, high.id)}</span>{' · '}<span className={leagueInk(high.slug)}>{managerName(high.slug, highOpponent?.id ?? null)}</span> <span className="pulse-club-score">{points(highOpponent?.score)}</span></>} />{rest.map(row => <PulseRow key={`${row.slug}-${row.id}`} to={`/league/${row.slug}/match/${row.matchId}`} figure={row.score} label={<span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span>} />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">
       <Link className="pulse-head" to={closeTo}><p className="eyebrow">CLOSEST MARGIN</p><strong>{close ? `${points(close.margin)} ${close.margin === 1 ? 'pt' : 'pts'}` : '—'}</strong></Link>
-      {closeRows.length ? <ul className="pulse-lines">{closeRows.map(matchup => <li key={`${matchup.slug}-${matchup.id}`}><Link className="pulse-line" to={`/league/${matchup.slug}/match/${matchup.id}`}><PulseSides slug={matchup.slug} leftId={matchup.homeTeamId} leftScore={matchup.homeScore} rightId={matchup.awayTeamId} rightScore={matchup.awayScore} margin={close && matchup.margin === close.margin ? undefined : matchup.margin} /></Link></li>)}</ul> : <span>Awaiting scores</span>}
+      {closeRows.length ? <ul className="pulse-rows">{closeRows.map(matchup => <PulseRow key={`${matchup.slug}-${matchup.id}`} to={`/league/${matchup.slug}/match/${matchup.id}`} figure={matchup.margin} label={<><span className="pulse-side"><span className={leagueInk(matchup.slug)}>{managerName(matchup.slug, matchup.homeTeamId)}</span> <span className="pulse-club-score">{points(matchup.homeScore)}</span></span>{' · '}<span className="pulse-side"><span className={leagueInk(matchup.slug)}>{managerName(matchup.slug, matchup.awayTeamId)}</span> <span className="pulse-club-score">{points(matchup.awayScore)}</span></span></>} />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">
       <Link className="pulse-head" to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <ul className="pulse-club">{club.map(row => <li key={`${row.slug}-${row.id}`}><span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span><span className="pulse-club-score">{points(row.score)}</span></li>)}</ul> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link>
