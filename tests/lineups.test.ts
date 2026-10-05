@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { canStillSwing, closestListed, closestOpen, compareByLineup, historicalStarters, pointsStillToPlay, slotLabel } from '../src/lineups.ts';
+import { canStillSwing, closestListed, closestOpen, compareByLineup, historicalStarters, lineupWouldWin, pointsStillToPlay, slotLabel, type LineupCandidate } from '../src/lineups.ts';
 import type { RosteredPlayer } from '../src/types.ts';
 
 const lineups = [{
@@ -95,4 +95,145 @@ test('closest list keeps every tie, then fills to three with the next closest', 
   const fourTied = [0, 1, 2, 3].map(id => ({ id, margin: 4, open: id === 0 }));
   assert.deepEqual(closestListed([...fourTied, { id: 'wider', margin: 8, open: true }]).map(row => row.id), [0, 1, 2, 3]);
   assert.deepEqual(closestListed([{ id: 'only', margin: 3, open: true }]).map(row => row.id), ['only']);
+});
+
+const spot = (id: string, slot: string, group: LineupCandidate['group'], weekPoints: number | null, eligibleSlots: string[], name = id): LineupCandidate => ({
+  id, name, slot, group, eligibleSlots, weekPoints,
+});
+
+test('one eligible start/sit is enough when it passes the opponent', () => {
+  const team = [
+    spot('sit', 'WR', 'starter', 4, ['WR'], 'Sat'),
+    spot('stay', 'RB', 'starter', 6, ['RB'], 'Stayed'),
+    spot('in', 'WR', 'bench', 14, ['WR'], 'Started'),
+    spot('qb', 'QB', 'bench', 30, ['QB'], 'Quarterback'),
+  ];
+  const opponent = [spot('opp', 'WR', 'starter', 12, ['WR'], 'Opponent')];
+  const swing = lineupWouldWin(team, opponent, 10, 12);
+  assert.deepEqual(swing, {
+    score: 20,
+    start: [{ id: 'in', name: 'Started', points: 14 }],
+    sit: [{ id: 'sit', name: 'Sat', points: 4 }],
+  });
+});
+
+test('a lineup that only ties, or a player in the wrong slot, does not count as a win', () => {
+  const tied = lineupWouldWin(
+    [spot('out', 'WR', 'starter', 10, ['WR']), spot('in', 'WR', 'bench', 20, ['WR'])],
+    [spot('opp', 'WR', 'starter', 100, ['WR'])],
+    90,
+    100,
+  );
+  const won = lineupWouldWin(
+    [spot('out', 'WR', 'starter', 10, ['WR']), spot('in', 'WR', 'bench', 21, ['WR'])],
+    [spot('opp', 'WR', 'starter', 100, ['WR'])],
+    90,
+    100,
+  );
+  const wrongSlot = lineupWouldWin(
+    [spot('out', 'WR', 'starter', 4, ['WR']), spot('qb', 'QB', 'bench', 30, ['QB'])],
+    [spot('opp', 'WR', 'starter', 12, ['WR'])],
+    10,
+    12,
+  );
+  assert.equal(tied, null);
+  assert.equal(won?.score, 101);
+  assert.equal(wrongSlot, null);
+});
+
+test('a missing starter score stays undecided and a missing bench score is not zero', () => {
+  const opponent = [spot('opp', 'WR', 'starter', 20, ['WR'])];
+  assert.equal(lineupWouldWin(
+    [spot('out', 'WR', 'starter', null, ['WR']), spot('in', 'WR', 'bench', 40, ['WR'])],
+    opponent,
+    10,
+    20,
+  ), null);
+  assert.equal(lineupWouldWin(
+    [spot('out', 'WR', 'starter', 4, ['WR']), spot('in', 'WR', 'bench', 40, ['WR'])],
+    [spot('opp', 'WR', 'starter', null, ['WR'])],
+    10,
+    20,
+  ), null);
+  assert.equal(lineupWouldWin(
+    [spot('out', 'WR', 'starter', 4, ['WR']), spot('in', 'WR', 'bench', null, ['WR'])],
+    opponent,
+    10,
+    20,
+  ), null);
+  assert.equal(lineupWouldWin(
+    [spot('out', 'WR', 'starter', 4, ['WR']), spot('ir', 'WR', 'ir', 40, ['WR'])],
+    opponent,
+    10,
+    20,
+  ), null);
+});
+
+test('the fewest moves win, and a flex only takes a player eligible for it', () => {
+  const twoMoves = lineupWouldWin(
+    [
+      spot('a', 'WR', 'starter', 1, ['WR'], 'Alpha'),
+      spot('b', 'WR', 'starter', 1, ['WR'], 'Bravo'),
+      spot('c', 'WR', 'bench', 10, ['WR'], 'Charlie'),
+      spot('d', 'WR', 'bench', 10, ['WR'], 'Delta'),
+    ],
+    [spot('opp', 'WR', 'starter', 30, ['WR'])],
+    20,
+    30,
+  );
+  assert.deepEqual(twoMoves?.start.map(player => player.name), ['Charlie', 'Delta']);
+  assert.equal(twoMoves?.score, 38);
+
+  const oneMove = lineupWouldWin(
+    [
+      spot('low', 'WR', 'starter', 0, ['WR'], 'Low'),
+      spot('fine', 'WR', 'starter', 10, ['WR'], 'Fine'),
+      spot('enough', 'WR', 'bench', 12, ['WR'], 'Enough'),
+      spot('extra', 'WR', 'bench', 18, ['WR'], 'Extra'),
+    ],
+    [spot('opp', 'WR', 'starter', 20, ['WR'])],
+    10,
+    20,
+  );
+  assert.deepEqual(oneMove?.start.map(player => player.id), ['extra']);
+  assert.deepEqual(oneMove?.sit.map(player => player.id), ['low']);
+  assert.equal(oneMove?.score, 28);
+
+  const flex = lineupWouldWin(
+    [spot('flex', 'RB/WR/TE', 'starter', 2, ['RB/WR/TE'], 'Flex'), spot('back', 'RB', 'bench', 12, ['RB', 'RB/WR/TE'], 'Back')],
+    [spot('opp', 'RB', 'starter', 25, ['RB'])],
+    20,
+    25,
+  );
+  assert.equal(flex?.score, 30);
+  assert.equal(lineupWouldWin(
+    [spot('flex', 'RB/WR/TE', 'starter', 2, ['RB/WR/TE'], 'Flex'), spot('qb', 'QB', 'bench', 40, ['QB'], 'Quarterback')],
+    [spot('opp', 'RB', 'starter', 25, ['RB'])],
+    20,
+    25,
+  ), null);
+});
+
+test('a team that already won stays off the list, including a tie that a bench score would have taken', () => {
+  const ahead = lineupWouldWin(
+    [spot('out', 'WR', 'starter', 10, ['WR']), spot('in', 'WR', 'bench', 30, ['WR'])],
+    [spot('opp', 'WR', 'starter', 90, ['WR'])],
+    100,
+    90,
+  );
+  const level = lineupWouldWin(
+    [spot('out', 'WR', 'starter', 10, ['WR']), spot('in', 'WR', 'bench', 15, ['WR'])],
+    [spot('opp', 'WR', 'starter', 100, ['WR'])],
+    100,
+    100,
+  );
+  assert.equal(ahead, null);
+  assert.equal(level?.score, 105);
+  const adjusted = lineupWouldWin(
+    [spot('out', 'WR', 'starter', 10, ['WR'], 'Starter'), spot('in', 'WR', 'bench', 20, ['WR'], 'Bench')],
+    [spot('opp', 'WR', 'starter', 16, ['WR'])],
+    12,
+    16,
+  );
+  assert.equal(adjusted?.score, 22);
 });
