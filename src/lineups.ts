@@ -47,3 +47,27 @@ export function historicalStarters(lineups: WeekLineup[] | undefined, teamId: st
     seasonStats: {},
   })).sort(compareByLineup);
 }
+
+/** Points still projected for starters who have not played. Null when this snapshot has no starters for the team. */
+export function pointsStillToPlay(players: readonly RosteredPlayer[] | null | undefined, teamId: string | null): number | null {
+  if (!players || !teamId) return null;
+  const starters = players.filter(player => player.teamId === teamId && player.group === 'starter');
+  if (!starters.length) return null;
+  return starters.reduce((sum, player) => sum + (player.weekPoints == null && player.projectedPoints != null ? player.projectedPoints : 0), 0);
+}
+
+/** The trailer can still take the lead, or a tie still has a starter left. Unknown lineups stay open. */
+export function canStillSwing(scoreA: number, scoreB: number, leftA: number | null, leftB: number | null) {
+  if (leftA == null || leftB == null) return true;
+  const margin = Math.abs(scoreA - scoreB);
+  if (margin === 0) return leftA > 0 || leftB > 0;
+  return (scoreA < scoreB ? leftA : leftB) > margin;
+}
+
+/** The closest game that can still change, or the closest finished game when every lineup is done. */
+export function closestOpen<T extends { margin: number; open: boolean }>(rows: readonly T[]): T | undefined {
+  const byMargin = (a: T, b: T) => a.margin - b.margin;
+  const open = rows.filter(row => row.open).sort(byMargin);
+  if (open.length) return open[0];
+  return rows.filter(row => row.margin > 0).sort(byMargin)[0];
+}

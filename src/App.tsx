@@ -22,7 +22,7 @@ import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
 import { pointShare, TeamMatchSheet } from './TeamMatchSheet';
 import { PlayerIdentity, injuryLabel, injuryName } from './PlayerIdentity';
-import { compareByLineup, slotLabel, slotsLabel } from './lineups';
+import { canStillSwing, closestOpen, compareByLineup, pointsStillToPlay, slotLabel, slotsLabel } from './lineups';
 
 const leagueMeta = (slug: string) => LEAGUES.find(league => league.slug === slug);
 const teamLink = (slug: string, id: string) => `/league/${slug}/team/${id}`;
@@ -90,29 +90,39 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
   </article>;
 }
 
-function WeekPulse({ loaded }: { loaded: LeagueSummary[] }) {
+function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
   const week = Math.max(0, ...loaded.map(data => data.week));
   const matchups = loaded.flatMap(data => (data.weeklyMatchups ?? []).filter(item => item.week === week).map(item => ({ ...item, slug: data.slug })));
   const scores = matchups.flatMap(matchup => [
     matchup.homeTeamId != null && matchup.homeScore != null ? { slug: matchup.slug, id: matchup.homeTeamId, score: matchup.homeScore } : null,
     matchup.awayTeamId != null && matchup.awayScore != null ? { slug: matchup.slug, id: matchup.awayTeamId, score: matchup.awayScore } : null,
   ].filter((row): row is { slug: LeagueSlug; id: string; score: number } => row !== null)).sort((a, b) => b.score - a.score);
-  const margins = matchups.filter(matchup => matchup.homeScore != null && matchup.awayScore != null && matchup.homeScore !== matchup.awayScore).map(matchup => ({ ...matchup, margin: Math.abs(matchup.homeScore! - matchup.awayScore!) })).sort((a, b) => a.margin - b.margin);
+  const margins = matchups.filter(matchup => matchup.homeScore != null && matchup.awayScore != null).map(matchup => {
+    const done = matchup.status === 'final';
+    const homeLeft = done ? 0 : pointsStillToPlay(players[matchup.slug], matchup.homeTeamId);
+    const awayLeft = done ? 0 : pointsStillToPlay(players[matchup.slug], matchup.awayTeamId);
+    return { ...matchup, margin: Math.abs(matchup.homeScore! - matchup.awayScore!), open: canStillSwing(matchup.homeScore!, matchup.awayScore!, homeLeft, awayLeft) };
+  });
   if (!scores.some(row => row.score > 0)) return null;
   const high = scores[0];
-  const close = margins[0];
+  const close = closestOpen(margins);
   const hundred = scores.filter(row => row.score >= 100).length;
   const closeNames = close ? [close.homeTeamId, close.awayTeamId].map(id => managerFor(close.slug, id ?? '')?.manager ?? 'Team') : [];
   const closeTo = close ? `/league/${close.slug}/match/${close.id}` : '/weekly';
   return <nav className="week-pulse" aria-label="This week"><Link to="/weekly"><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerFor(high.slug, high.id)?.manager ?? 'Team' : '—'}</strong><span>{high ? `${points(high.score)} · ${leagueMeta(high.slug)?.name}` : 'Awaiting scores'}</span></Link><Link to={closeTo}><p className="eyebrow">CLOSEST MARGIN</p><strong>{close ? `${points(close.margin)} pts` : '—'}</strong><span>{close ? <><span className={leagueInk(close.slug)}>{closeNames[0]}</span> / <span className={leagueInk(close.slug)}>{closeNames[1]}</span></> : 'Awaiting scores'}</span></Link><Link to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? hundred : '—'}</strong>{scores.length ? null : <span>Awaiting scores</span>}</Link></nav>;
 }
 
-function CupStrip({ data }: { data: SummaryMap }) {
+function CupStrip({ data, players }: { data: SummaryMap; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
   const cups = (['jffl', 'premier', 'championship', 'league-one'] as CupId[]).map(id => {
     const cup = buildCup(id, data);
     const round = cup.rounds.find(item => item.matches.some(match => ['live', 'tied', 'unavailable'].includes(match.status))) ?? cup.rounds.find(item => item.matches.some(match => match.status === 'waiting')) ?? cup.rounds.at(-1)!;
-    const live = round.matches.filter(match => match.status === 'live' && match.a.total != null && match.b.total != null);
-    const focus = live.slice().sort((a, b) => Math.abs(a.a.total! - a.b.total!) - Math.abs(b.a.total! - b.b.total!))[0];
+    const live = round.matches.filter(match => match.status === 'live' && match.a.total != null && match.b.total != null).map(match => {
+      const sideLeft = (slug: LeagueSlug | undefined, teamId: string | undefined) => slug && teamId ? pointsStillToPlay(players[slug], teamId) : 0;
+      const homeLeft = sideLeft(match.a.participant?.slug, match.a.participant?.teamId);
+      const awayLeft = sideLeft(match.b.participant?.slug, match.b.participant?.teamId);
+      return { match, margin: Math.abs(match.a.total! - match.b.total!), open: canStillSwing(match.a.total!, match.b.total!, homeLeft, awayLeft) };
+    });
+    const focus = closestOpen(live)?.match;
     const quiet = focus ? null : cup.champion ? <><span className={leagueInk(cup.champion.slug)}>{cup.champion.manager}</span> · Champion</> : 'Bracket';
     return { cup, round, focus, quiet };
   });
@@ -123,15 +133,14 @@ function Overview() {
   const summaries = useSummaries();
   const loaded = Object.values(summaries).map(state => state.data).filter((data): data is LeagueSummary => !!data);
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const separator = openKey?.indexOf(':') ?? -1;
-  const openSlug = openKey && separator > 0 ? openKey.slice(0, separator) as LeagueSlug : null;
-  const rosters = useRosters(openSlug ? [openSlug] : []);
+  const rosters = useRosters(LEAGUES.map(meta => meta.slug));
+  const players = Object.fromEntries(LEAGUES.map(meta => [meta.slug, rosters[meta.slug]?.data?.players ?? null])) as Partial<Record<LeagueSlug, RosteredPlayer[] | null>>;
   const board: SummaryMap = {};
   for (const meta of LEAGUES) if (summaries[meta.slug].data) board[meta.slug] = summaries[meta.slug].data!;
   return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 <span>/</span> WEEK {loaded[0]?.week ?? '—'}</p><h1>The leagues</h1><p className="intro-copy">Three leagues. One JFFL.</p></div></section>
-    <WeekPulse loaded={loaded} />
+    <WeekPulse loaded={loaded} players={players} />
     <nav className="overview-links" aria-label="More from JFFL"><Link to="/weekly">Weekly roundup<ArrowUpRight size={14}/></Link><Link to="/history">Trophies & history<ArrowUpRight size={14}/></Link></nav>
-    {loaded.length > 0 && <CupStrip data={board} />}
+    {loaded.length > 0 && <CupStrip data={board} players={players} />}
     <div className="home-leagues">{LEAGUES.map(meta => { const state = summaries[meta.slug]; const roster = rosters[meta.slug]; const teams = state.data ? state.data.teams.slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)) : []; return <section className={`home-league ${meta.slug}`} key={meta.slug}>{state.data ? <LeagueStandingsCard meta={meta} teams={teams} updated={state.data} error={state.error} /> : <Waiting error={state.error} />}{state.data && <div className="mini-matchups">{state.data.matchups.map(matchup => { const key = `${meta.slug}:${matchup.id}`; const open = openKey === key; return <MatchupCard key={matchup.id} matchup={matchup} data={state.data!} compact board to={`/league/${meta.slug}/match/${matchup.id}`} expanded={open} onToggle={() => setOpenKey(open ? null : key)} lineup={open ? { players: roster?.data?.players ?? null, loading: roster?.loading ?? true, error: roster?.error ?? false } : undefined} />; })}</div>}</section>; })}</div>
   </>;
 }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { compareByLineup, historicalStarters, slotLabel } from '../src/lineups.ts';
+import { canStillSwing, closestOpen, compareByLineup, historicalStarters, pointsStillToPlay, slotLabel } from '../src/lineups.ts';
+import type { RosteredPlayer } from '../src/types.ts';
 
 const lineups = [{
   week: 2,
@@ -49,4 +50,35 @@ test('a week the snapshot has not published yet stays unknown', () => {
   assert.equal(historicalStarters(lineups, '7', 5), null);
   assert.deepEqual(historicalStarters(lineups, '8', 2), []);
   assert.equal(historicalStarters(undefined, '7', 2), null);
+});
+
+const played = (teamId: string, points: number): RosteredPlayer => ({
+  id: `${teamId}-played`, teamId, name: 'Played', position: 'WR', proTeam: 'BUF', slot: 'WR', group: 'starter',
+  eligibleSlots: [], injuryStatus: null, weekPoints: points, projectedPoints: points, seasonPoints: null, averagePoints: null, weekStats: {}, seasonStats: {},
+});
+const waiting = (teamId: string, projected: number): RosteredPlayer => ({
+  id: `${teamId}-waiting`, teamId, name: 'Waiting', position: 'QB', proTeam: 'KC', slot: 'QB', group: 'starter',
+  eligibleSlots: [], injuryStatus: null, weekPoints: null, projectedPoints: projected, seasonPoints: null, averagePoints: null, weekStats: {}, seasonStats: {},
+});
+
+test('the closest game that can still flip beats a tighter game whose lineups are done', () => {
+  const players = [played('home', 10), played('away', 12), waiting('trail', 9), played('lead', 20)];
+  assert.equal(pointsStillToPlay(players, 'away'), 0);
+  assert.equal(pointsStillToPlay(players, 'trail'), 9);
+  assert.equal(pointsStillToPlay(players, 'missing'), null);
+  assert.equal(canStillSwing(80, 82, 0, 0), false);
+  assert.equal(canStillSwing(70, 76, 9, 0), true);
+  assert.equal(canStillSwing(70, 76, 6, 0), false);
+  assert.equal(canStillSwing(80, 80, 4, 0), true);
+  const picked = closestOpen([
+    { id: 'locked', margin: 2, open: canStillSwing(80, 82, 0, 0) },
+    { id: 'open', margin: 6, open: canStillSwing(70, 76, 9, 0) },
+    { id: 'tie', margin: 0, open: canStillSwing(80, 80, 4, 0) },
+  ]);
+  assert.equal(picked?.id, 'tie');
+  const finished = closestOpen([
+    { id: 'locked', margin: 2, open: false },
+    { id: 'wider', margin: 9, open: false },
+  ]);
+  assert.equal(finished?.id, 'locked');
 });
