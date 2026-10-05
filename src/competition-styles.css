@@ -228,11 +228,14 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .week-recap .week-face strong { margin: 0 0 0 auto; flex: none; }
 .week-recap .league-label { margin-top: 6px; }
 .week-recap .league-label.premier,
-.week-board .league-label.premier { color: #0076b6; }
+.week-board .league-label.premier,
+.week-leaderboard .league-ink.premier { color: #4f7a22; }
 .week-recap .league-label.championship,
-.week-board .league-label.championship { color: #9b5a20; }
+.week-board .league-label.championship,
+.week-leaderboard .league-ink.championship { color: #4c76a2; }
 .week-recap .league-label.league-one,
-.week-board .league-label.league-one { color: #157a48; }
+.week-board .league-label.league-one,
+.week-leaderboard .league-ink.league-one { color: #8f5e16; }
 .week-recap .week-pair { display: grid; gap: 8px; margin-top: 10px; color: inherit; }
 .week-recap .week-pair:hover { text-decoration: none; }
 .week-recap .week-pair > span { display: flex; align-items: center; gap: 8px; margin-top: 0; color: var(--text); font-size: .78rem; }
@@ -250,14 +253,19 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .week-club a:hover .week-name { color: var(--accent-ink); }
 .week-club .team-logo { width: 28px; height: 28px; flex-basis: 28px; }
 .week-board th:nth-child(4) { text-align: right; }
+.week-leaderboard th:nth-child(3),
+.week-leaderboard td.week-points { text-align: right; }
+.week-leaderboard th:nth-child(4) { text-align: left; }
 .week-points { text-align: right; }
-.week-score { display: inline-flex; align-items: center; justify-content: flex-end; gap: 12px; vertical-align: middle; }
-.week-score .numeric { flex: 0 0 6.4rem; text-align: right; }
-.week-bar { display: block; width: 84px; height: 8px; flex: 0 0 84px; background: color-mix(in srgb, var(--line) 70%, transparent); }
+.week-score { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; max-width: 100%; vertical-align: middle; }
+.week-score .numeric { flex: 0 0 auto; text-align: right; }
+.week-bar { display: block; width: 72px; height: 8px; flex: 0 1 72px; min-width: 0; background: color-mix(in srgb, var(--line) 70%, transparent); }
 .week-bar > span { display: block; height: 100%; }
-.week-bar[data-league="premier"] > span { background: #0076b6; }
-.week-bar[data-league="championship"] > span { background: #d9822b; }
-.week-bar[data-league="league-one"] > span { background: #1f8a5b; }
+.week-bar[data-league="premier"] > span { background: #4f7a22; }
+.week-bar[data-league="championship"] > span { background: #4c76a2; }
+.week-bar[data-league="league-one"] > span { background: #8f5e16; }
+.week-result.win { color: #2f7a32; font-weight: 600; }
+.week-result.loss { color: #a03e36; font-weight: 600; }
 .pair-notes { grid-column: 1 / -1; list-style: none; margin: 4px 0 2px; padding: 4px 0 0; border-top: 1px solid var(--line); }
 .pair-notes li { display: grid; grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr) auto; gap: 6px 18px; align-items: baseline; padding: 11px 0; font-size: .74rem; }
 .pair-notes li + li { border-top: 1px solid color-mix(in srgb, var(--line) 75%, transparent); }
@@ -343,14 +351,19 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 :root[data-theme=dark] .trophy-race[data-league="jffl"] { --league: #3ec0f0; }
 :root[data-theme=dark] .trophy-race:hover { background: color-mix(in srgb, var(--league) 12%, var(--surface-muted)); }
 :root[data-theme=dark] .week-recap .league-label.premier,
-:root[data-theme=dark] .week-board .league-label.premier { color: #4aa8dd; }
+:root[data-theme=dark] .week-board .league-label.premier,
+:root[data-theme=dark] .week-leaderboard .league-ink.premier { color: #8fbf55; }
 :root[data-theme=dark] .week-recap .league-label.championship,
-:root[data-theme=dark] .week-board .league-label.championship { color: #f0a155; }
+:root[data-theme=dark] .week-board .league-label.championship,
+:root[data-theme=dark] .week-leaderboard .league-ink.championship { color: #8eb4d6; }
 :root[data-theme=dark] .week-recap .league-label.league-one,
-:root[data-theme=dark] .week-board .league-label.league-one { color: #4cc08e; }
-:root[data-theme=dark] .week-bar[data-league="premier"] > span { background: #4aa8dd; }
-:root[data-theme=dark] .week-bar[data-league="championship"] > span { background: #f0a155; }
-:root[data-theme=dark] .week-bar[data-league="league-one"] > span { background: #4cc08e; }
+:root[data-theme=dark] .week-board .league-label.league-one,
+:root[data-theme=dark] .week-leaderboard .league-ink.league-one { color: #f0c48a; }
+:root[data-theme=dark] .week-bar[data-league="premier"] > span { background: #8fbf55; }
+:root[data-theme=dark] .week-bar[data-league="championship"] > span { background: #8eb4d6; }
+:root[data-theme=dark] .week-bar[data-league="league-one"] > span { background: #f0c48a; }
+:root[data-theme=dark] .week-result.win { color: #7dce6a; }
+:root[data-theme=dark] .week-result.loss { color: #f0a09a; }
 :root[data-theme=dark] .recap-metrics > article { border-top: 0; position: relative; }
 :root[data-theme=dark] .recap-metrics { row-gap: 22px; }
 :root[data-theme=dark] .recap-metrics.week-recap { row-gap: 0; }
@@ -448,7 +461,22 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
   .recap-metrics strong { font-size: 1.55rem; }
   .recap-metrics .eyebrow { font-size: .53rem; line-height: 1.6; letter-spacing: .05em; }
   .recap-metrics span { font-size: .64rem; }
-  .week-bar { width: 48px; flex-basis: 48px; }
+  .week-leaderboard { width: 100%; table-layout: fixed; }
+  .week-leaderboard th { white-space: normal; line-height: 1.1; }
+  .week-leaderboard th:nth-child(1) { width: 1.6rem; }
+  .week-leaderboard th:nth-child(3) { width: 4.7rem; }
+  .week-leaderboard th:nth-child(4) { width: 3.8rem; }
+  .week-leaderboard th:nth-child(5) { width: 4.5rem; }
+  .week-leaderboard th, .week-leaderboard td { padding-top: 10px; padding-bottom: 10px; padding-left: 4px; padding-right: 4px; }
+  .week-leaderboard .team-identity { gap: 4px; min-width: 0; max-width: 100%; }
+  .week-leaderboard .team-logo { width: 16px; height: 16px; flex-basis: 16px; }
+  .week-leaderboard .league-label,
+  .week-leaderboard .week-result { white-space: normal; line-height: 1.15; }
+  .week-leaderboard .league-label { display: inline-block; max-width: 100%; font-size: .6rem; }
+  .week-leaderboard .week-result { font-size: .72rem; }
+  .week-leaderboard .hundred-tag { display: none; }
+  .week-bar { width: 22px; flex-basis: 22px; }
+  .week-leaderboard .week-score { gap: 4px; }
   .pair-notes li { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; }
   .pair-notes .pair-when { grid-column: 1 / -1; }
   .week-picker, .week-nav { width: 100%; }
