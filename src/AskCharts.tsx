@@ -3,7 +3,8 @@ import { Download, Link2, RotateCcw, SlidersHorizontal, Table2 } from 'lucide-re
 import { controlTable, datasetOf, rerunDataset, type Session } from './history/askRuntime.ts';
 import { type Controls } from './history/askTools.ts';
 import { resolveChart } from './history/chartBuild.ts';
-import { DARK_THEME, LIGHT_THEME, createColorMap, csvOf, drillPrompt, emptyChart, fmt, type BuildEnv, type ColorMap, type ResolvedChart } from './history/chartKit.ts';
+import { DARK_THEME, LIGHT_THEME, createColorMap, csvOf, drillPrompt, emptyChart, fmt, putLeagueLast, type BuildEnv, type ColorMap, type ResolvedChart } from './history/chartKit.ts';
+import { leagueInk, leagueOfManager, leagueSlug } from './reference';
 import { LAST_SEASON, FIRST_SEASON, LEAGUES, type ChartSpec } from './history/chartSpec.ts';
 import type { ChartInstance } from './history/echartsSetup.ts';
 import './ask-styles.css';
@@ -241,13 +242,19 @@ export const ChartView = forwardRef<ChartHandle, ChartViewProps>(function ChartV
   </figure>;
 });
 
+function cellInk(cell: unknown) {
+  if (typeof cell !== 'string') return '';
+  return leagueInk(leagueSlug(cell) ?? leagueOfManager(cell));
+}
+
 function DataTable({ table, caption }: { table: ResolvedChart['table']; caption: string }) {
-  const shown = table.rows.slice(0, 200);
+  const ordered = putLeagueLast(table.columns, table.rows);
+  const shown = ordered.rows.slice(0, 200);
   return <div className="table-scroll ask-data" tabIndex={0} role="region" aria-label={caption}>
     <table>
       <caption className="sr-only">{caption}</caption>
-      <thead><tr>{table.columns.map(column => <th key={column} scope="col">{column}</th>)}</tr></thead>
-      <tbody>{shown.map((row, index) => <tr key={index}>{row.map((cell, position) => <td key={position} className={typeof cell === 'number' ? 'numeric' : undefined}>{fmt(cell, 2)}</td>)}</tr>)}</tbody>
+      <thead><tr>{ordered.columns.map(column => <th key={column} scope="col">{column}</th>)}</tr></thead>
+      <tbody>{shown.map((row, index) => <tr key={index}>{row.map((cell, position) => <td key={position} className={[typeof cell === 'number' ? 'numeric' : '', cellInk(cell)].filter(Boolean).join(' ') || undefined}>{fmt(cell, 2)}</td>)}</tr>)}</tbody>
     </table>
     {table.rows.length > shown.length && <p className="ask-control-note">Showing {shown.length} of {table.rows.length} rows. Download the CSV for all of them.</p>}
   </div>;

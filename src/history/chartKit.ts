@@ -113,9 +113,16 @@ export function baseOption(theme: Theme, opts: { legend?: boolean; zoom?: boolea
   };
 }
 
+export function putLeagueLast<T>(columns: string[], rows: T[][]) {
+  const index = columns.findIndex(column => column.trim().toLowerCase() === 'league');
+  if (index < 0 || index === columns.length - 1) return { columns, rows };
+  const order = [...columns.keys()].filter(position => position !== index).concat(index);
+  return { columns: order.map(position => columns[position]), rows: rows.map(row => order.map(position => row[position])) };
+}
+
 export function tableOf(dataset: Dataset, columns?: string[], limit = 500): ResolvedChart['table'] {
   const names = columns?.length ? columns : dataset.columns.map(column => column.name);
-  return { columns: names, rows: dataset.rows.slice(0, limit).map(row => names.map(name => row[name] ?? null)) };
+  return putLeagueLast(names, dataset.rows.slice(0, limit).map(row => names.map(name => row[name] ?? null)));
 }
 
 export function csvOf(table: ResolvedChart['table']): string {

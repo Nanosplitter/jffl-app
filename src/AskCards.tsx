@@ -3,7 +3,7 @@ import { LeagueStandingsCard } from './CompetitionPages';
 import type { SummaryMap } from './competitions';
 import { cupMatchView, matchupView, teamUrl, type CardItem, type CardSpec } from './history/askCards.ts';
 import { projectedWinChance } from './projections';
-import { managerFor } from './reference';
+import { leagueInk, managerFor } from './reference';
 import { pointShare, TeamMatchSheet, type SheetSide } from './TeamMatchSheet';
 import { LEAGUES, type LeagueSlug } from './types';
 import { points, record } from './ui';
@@ -24,7 +24,7 @@ function MatchupCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 
     const team = teamId ? summary.teams.find(item => item.id === teamId) : undefined;
     const result = decided && score != null && opponent != null ? score > opponent ? 'Won' : score < opponent ? 'Lost' : 'Tie' : null;
     const note = !team ? '' : !decided && chance && projected != null ? `${record(team)} · Proj ${points(projected)}` : result ? `${record(team)} · ${result}` : record(team);
-    return { key: teamId ?? 'bye', logoUrl: team?.logoUrl, name: team ? managerFor(spec.league, team.id)?.manager ?? team.name : 'Bye', detail: team?.name ?? 'Bye', score: team ? points(score) : '—', note, winner: result === 'Won' };
+    return { key: teamId ?? 'bye', logoUrl: team?.logoUrl, name: team ? managerFor(spec.league, team.id)?.manager ?? team.name : 'Bye', league: team ? spec.league : null, detail: team?.name ?? 'Bye', score: team ? points(score) : '—', note, winner: result === 'Won' };
   };
   return <TeamMatchSheet label={`${shortLeague(spec.league)} · Week ${spec.week}`} status={decided ? 'Final' : status === 'live' ? 'Live' : 'Not started'} to={view.url} bar={bar} sides={[
     side(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore),
@@ -46,6 +46,7 @@ function CupMatchCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind:
     return {
       key: person?.key ?? entry.label, logoUrl: team?.logoUrl,
       name: person?.manager ?? (match.status === 'bye' ? 'Bye' : 'TBD'),
+      league: person?.slug,
       detail: person ? `${spec.cup === 'jffl' ? `${shortLeague(person.slug)} · ` : ''}${team?.name ?? 'Team'}` : entry.label || 'TBD',
       score: match.status === 'bye' ? '—' : points(entry.total), note: legs, winner: !!person && person.key === match.winner?.key,
     };
@@ -63,7 +64,7 @@ function TeamCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 'te
     <header><span>{shortLeague(spec.league)} · Team</span><span>#{team.rank ?? '—'}</span></header>
     <div className="team-sheet-side">
       {team.logoUrl ? <img className="team-sheet-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="team-sheet-logo" aria-hidden="true" />}
-      <div className="team-sheet-copy"><span className="team-sheet-name">{manager}</span><span className="team-sheet-detail">{team.name}</span></div>
+      <div className="team-sheet-copy"><span className={`team-sheet-name ${leagueInk(spec.league)}`}>{manager}</span><span className="team-sheet-detail">{team.name}</span></div>
     </div>
     <dl className="ask-team-stats">
       <div><dt>Record</dt><dd>{record(team)}</dd></div>

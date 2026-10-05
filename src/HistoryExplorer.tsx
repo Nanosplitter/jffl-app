@@ -11,6 +11,7 @@ import {
   scoringByYear, seriesTable, superBowlOverlap, titleYears, weekSlice,
   type HistoryGame, type HistorySeason, type ScoreLine, type TitleLeague,
 } from './history/stats.ts';
+import { leagueInk, leagueOfManager, leagueSlug } from './reference';
 import { points } from './ui';
 
 const dash = '\u2013';
@@ -25,7 +26,11 @@ const drafts = draftBuckets(history.seasons);
 const draftPositions = draftSlots(history.seasons).filter(slot => slot.slot >= 1 && slot.slot <= 10);
 const mostPlayed = series.slice(0, 8);
 
-function Shell({ eyebrow, title, copy, children }: { eyebrow: string; title: string; copy: string; children: ReactNode }) {
+function InkName({ name }: { name: string }) {
+  return <span className={leagueInk(leagueOfManager(name))}>{name}</span>;
+}
+
+function Shell({ eyebrow, title, copy, children }: { eyebrow: string; title: ReactNode; copy: string; children: ReactNode }) {
   return <>
     <ArchiveNav />
     <section className="page-intro"><div><p className="eyebrow">{eyebrow}</p><h1>{title}</h1><p className="intro-copy">{copy}</p></div></section>
@@ -312,7 +317,7 @@ function TitlesBoard() {
       {seasons.map(year => <li className="title-year" key={year.season}>
         <header className="title-year-bar">
           <strong>{year.season}</strong>
-          {year.jffl && <p className="title-jffl"><span>JFFL Cup</span><Link to={managerUrl(year.jffl)}>{year.jffl}<SeasonTip season={year.season} name={year.jffl} /></Link></p>}
+          {year.jffl && <p className="title-jffl"><span>JFFL Cup</span><Link to={managerUrl(year.jffl)}><InkName name={year.jffl} /><SeasonTip season={year.season} name={year.jffl} /></Link></p>}
         </header>
         <div className="title-columns title-columns-head">
           <span />
@@ -329,16 +334,17 @@ function TitlesBoard() {
               const spanClass = wide ? ` title-span-${lane.span}` : '';
               if (!lane.names.length) return <span className={`title-winner empty${spanClass}`} key={lane.races[0]}><span className="sr-only">No {phrase.toLowerCase()}</span><span className="title-race" aria-hidden="true">No {phrase.toLowerCase()}</span><span className="title-dash" aria-hidden="true">—</span></span>;
               const raceLabel = <span className="title-race" aria-hidden="true">{phrase}</span>;
+              const ink = leagueInk(leagueSlug(league.league));
               if (lane.names.length === 1) return <Link className={`title-winner${wide ? ' wide' : ''}${spanClass}`} key={lane.names[0]} to={managerUrl(lane.names[0])}>
                 <span className="sr-only">{phrase}. </span>
-                {lane.names[0]}
+                <span className={ink}>{lane.names[0]}</span>
                 {wide ? <small aria-hidden="true">{phrase}</small> : raceLabel}
                 <SeasonTip season={year.season} name={lane.names[0]} />
               </Link>;
               return <div className={`title-winner${spanClass}`} key={lane.races.join('-')}>
                 <span className="sr-only">{phrase}. </span>
                 {raceLabel}
-                {lane.names.map(name => <Link key={name} to={managerUrl(name)}>{name}<SeasonTip season={year.season} name={name} /></Link>)}
+                {lane.names.map(name => <Link key={name} to={managerUrl(name)}><span className={ink}>{name}</span><SeasonTip season={year.season} name={name} /></Link>)}
               </div>;
             })}
           </div>)}
@@ -382,7 +388,7 @@ export function RivalsPage() {
         <article><p className="eyebrow">POINTS</p><strong>{match.played.length ? `${points(match.leftPoints)}${dash}${points(match.rightPoints)}` : `0${dash}0`}</strong><span>{match.played.length ? pointsNote(left, right, match.leftPoints, match.rightPoints) : 'They have not played.'}</span></article>
         {notes.length ? <ul className="pair-notes">{notes.map(note => <li key={`${note.label}-${note.when}-${note.detail}`}><strong>{note.label}</strong><span className="pair-when">{note.when}</span><span className="pair-score">{note.detail}</span></li>)}</ul> : null}
       </div>
-      {marginGames.length ? <PairChart left={left} right={right} games={marginGames} /> : <p className="empty-inline">No single-week games between {left} and {right}. JFFL Cup scores cover two weeks, so they are not on the margin chart.</p>}
+      {marginGames.length ? <PairChart left={left} right={right} games={marginGames} /> : <p className="empty-inline">No single-week games between <InkName name={left} /> and <InkName name={right} />. JFFL Cup scores cover two weeks, so they are not on the margin chart.</p>}
     </>}
     <div className="section-heading"><h2>Most played, regular season</h2></div>
     <SeriesChart rows={mostPlayed} mode="meetings" onSelect={choosePair} summary="The eight most played regular-season series, by number of meetings. Each label shows the meeting count, who leads, and the record. Select a matchup to open it above." />
@@ -416,8 +422,8 @@ function headToHead(left: string, right: string) {
 }
 
 function seriesLead(left: string, right: string, winsLeft: number, winsRight: number) {
-  if (winsLeft === winsRight) return `${left} and ${right} are level`;
-  return winsLeft > winsRight ? `${left} leads ${right}` : `${right} leads ${left}`;
+  if (winsLeft === winsRight) return <><InkName name={left} /> and <InkName name={right} /> are level</>;
+  return winsLeft > winsRight ? <><InkName name={left} /> leads <InkName name={right} /></> : <><InkName name={right} /> leads <InkName name={left} /></>;
 }
 
 function seriesRecord(winsLeft: number, winsRight: number, ties: number) {
@@ -426,9 +432,9 @@ function seriesRecord(winsLeft: number, winsRight: number, ties: number) {
 }
 
 function pointsNote(left: string, right: string, leftPoints: number, rightPoints: number) {
-  if (leftPoints === rightPoints) return `${left} and ${right} scored the same`;
+  if (leftPoints === rightPoints) return <><InkName name={left} /> and <InkName name={right} /> scored the same</>;
   const leader = leftPoints > rightPoints ? left : right;
-  return `${left} · ${right}. ${leader} scored ${points(Math.abs(leftPoints - rightPoints))} more`;
+  return <><InkName name={left} /> · <InkName name={right} />. <InkName name={leader} /> scored {points(Math.abs(leftPoints - rightPoints))} more</>;
 }
 
 function managerMargin(game: HistoryGame, name: string) {
@@ -568,7 +574,7 @@ export function ManagerArchivePage() {
   const weeklyHigh = recordBook(history.games.filter(game => game.teamA === name || game.teamB === name), WEEKLY).highest.find(line => line.team === name);
   if (!career) return <Shell eyebrow="LEAGUE ARCHIVE" title="Manager not found" copy="That name is not in the workbook through 2025."><p><Link to="/archive/managers">All managers</Link></p></Shell>;
   const label = (count: number, singular: string, plural: string) => `${count} ${count === 1 ? singular : plural}`;
-  return <Shell eyebrow={`${career.first}–${career.last} / ${career.seasons} SEASONS`} title={career.team} copy={`${label(career.seasonTitles, 'season title', 'season titles')}, ${label(career.superBowls, 'Superbowl', 'Superbowls')}, ${label(career.leagueCups, 'league cup', 'league cups')}, ${label(career.jfflCups, 'JFFL Cup', 'JFFL Cups')}.`}>
+  return <Shell eyebrow={`${career.first}–${career.last} / ${career.seasons} SEASONS`} title={<InkName name={career.team} />} copy={`${label(career.seasonTitles, 'season title', 'season titles')}, ${label(career.superBowls, 'Superbowl', 'Superbowls')}, ${label(career.leagueCups, 'league cup', 'league cups')}, ${label(career.jfflCups, 'JFFL Cup', 'JFFL Cups')}.`}>
     <p><Link className="back-link" to="/archive/managers">All managers</Link></p>
     <div className="recap-metrics">
       <article><p className="eyebrow">RECORD</p><strong>{career.wins}{dash}{career.losses}{career.ties ? `${dash}${career.ties}` : ''}</strong><span>Regular-season games in the team-season table.</span></article>
@@ -633,8 +639,8 @@ export function WeekHistoryPage() {
   return <Shell eyebrow="REGULAR SEASON / WEEKS 1–14" title={`Week ${week} in history`} copy="The same week number across finished seasons. Early years did not always play all 14 weeks.">
     <label className="week-picker">Choose week<select aria-label="Choose week" value={week} onChange={event => setWeek(Number(event.target.value))}>{Array.from({ length: 14 }, (_, index) => <option key={index} value={index + 1}>Week {index + 1}</option>)}</select></label>
     <div className="recap-metrics">
-      <article><p className="eyebrow">HIGH SCORE</p><strong>{high ? `${high.team} ${points(high.score)}` : '—'}</strong><span>{high ? `${high.season} ${high.league}` : 'No games'}</span></article>
-      <article><p className="eyebrow">LOW SCORE</p><strong>{low ? `${low.team} ${points(low.score)}` : '—'}</strong><span>{low ? `${low.season} ${low.league}` : 'No games'}</span></article>
+      <article><p className="eyebrow">HIGH SCORE</p><strong>{high ? <><InkName name={high.team} /> {points(high.score)}</> : '—'}</strong><span>{high ? `${high.season} ${high.league}` : 'No games'}</span></article>
+      <article><p className="eyebrow">LOW SCORE</p><strong>{low ? <><InkName name={low.team} /> {points(low.score)}</> : '—'}</strong><span>{low ? `${low.season} ${low.league}` : 'No games'}</span></article>
       <article><p className="eyebrow">WIDEST MARGIN</p><strong>{blowout ? points(Math.abs(blowout.scoreA - blowout.scoreB)) : '—'}</strong><span>{blowout ? `${gameText(blowout)} · ${blowout.season}` : 'No decided games'}</span></article>
     </div>
     <div className="section-heading"><h2>High score each season</h2></div>

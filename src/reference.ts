@@ -44,6 +44,15 @@ const rows: Row[] = [
 ];
 export const MANAGERS: ManagerReference[] = rows.map(([slug,teamId,manager,jfflSeed,leagueSeed,week2Rank,draftRank,seasons,trophies2025,trophies2021,trophies2013,trophies,finals,cupRank,cupAverageFinish,cupWins,cupLosses,cupTitles]) => ({ key: `${slug}:${teamId}`,slug,teamId,manager,jfflSeed,leagueSeed,week2Rank,draftRank,seasons,trophies2025,trophies2021,trophies2013,trophies,finals,cupRank,cupAverageFinish,cupWins,cupLosses,cupTitles }));
 export const managerFor = (slug: string, id: string) => MANAGERS.find(item => item.key === `${slug}:${id}`);
+export const leagueOfManager = (name: string) => MANAGERS.find(item => item.manager === name)?.slug ?? null;
+export const leagueSlug = (label: string | null | undefined) => {
+  const text = label?.trim().toLowerCase();
+  if (text === 'premier' || text === 'premier league') return 'premier' as const;
+  if (text === 'championship' || text === 'championship league') return 'championship' as const;
+  if (text === 'league one') return 'league-one' as const;
+  return null;
+};
+export const leagueInk = (slug?: string | null) => slug ? `league-ink ${slug}` : '';
 export const TIMELINE = [
   { year: '2002', title: 'The first season', detail: '12 teams on NFL.com, split into Central, East and West divisions.' },
   { year: '2003–2005', title: 'A growing league', detail: 'Moved to Yahoo; expanded to 14, then 16, then 18 teams.' },

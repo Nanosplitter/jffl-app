@@ -158,7 +158,7 @@ function careerTimeline(spec: ChartSpec, env: BuildEnv): ResolvedChart {
   ] : [];
   return skeleton(spec, {
     option, cards, height: 360,
-    table: { columns: ['Season', 'League', 'Finish', 'Superbowl', 'Cup', 'JFFL Cup', 'Wins', 'Losses', 'Draft'], rows: seasons.map(row => [row.season, row.league, row.rankSeason, row.rankFinal, row.cupRank, row.jfflRank, row.wins, row.losses, row.draft]) },
+    table: { columns: ['Season', 'Finish', 'Superbowl', 'Cup', 'JFFL Cup', 'Wins', 'Losses', 'Draft', 'League'], rows: seasons.map(row => [row.season, row.rankSeason, row.rankFinal, row.cupRank, row.jfflRank, row.wins, row.losses, row.draft, row.league]) },
     summary: `${name}'s career from ${first} to ${last}: ${career ? `${career.seasonTitles} season titles, ${career.superBowls} Superbowls, ${career.leagueCups} league cups, ${career.jfflCups} JFFL Cups.` : ''}`,
     caveats: ['Rank 1 is first. A gap in the line means the archive has no finish for that year. Markers sit at that season\u2019s regular-season finish.'],
   });
@@ -298,7 +298,7 @@ function h2hScoreboard(spec: ChartSpec, env: BuildEnv): ResolvedChart {
   ];
   return skeleton(spec, {
     option, cards, height: 320,
-    table: { columns: ['Game', 'League', a!, b!, 'Margin'], rows: rows.map(row => [row.when, row.league, row.aScore, row.bScore, row.diff]) },
+    table: { columns: ['Game', a!, b!, 'Margin', 'League'], rows: rows.map(row => [row.when, row.aScore, row.bScore, row.diff, row.league]) },
     summary: `${a} versus ${b}: ${aWins}\u2013${bWins}${ties ? `\u2013${ties}` : ''} over ${games.length} regular-season meetings. Bars above zero are ${a} wins.`,
     caveats: ['Regular-season meetings only. Cup and Superbowl games are not included.'],
   });

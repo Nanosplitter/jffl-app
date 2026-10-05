@@ -252,7 +252,7 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
 .week-club a:hover { text-decoration: none; }
 .week-club a:hover .week-name { color: var(--accent-ink); }
 .week-club .team-logo { width: 28px; height: 28px; flex-basis: 28px; }
-.week-board th:nth-child(4) { text-align: right; }
+.standouts th:nth-child(2) { text-align: right; }
 .week-leaderboard th:nth-child(3),
 .week-leaderboard td.week-points { text-align: right; }
 .week-leaderboard th:nth-child(4) { text-align: left; }
@@ -461,7 +461,13 @@ a.cup-match:hover, a.bracket-node:hover { color: inherit; text-decoration: none;
   .recap-metrics strong { font-size: 1.55rem; }
   .recap-metrics .eyebrow { font-size: .53rem; line-height: 1.6; letter-spacing: .05em; }
   .recap-metrics span { font-size: .64rem; }
-  .week-leaderboard { width: 100%; table-layout: fixed; }
+  .week-leaderboard, .standouts table { width: 100%; table-layout: fixed; }
+  .standouts th:nth-child(2) { width: 2.6rem; }
+  .standouts th:nth-child(3) { width: 4.4rem; }
+  .standouts th:nth-child(4) { width: 4.6rem; }
+  .standouts th, .standouts td { padding-left: 4px; padding-right: 4px; }
+  .standouts .league-label { display: inline-block; max-width: 100%; white-space: normal; line-height: 1.15; font-size: .6rem; }
+  .standouts .player-name { white-space: normal; }
   .week-leaderboard th { white-space: normal; line-height: 1.1; }
   .week-leaderboard th:nth-child(1) { width: 1.6rem; }
   .week-leaderboard th:nth-child(3) { width: 4.7rem; }
@@ -601,6 +607,31 @@ a.title-winner:hover, .title-winner a:hover { color: var(--accent-ink); }
   .draft-bar { grid-template-columns: minmax(0, 1fr) auto; }
   .draft-bar > span:first-child { grid-column: 1 / -1; }
 }
+
+.league-ink.premier,
+.league-ink.premier:hover,
+a:hover .league-ink.premier,
+.league-label.premier { color: #4f7a22; }
+.league-ink.championship,
+.league-ink.championship:hover,
+a:hover .league-ink.championship,
+.league-label.championship { color: #4c76a2; }
+.league-ink.league-one,
+.league-ink.league-one:hover,
+a:hover .league-ink.league-one,
+.league-label.league-one { color: #8f5e16; }
+:root[data-theme=dark] .league-ink.premier,
+:root[data-theme=dark] .league-ink.premier:hover,
+:root[data-theme=dark] a:hover .league-ink.premier,
+:root[data-theme=dark] .league-label.premier { color: #8fbf55; }
+:root[data-theme=dark] .league-ink.championship,
+:root[data-theme=dark] .league-ink.championship:hover,
+:root[data-theme=dark] a:hover .league-ink.championship,
+:root[data-theme=dark] .league-label.championship { color: #8eb4d6; }
+:root[data-theme=dark] .league-ink.league-one,
+:root[data-theme=dark] .league-ink.league-one:hover,
+:root[data-theme=dark] a:hover .league-ink.league-one,
+:root[data-theme=dark] .league-label.league-one { color: #f0c48a; }
 
 @media(max-width:400px) {
   .starter-head, .starter-row { grid-template-columns: minmax(0, 1fr) 3.5rem 3.5rem minmax(0, 1fr); column-gap: 6px; }

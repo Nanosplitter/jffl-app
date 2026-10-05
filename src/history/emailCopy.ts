@@ -1,5 +1,6 @@
 import { INK_ON_LIGHT, parseAnswer, type Ink, type Inline } from './answerText.ts';
 import type { Cell } from './askTools.ts';
+import { putLeagueLast } from './chartKit.ts';
 
 /** A chart reduced to something an email can hold: a picture, a small table, or both. */
 export interface EmailPiece {
@@ -39,6 +40,9 @@ const paragraphStyle = `margin:0 0 12px;font-family:Calibri,Arial,sans-serif;fon
 const mutedStyle = 'margin:0 0 12px;font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.45;color:#62686d;background-color:transparent;';
 
 function tableHtml(columns: string[], rows: Cell[][]) {
+  const ordered = putLeagueLast(columns, rows);
+  columns = ordered.columns;
+  rows = ordered.rows;
   const shown = rows.slice(0, TABLE_ROWS);
   const head = columns.map(column => `<th style="text-align:left;padding:6px 10px;border:1px solid #d9dcdf;font-weight:600;background-color:transparent;color:#151719;">${esc(column)}</th>`).join('');
   const body = shown.map(row => `<tr>${row.map(cell => {
@@ -51,6 +55,9 @@ function tableHtml(columns: string[], rows: Cell[][]) {
 }
 
 function tablePlain(columns: string[], rows: Cell[][]) {
+  const ordered = putLeagueLast(columns, rows);
+  columns = ordered.columns;
+  rows = ordered.rows;
   const shown = rows.slice(0, TABLE_ROWS);
   const lines = [columns.join('\t'), ...shown.map(row => row.map(cell => (cell === null || cell === undefined ? '' : String(cell))).join('\t'))];
   if (rows.length > shown.length) lines.push(`Showing ${shown.length} of ${rows.length} rows.`);
