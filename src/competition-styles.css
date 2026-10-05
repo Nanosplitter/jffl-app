@@ -293,7 +293,8 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .could-manager { font-size: .95rem; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .could-score { display: inline-flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; font-weight: 700; color: inherit; white-space: nowrap; }
 .could-score:hover { text-decoration: none; }
-.could-score span:first-child { color: var(--muted); font-weight: 600; }
+.could-result-old { color: var(--muted); font-weight: 600; }
+.could-result-new { font-weight: 600; }
 .could-score strong { color: #2f7a32; }
 .could-arrow, .swap-arrow { color: var(--muted); }
 .could-against { grid-column: 1 / -1; margin: 2px 0 0; color: var(--muted); font-size: .74rem; }
