@@ -180,6 +180,8 @@ test('every tool declaration is valid for Gemini and the prompt carries the sche
   assert.match(prompt, /\{premier\}Premier\{\/premier\}/);
   assert.match(prompt, /\{championship\}/);
   assert.match(prompt, /\{league-one\}/);
+  assert.match(prompt, /Premier: Jason/);
+  assert.match(prompt, /League One: RonniColin/);
   assert.match(prompt, /teamLeague/);
   assert.match(prompt, /crossLeague/);
   assert.match(prompt, /gameId/);

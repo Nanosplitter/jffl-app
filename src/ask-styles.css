@@ -78,6 +78,8 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-team-stats dd { margin: 2px 0 0; font-weight: 600; }
 .ask-answer a { color: inherit; text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
 .ask-answer a:hover { color: var(--accent-ink); text-decoration-color: currentColor; }
+.ask-answer .ink a,
+.ask-answer .ink a:hover { color: inherit; }
 
 /* Composer */
 .ask-composer { position: sticky; bottom: 0; background: var(--canvas); padding: 14px 0 18px; border-top: 1px solid var(--line); z-index: 4; }

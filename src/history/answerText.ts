@@ -1,3 +1,5 @@
+import { MANAGERS } from '../reference.ts';
+
 /**
  * Turns model text into safe blocks. Paragraphs, simple lists, bold, and a fixed set of color
  * tags are recognized. Every other character, including HTML, stays plain text.
@@ -31,13 +33,20 @@ const LEAGUE_WORDS: Array<[RegExp, Ink]> = [
   [/(?<![\w-])JFFL(?![\w-])/gi, 'jffl'],
 ];
 
-/** Colors a league name the model left plain. A phrase the model already colored is left alone. */
-function paintLeagues(runs: Inline[]): Inline[] {
+const escapeName = (name: string) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** Current managers, longest first, so a longer nickname is never read as a shorter one. */
+const MANAGER_WORDS: Array<[RegExp, Ink]> = [...MANAGERS]
+  .sort((a, b) => b.manager.length - a.manager.length)
+  .map(item => [new RegExp(`(?<![\\w-])${escapeName(item.manager)}(?![\\w-])`, 'gi'), item.slug]);
+
+/** Colors a phrase the model left plain. A phrase the model already colored is left alone. */
+function paintWords(runs: Inline[], words: Array<[RegExp, Ink]>): Inline[] {
   const painted: Inline[] = [];
   for (const run of runs) {
     if (run.color) { painted.push(run); continue; }
     const hits: Array<{ start: number; end: number; ink: Ink }> = [];
-    for (const [pattern, ink] of LEAGUE_WORDS) {
+    for (const [pattern, ink] of words) {
       for (const match of run.text.matchAll(pattern)) {
         const start = match.index ?? 0;
         const end = start + match[0].length;
@@ -59,6 +68,9 @@ function paintLeagues(runs: Inline[]): Inline[] {
   }
   return painted;
 }
+
+const paintLeagues = (runs: Inline[]) => paintWords(runs, LEAGUE_WORDS);
+const paintManagers = (runs: Inline[]) => paintWords(runs, MANAGER_WORDS);
 
 export interface Inline { text: string; bold: boolean; color?: Ink }
 export type Block = { type: 'p'; inline: Inline[] } | { type: 'ul'; items: Inline[][] };
@@ -146,7 +158,7 @@ export function inlineOf(text: string): Inline[] {
     buf += source[index];
   }
   flush();
-  return paintLeagues(runs);
+  return paintManagers(paintLeagues(runs));
 }
 
 export function parseAnswer(text: string): Block[] {

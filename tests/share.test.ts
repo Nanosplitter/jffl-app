@@ -152,9 +152,12 @@ test('share urls keep the data in the fragment', () => {
 test('answer text becomes safe blocks: paragraphs, lists, bold, and nothing executable', () => {
   const blocks = parseAnswer('Jeff won **four** titles.\nHe is first.\n\n- Becky: 3\n- Donna: 2\n\n<script>alert(1)</script>');
   assert.equal(blocks.length, 3);
-  assert.deepEqual(blocks[0], { type: 'p', inline: [{ text: 'Jeff won ', bold: false }, { text: 'four', bold: true }, { text: ' titles. He is first.', bold: false }] });
+  assert.deepEqual(blocks[0], { type: 'p', inline: [{ text: 'Jeff', bold: false, color: 'premier' }, { text: ' won ', bold: false }, { text: 'four', bold: true }, { text: ' titles. He is first.', bold: false }] });
   assert.equal(blocks[1].type, 'ul');
-  assert.equal((blocks[1] as { items: unknown[] }).items.length, 2);
+  if (blocks[1].type === 'ul') {
+    assert.equal(blocks[1].items[0][0].color, 'championship');
+    assert.equal(blocks[1].items[1][0].color, 'premier');
+  }
   assert.deepEqual(blocks[2], { type: 'p', inline: [{ text: '<script>alert(1)</script>', bold: false }] });
 });
 
@@ -178,6 +181,21 @@ test('color tags become ink runs, and unknown or unclosed tags stay text', () =>
     ]);
   }
   assert.deepEqual(blocks[2], { type: 'p', inline: [{ text: '{green}nope{/green} {premier}open', bold: false }] });
+});
+
+test('a current manager left untagged takes their league color, and a chosen color wins', () => {
+  const blocks = parseAnswer('Jason beat Al. {red}Jason{/red} stayed red. Not also.');
+  assert.equal(blocks[0].type, 'p');
+  if (blocks[0].type === 'p') {
+    assert.deepEqual(blocks[0].inline, [
+      { text: 'Jason', bold: false, color: 'premier' },
+      { text: ' beat ', bold: false },
+      { text: 'Al', bold: false, color: 'league-one' },
+      { text: '. ', bold: false },
+      { text: 'Jason', bold: false, color: 'red' },
+      { text: ' stayed red. Not also.', bold: false },
+    ]);
+  }
 });
 
 test('a league name left untagged still takes its color, and a chosen color wins', () => {
