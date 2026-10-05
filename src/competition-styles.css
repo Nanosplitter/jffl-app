@@ -211,7 +211,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .recap-metrics .eyebrow { font-size: .59rem; }
 .recap-metrics strong { font-family: 'Barlow Condensed',sans-serif; font-size: 1.9rem; font-weight: 600; display: block; line-height: 1.2; }
 .recap-metrics span { font-size: .7rem; color: var(--muted); display: block; margin-top: 9px; line-height: 1.6; }
-.recap-metrics.week-recap { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 8px; }
+.recap-metrics.week-recap { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 20px; }
 .week-recap > article { position: relative; grid-column: auto; padding: 14px 8px 12px 0; }
 .week-recap > article.week-club-card { grid-column: 1 / -1; margin-top: 2px; padding: 12px 0 4px; border-top: 1px solid var(--line); }
 .week-recap .eyebrow { margin: 0 0 8px; }
@@ -225,9 +225,10 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .week-recap .week-face .team-logo { width: 40px; height: 40px; flex-basis: 40px; }
 .week-recap .week-face > span,
 .week-recap .week-name { display: block; margin-top: 0; color: var(--text); line-height: 1.15; }
-.week-recap .week-name { font-size: .82rem; font-weight: 600; }
-.week-recap .week-team { display: block; margin-top: 1px; color: var(--muted); font-size: .66rem; font-weight: 500; line-height: 1.25; }
-.week-recap .week-who { display: block; min-width: 0; margin-top: 0; }
+.week-recap .week-name { font-size: .82rem; font-weight: 600; line-height: 1.35; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.week-recap .week-team { display: block; margin-top: 1px; color: var(--muted); font-size: .66rem; font-weight: 500; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.week-recap .week-who { display: block; min-width: 0; margin-top: 0; overflow: hidden; }
+.week-recap .week-face { min-width: 0; }
 .week-recap .week-face > span { flex: 1; min-width: 0; }
 .week-recap .week-face strong { margin: 0 0 0 auto; flex: none; }
 .week-recap .league-label { margin-top: 6px; }
@@ -243,17 +244,17 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .week-recap .week-pair { display: grid; gap: 8px; margin-top: 10px; color: inherit; }
 .week-recap .week-pair:hover { text-decoration: none; }
 .week-recap .week-pair:hover .week-name { text-decoration: underline; text-underline-offset: 3px; }
-.week-recap .week-pair > span { display: flex; align-items: center; gap: 8px; margin-top: 0; color: var(--text); font-size: .78rem; }
+.week-recap .week-pair > span { display: flex; align-items: center; gap: 8px; margin-top: 0; min-width: 0; color: var(--text); font-size: .78rem; }
 .week-recap .week-pair .team-logo { width: 26px; height: 26px; flex-basis: 26px; }
 .week-recap .week-club .week-who,
 .week-recap .week-pair .week-who { flex: 1; }
 .week-recap .week-pair .week-name { min-width: 0; }
 .week-recap .week-pair b,
-.week-club b { margin-left: 8px; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
+.week-club b { margin-left: 8px; flex: none; font-variant-numeric: tabular-nums; font-weight: 600; color: var(--text); }
 .week-recap .week-pair b.leading { color: var(--accent-ink); }
-.week-club { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
-.week-club li { flex: 1 1 11.5rem; max-width: 15rem; min-width: 0; }
-.week-club a { display: flex; align-items: center; gap: 8px; color: inherit; }
+.week-club { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 11.5rem), 1fr)); gap: 10px 18px; }
+.week-club li { min-width: 0; }
+.week-club a { display: flex; align-items: center; gap: 8px; min-width: 0; color: inherit; }
 .week-club a:hover { text-decoration: none; }
 .week-club a:hover .week-name { text-decoration: underline; text-underline-offset: 3px; }
 .week-club .team-logo { width: 28px; height: 28px; flex-basis: 28px; }
@@ -372,7 +373,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 :root[data-theme=dark] .week-result.loss { color: #f0a09a; }
 :root[data-theme=dark] .recap-metrics > article { border-top: 0; position: relative; }
 :root[data-theme=dark] .recap-metrics { row-gap: 22px; }
-:root[data-theme=dark] .recap-metrics.week-recap { row-gap: 0; }
+:root[data-theme=dark] .recap-metrics.week-recap { row-gap: 18px; }
 :root[data-theme=dark] .week-recap > article.week-club-card { border-top: 1px solid var(--line); }
 :root[data-theme=dark] .history-tabs,
 :root[data-theme=dark] .bracket-controls,
@@ -503,9 +504,8 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
   .history-timeline li { gap: 18px; }
   .history-timeline li > span { min-width: 65px; font-size: 1.3rem; }
 }
-@media (min-width: 981px) {
-  .week-club { flex-wrap: nowrap; }
-  .week-club li { flex: 1 1 0; max-width: none; }
+@media (min-width: 1280px) {
+  .recap-metrics.week-recap { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0 8px; }
   .week-recap > article:not(.week-club-card):not(:first-child) { padding-left: 16px; }
   .week-recap > article:not(.week-club-card):not(:first-child)::before {
     content: "";
@@ -520,13 +520,11 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 @media (max-width: 980px) {
   .recap-metrics.week-recap { grid-template-columns: 1fr 1fr; }
   .week-recap > article.week-club-card { grid-column: 1 / -1; }
-  .week-club li { flex-basis: calc(50% - 12px); max-width: none; }
 }
 @media (max-width: 580px) {
   .recap-metrics.week-recap { grid-template-columns: 1fr; }
   .week-recap > article,
   .week-recap > article.week-club-card { grid-column: 1 / -1; }
-  .week-club li { flex-basis: 100%; max-width: none; }
 }
 .archive-nav { margin-top: -18px; }
 .archive-count { color: var(--muted); font-size: .74rem; margin: 16px 0 8px; }
