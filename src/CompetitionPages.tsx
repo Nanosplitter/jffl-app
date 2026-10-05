@@ -217,6 +217,15 @@ function startersFor(players: RosteredPlayer[], teamId: string) {
   return players.filter(player => player.teamId === teamId && player.group === 'starter').sort(compareByLineup);
 }
 
+function benchFor(players: RosteredPlayer[], teamId: string) {
+  return players.filter(player => player.teamId === teamId && player.group === 'bench').sort((a, b) => {
+    if (a.weekPoints == null && b.weekPoints == null) return compareByLineup(a, b);
+    if (a.weekPoints == null) return 1;
+    if (b.weekPoints == null) return -1;
+    return b.weekPoints - a.weekPoints || compareByLineup(a, b);
+  });
+}
+
 function StarterScore({ player, align }: { player?: RosteredPlayer; align: 'left' | 'right' }) {
   if (!player) return <span className={`starter-score ${align}`} />;
   const yet = player.weekPoints == null && player.projectedPoints != null;
@@ -337,6 +346,13 @@ export function LeagueMatchPage() {
     if (historical === null) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Starter scores for this week are not in the latest snapshot yet.' };
     return { title: manager, mark, players: historical, message: historical.length ? null : 'No starters in this snapshot.' };
   };
+  const bench = (teamId: string | null, manager: string, mark: number | null) => {
+    if (!teamId) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Bye' };
+    if (roster?.loading && !roster.data) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Loading bench…' };
+    if (roster?.error && !roster.data) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Bench is unavailable.' };
+    const players = roster?.data ? benchFor(roster.data.players, teamId) : [];
+    return { title: manager, mark, players, message: players.length ? null : 'No bench players in this snapshot.' };
+  };
   const identity = (entry: typeof away, align: 'left' | 'right') => <div className={`match-id ${align}`}>
     {entry.team?.logoUrl && <img className="matchup-logo" src={entry.team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
     <div className="match-id-copy">
@@ -367,7 +383,10 @@ export function LeagueMatchPage() {
     </section>
     {upcoming
       ? <p className="notice">Week {week} has not started. Scores, projections, and starters appear once it is the current week.</p>
-      : <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={[starters(away.teamId, away.manager, away.team?.rank ?? null), starters(home.teamId, home.manager, home.team?.rank ?? null)]} /></section>}
+      : <>
+        <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare sides={[starters(away.teamId, away.manager, away.team?.rank ?? null), starters(home.teamId, home.manager, home.team?.rank ?? null)]} /></section>
+        {data.week === week && <section className="match-lineups" aria-label={`Week ${week} bench`}><h2>Week {week} bench</h2><StarterCompare sides={[bench(away.teamId, away.manager, away.team?.rank ?? null), bench(home.teamId, home.manager, home.team?.rank ?? null)]} /></section>}
+      </>}
   </div>;
 }
 

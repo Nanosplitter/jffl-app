@@ -116,6 +116,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .match-total th, .match-total td { font-weight: 700; color: var(--text); }
 .match-sheet .source-note { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; }
 .match-lineups { margin-top: 16px; width: 100%; }
+.match-lineups + .match-lineups { margin-top: 28px; }
 .match-lineups h2 { font-size: 1.35rem; margin-bottom: 16px; }
 .starter-compare { display: flex; flex-direction: column; }
 .starter-body { position: relative; }
