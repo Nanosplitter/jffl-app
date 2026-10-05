@@ -620,6 +620,10 @@ a:hover .league-ink.championship,
 .league-ink.league-one:hover,
 a:hover .league-ink.league-one,
 .league-label.league-one { color: #8f5e16; }
+.league-ink.jffl,
+.league-ink.jffl:hover,
+a:hover .league-ink.jffl,
+.league-label.jffl { color: #0d7377; }
 :root[data-theme=dark] .league-ink.premier,
 :root[data-theme=dark] .league-ink.premier:hover,
 :root[data-theme=dark] a:hover .league-ink.premier,
@@ -632,6 +636,10 @@ a:hover .league-ink.league-one,
 :root[data-theme=dark] .league-ink.league-one:hover,
 :root[data-theme=dark] a:hover .league-ink.league-one,
 :root[data-theme=dark] .league-label.league-one { color: #f0c48a; }
+:root[data-theme=dark] .league-ink.jffl,
+:root[data-theme=dark] .league-ink.jffl:hover,
+:root[data-theme=dark] a:hover .league-ink.jffl,
+:root[data-theme=dark] .league-label.jffl { color: #3ec0f0; }
 
 @media(max-width:400px) {
   .starter-head, .starter-row { grid-template-columns: minmax(0, 1fr) 3.5rem 3.5rem minmax(0, 1fr); column-gap: 6px; }
