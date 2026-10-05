@@ -71,3 +71,20 @@ export function closestOpen<T extends { margin: number; open: boolean }>(rows: r
   if (open.length) return open[0];
   return rows.filter(row => row.margin > 0).sort(byMargin)[0];
 }
+
+/** Every game tied with the closest margin, then the next-closest games until `minimum`. */
+export function closestListed<T extends { margin: number; open: boolean }>(rows: readonly T[], minimum = 3): T[] {
+  const featured = closestOpen(rows);
+  if (!featured) return [];
+  const ties = rows.filter(row => row.margin === featured.margin);
+  const orderedTies = [
+    featured,
+    ...ties.filter(row => row !== featured && row.open),
+    ...ties.filter(row => row !== featured && !row.open),
+  ];
+  if (orderedTies.length >= minimum) return orderedTies;
+  const rest = rows
+    .filter(row => row.margin > featured.margin)
+    .sort((a, b) => a.margin - b.margin || Number(b.open) - Number(a.open));
+  return [...orderedTies, ...rest.slice(0, minimum - orderedTies.length)];
+}

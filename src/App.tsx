@@ -22,7 +22,7 @@ import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
 import { pointShare, TeamMatchSheet } from './TeamMatchSheet';
 import { PlayerIdentity, injuryLabel, injuryName } from './PlayerIdentity';
-import { canStillSwing, closestOpen, compareByLineup, pointsStillToPlay, slotLabel, slotsLabel } from './lineups';
+import { canStillSwing, closestListed, closestOpen, compareByLineup, pointsStillToPlay, slotLabel, slotsLabel } from './lineups';
 
 const leagueMeta = (slug: string) => LEAGUES.find(league => league.slug === slug);
 const teamLink = (slug: string, id: string) => `/league/${slug}/team/${id}`;
@@ -90,13 +90,26 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
   </article>;
 }
 
+function managerName(slug: LeagueSlug, id: string | null) {
+  return managerFor(slug, id ?? '')?.manager ?? 'Team';
+}
+
+function PulseSides({ slug, leftId, leftScore, rightId, rightScore, margin }: { slug: LeagueSlug; leftId: string | null; leftScore: number | null; rightId: string | null; rightScore: number | null; margin?: number }) {
+  return <>
+    <span className="pulse-side"><span className={leagueInk(slug)}>{managerName(slug, leftId)}</span> {points(leftScore)}</span>
+    {' · '}
+    <span className="pulse-side"><span className={leagueInk(slug)}>{managerName(slug, rightId)}</span> {points(rightScore)}</span>
+    {margin != null && <span className="pulse-margin"> · {points(margin)} {margin === 1 ? 'pt' : 'pts'}</span>}
+  </>;
+}
+
 function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
   const week = Math.max(0, ...loaded.map(data => data.week));
   const matchups = loaded.flatMap(data => (data.weeklyMatchups ?? []).filter(item => item.week === week).map(item => ({ ...item, slug: data.slug })));
   const scores = matchups.flatMap(matchup => [
-    matchup.homeTeamId != null && matchup.homeScore != null ? { slug: matchup.slug, id: matchup.homeTeamId, score: matchup.homeScore } : null,
-    matchup.awayTeamId != null && matchup.awayScore != null ? { slug: matchup.slug, id: matchup.awayTeamId, score: matchup.awayScore } : null,
-  ].filter((row): row is { slug: LeagueSlug; id: string; score: number } => row !== null)).sort((a, b) => b.score - a.score);
+    matchup.homeTeamId != null && matchup.homeScore != null ? { slug: matchup.slug, id: matchup.homeTeamId, score: matchup.homeScore, matchId: matchup.id } : null,
+    matchup.awayTeamId != null && matchup.awayScore != null ? { slug: matchup.slug, id: matchup.awayTeamId, score: matchup.awayScore, matchId: matchup.id } : null,
+  ].filter((row): row is { slug: LeagueSlug; id: string; score: number; matchId: string } => row !== null)).sort((a, b) => b.score - a.score);
   const margins = matchups.filter(matchup => matchup.homeScore != null && matchup.awayScore != null).map(matchup => {
     const done = matchup.status === 'final';
     const homeLeft = done ? 0 : pointsStillToPlay(players[matchup.slug], matchup.homeTeamId);
@@ -105,11 +118,30 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
   });
   if (!scores.some(row => row.score > 0)) return null;
   const high = scores[0];
+  const highMatch = high ? matchups.find(matchup => matchup.slug === high.slug && (matchup.homeTeamId === high.id || matchup.awayTeamId === high.id)) : undefined;
+  const highOpponent = highMatch && high ? (highMatch.homeTeamId === high.id
+    ? { id: highMatch.awayTeamId, score: highMatch.awayScore }
+    : { id: highMatch.homeTeamId, score: highMatch.homeScore }) : undefined;
+  const top = scores.slice(0, 3);
   const close = closestOpen(margins);
+  const closeRows = closestListed(margins);
   const club = scores.filter(row => row.score >= 100);
-  const closeNames = close ? [close.homeTeamId, close.awayTeamId].map(id => managerFor(close.slug, id ?? '')?.manager ?? 'Team') : [];
   const closeTo = close ? `/league/${close.slug}/match/${close.id}` : '/weekly';
-  return <nav className="week-pulse" aria-label="This week"><Link to="/weekly"><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerFor(high.slug, high.id)?.manager ?? 'Team' : '—'}</strong><span>{high ? `${points(high.score)} · ${leagueMeta(high.slug)?.name}` : 'Awaiting scores'}</span></Link><Link to={closeTo}><p className="eyebrow">CLOSEST MARGIN</p><strong>{close ? `${points(close.margin)} pts` : '—'}</strong><span>{close ? <><span className={leagueInk(close.slug)}>{closeNames[0]}</span> {points(close.homeScore)} · <span className={leagueInk(close.slug)}>{closeNames[1]}</span> {points(close.awayScore)}</> : 'Awaiting scores'}</span></Link><Link to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <ul className="pulse-club">{club.map(row => <li key={`${row.slug}-${row.id}`}><span className={leagueInk(row.slug)}>{managerFor(row.slug, row.id)?.manager ?? 'Team'}</span><span className="pulse-club-score">{points(row.score)}</span></li>)}</ul> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link></nav>;
+  const highTo = highMatch ? `/league/${highMatch.slug}/match/${highMatch.id}` : '/weekly';
+  return <nav className="week-pulse" aria-label="This week">
+    <div className="pulse-cell">
+      <Link className="pulse-head" to={highTo}><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerName(high.slug, high.id) : '—'}</strong></Link>
+      {high && highMatch ? <Link className="pulse-line" to={highTo}><PulseSides slug={high.slug} leftId={high.id} leftScore={high.score} rightId={highOpponent?.id ?? null} rightScore={highOpponent?.score ?? null} /></Link> : <span>Awaiting scores</span>}
+      {top.length > 0 && <><span className="pulse-kicker">Top 3</span><ul className="pulse-rank">{top.map(row => <li key={`${row.slug}-${row.id}`}><Link to={`/league/${row.slug}/match/${row.matchId}`}><span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span><span className="pulse-club-score">{points(row.score)}</span></Link></li>)}</ul></>}
+    </div>
+    <div className="pulse-cell">
+      <Link className="pulse-head" to={closeTo}><p className="eyebrow">CLOSEST MARGIN</p><strong>{close ? `${points(close.margin)} ${close.margin === 1 ? 'pt' : 'pts'}` : '—'}</strong></Link>
+      {closeRows.length ? <ul className="pulse-lines">{closeRows.map(matchup => <li key={`${matchup.slug}-${matchup.id}`}><Link className="pulse-line" to={`/league/${matchup.slug}/match/${matchup.id}`}><PulseSides slug={matchup.slug} leftId={matchup.homeTeamId} leftScore={matchup.homeScore} rightId={matchup.awayTeamId} rightScore={matchup.awayScore} margin={close && matchup.margin === close.margin ? undefined : matchup.margin} /></Link></li>)}</ul> : <span>Awaiting scores</span>}
+    </div>
+    <div className="pulse-cell">
+      <Link className="pulse-head" to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <ul className="pulse-club">{club.map(row => <li key={`${row.slug}-${row.id}`}><span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span><span className="pulse-club-score">{points(row.score)}</span></li>)}</ul> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link>
+    </div>
+  </nav>;
 }
 
 function CupStrip({ data, players }: { data: SummaryMap; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {

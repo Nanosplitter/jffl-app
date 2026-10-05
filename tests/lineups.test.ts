@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { canStillSwing, closestOpen, compareByLineup, historicalStarters, pointsStillToPlay, slotLabel } from '../src/lineups.ts';
+import { canStillSwing, closestListed, closestOpen, compareByLineup, historicalStarters, pointsStillToPlay, slotLabel } from '../src/lineups.ts';
 import type { RosteredPlayer } from '../src/types.ts';
 
 const lineups = [{
@@ -81,4 +81,18 @@ test('the closest game that can still flip beats a tighter game whose lineups ar
     { id: 'wider', margin: 9, open: false },
   ]);
   assert.equal(finished?.id, 'locked');
+});
+
+test('closest list keeps every tie, then fills to three with the next closest', () => {
+  const rows = [
+    { id: 'tight-open', margin: 2, open: true },
+    { id: 'tight-locked', margin: 2, open: false },
+    { id: 'next', margin: 5, open: false },
+    { id: 'wider', margin: 9, open: true },
+    { id: 'closer-but-done', margin: 1, open: false },
+  ];
+  assert.deepEqual(closestListed(rows).map(row => row.id), ['tight-open', 'tight-locked', 'next']);
+  const fourTied = [0, 1, 2, 3].map(id => ({ id, margin: 4, open: id === 0 }));
+  assert.deepEqual(closestListed([...fourTied, { id: 'wider', margin: 8, open: true }]).map(row => row.id), [0, 1, 2, 3]);
+  assert.deepEqual(closestListed([{ id: 'only', margin: 3, open: true }]).map(row => row.id), ['only']);
 });

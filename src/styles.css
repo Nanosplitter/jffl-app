@@ -297,13 +297,25 @@ select {
 .preview-notice { color: var(--muted); border-color: var(--line); }
 
 .week-pulse { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 32px; margin: 0 0 8px; }
-.week-pulse a { display: block; border-top: 1px solid var(--line); padding: 16px 0 18px; }
-.week-pulse a:hover { color: inherit; text-decoration: none; }
-.week-pulse a:hover strong { text-decoration: underline; text-underline-offset: 3px; }
+.week-pulse > .pulse-cell { display: block; border-top: 1px solid var(--line); padding: 16px 0 18px; min-width: 0; }
+.pulse-head { display: block; color: inherit; text-decoration: none; }
+.pulse-head:hover { text-decoration: none; }
+.pulse-head:hover strong { text-decoration: underline; text-underline-offset: 3px; }
 .week-pulse .eyebrow { margin-bottom: 8px; }
 .week-pulse strong { font-family: 'Barlow Condensed', Impact, sans-serif; font-size: 1.7rem; font-weight: 600; display: block; line-height: 1.15; }
 .week-pulse span { display: block; margin-top: 6px; color: var(--muted); font-size: .7rem; line-height: 1.45; }
 .week-pulse span span { display: inline; margin-top: 0; }
+.week-pulse .pulse-kicker { margin-top: 10px; }
+.pulse-line { display: block; margin-top: 6px; color: var(--muted); font-size: .7rem; line-height: 1.45; text-decoration: none; }
+.pulse-line:hover { text-decoration: underline; text-underline-offset: 3px; }
+.week-pulse .pulse-line span { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
+.pulse-side { white-space: nowrap; }
+.pulse-lines { list-style: none; margin: 2px 0 0; padding: 0; }
+.pulse-lines .pulse-line { margin-top: 4px; }
+.pulse-rank { list-style: none; margin: 4px 0 0; padding: 0; display: grid; gap: 4px; }
+.pulse-rank a { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; color: inherit; font-size: .7rem; line-height: 1.35; text-decoration: none; }
+.pulse-rank a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.week-pulse .pulse-rank span { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
 .pulse-club { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
 .pulse-club li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; font-size: .7rem; line-height: 1.35; }
 .pulse-club li > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -507,11 +519,11 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
 /* A line across the top of each column fights the card. Columns share a short
    vertical rule; stacked groups separate with space. */
 :root[data-theme=dark] .week-pulse { gap: 0; }
-:root[data-theme=dark] .week-pulse a,
+:root[data-theme=dark] .week-pulse > .pulse-cell,
 :root[data-theme=dark] .home-cup,
 :root[data-theme=dark] .metric { border: 0; position: relative; }
-:root[data-theme=dark] .week-pulse a { padding: 12px 22px 14px 0; }
-:root[data-theme=dark] .week-pulse a:last-child { padding-right: 0; }
+:root[data-theme=dark] .week-pulse > .pulse-cell { padding: 12px 22px 14px 0; }
+:root[data-theme=dark] .week-pulse > .pulse-cell:last-child { padding-right: 0; }
 :root[data-theme=dark] .home-cup-row { border-top: 0; gap: 0; }
 :root[data-theme=dark] .home-cup { padding: 8px 18px 10px 0; }
 :root[data-theme=dark] .panel-footer,
@@ -526,7 +538,7 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
 :root[data-theme=dark] .league-layout .surface-heading { padding-top: 4px; padding-bottom: 10px; }
 :root[data-theme=dark] .mini-matchups { gap: 12px; }
 @media(min-width:581px) {
-  :root[data-theme=dark] .week-pulse a + a::before,
+  :root[data-theme=dark] .week-pulse > .pulse-cell + .pulse-cell::before,
   :root[data-theme=dark] .metric:not(:nth-child(4n+1))::before {
     content: "";
     position: absolute;
@@ -536,7 +548,7 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
     width: 1px;
     background: var(--line);
   }
-  :root[data-theme=dark] .week-pulse a + a,
+  :root[data-theme=dark] .week-pulse > .pulse-cell + .pulse-cell,
   :root[data-theme=dark] .metric:not(:nth-child(4n+1)) { padding-left: 22px; }
 }
 @media(min-width:1101px) {
@@ -565,7 +577,7 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
 }
 @media(max-width:580px) {
   :root[data-theme=dark] .week-pulse { gap: 14px 0; }
-  :root[data-theme=dark] .week-pulse a,
+  :root[data-theme=dark] .week-pulse > .pulse-cell,
   :root[data-theme=dark] .home-cup { padding-right: 0; }
   :root[data-theme=dark] .home-cup-row { gap: 14px 0; }
   :root[data-theme=dark] .metric:nth-child(even)::before {
