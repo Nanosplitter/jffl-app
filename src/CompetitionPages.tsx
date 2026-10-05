@@ -15,6 +15,7 @@ import { cupMatchChance } from './cupOdds';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
 import { compareByLineup, historicalStarters, lineupWouldWin, type LineupMove, type LineupSwing } from './lineups';
+import { BackLink, usePageLabel } from './BackLink';
 
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
 
@@ -108,6 +109,7 @@ export function MatchCard({ match, weeks, data, highlighted, index, layout = 'bo
 }
 
 export function CupHubPage() {
+  usePageLabel('Cups');
   const { data } = useCompetitionData();
   const jffl = buildCup('jffl', data);
   const live = jffl.rounds.flatMap(round => round.matches.flatMap((match, index) => match.status === 'live' ? [{ match, index, weeks: match.weeks, roundName: round.name }] : []));
@@ -160,13 +162,14 @@ export function CupPage() {
     setHighlighted(MANAGERS.some(item => item.key === requested && (cupId === 'jffl' || item.slug === cupId)) ? requested : '');
   }, [cupId, location.search]);
   useEffect(() => { setSelectedRound('all'); }, [cupId]);
-  if (!CUP_IDS.includes(cupId as CupId)) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
-  const cup = buildCup(cupId as CupId, data);
+  const cup = CUP_IDS.includes(cupId as CupId) ? buildCup(cupId as CupId, data) : null;
+  usePageLabel(cup?.name ?? null);
+  if (!cup) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
   const participants = MANAGERS.filter(item => cupId === 'jffl' || item.slug === cupId);
   const leagueCup = cupId !== 'jffl';
   const balanced = cup.rounds.every((round, index) => index === 0 || round.matches.length * 2 === cup.rounds[index - 1].matches.length);
   const tree = selectedRound === 'all' && (balanced || leagueCup);
-  return <><Link className="back-link" to="/cups">← All cups</Link><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. A tie plays a third week.' : 'One-week scores. A tie plays the next week. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className={`champion-pill ${leagueInk(cup.champion.slug)}`}><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
+  return <><BackLink to="/cups">← All cups</BackLink><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. A tie plays a third week.' : 'One-week scores. A tie plays the next week. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className={`champion-pill ${leagueInk(cup.champion.slug)}`}><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
     <div className="bracket-controls"><ManagerHighlight participants={participants} highlighted={highlighted} onChange={setHighlighted} />{selectedRound !== 'all' && <button type="button" className="round-back" onClick={() => setSelectedRound('all')}>Full bracket</button>}</div>
     <div className={`bracket-scroll ${selectedRound !== 'all' ? 'single-round' : tree ? 'bracket-tree' : 'bracket-flow'}${leagueCup && tree ? ' league-bracket' : ''}`} tabIndex={0} role="region" aria-label={selectedRound === 'all' ? `${cup.name} full bracket. Scroll horizontally to see later rounds.` : `${cup.name} selected round`}><div className="bracket-columns">{cup.rounds.map((round, roundIndex) => {
       if (selectedRound !== 'all' && String(roundIndex) !== selectedRound) return null;
@@ -244,6 +247,9 @@ export function CupMatchPage() {
     }))]
     : [];
   const rosters = useRosters(lineupSlugs as LeagueSlug[]);
+  const awayName = located?.match.a.participant?.manager ?? null;
+  const homeName = located?.match.b.participant?.manager ?? null;
+  usePageLabel(awayName && homeName ? `${awayName} vs ${homeName}` : cup?.name ?? null);
   if (!valid || !cup) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
   if (!located) return <p className="notice">Match not found. <Link to={`/cups/${cupId}`}>Back to the bracket</Link></p>;
   const { round, match, index } = located;
@@ -266,7 +272,7 @@ export function CupMatchPage() {
   const odds = chance && chance !== 'level' ? chance : null;
   const oddsLabel = odds ? `${left.title} has a ${odds.left} percent chance to advance. ${right.title} has a ${odds.right} percent chance to advance. Finished weeks count as played. Each starter still to play uses an ESPN projection, widened by that player's weekly range.` : '';
   return <div className="match-sheet">
-    <Link className="back-link" to={`/cups/${cupId}`}>← {cup.name}</Link>
+    <BackLink to={`/cups/${cupId}`}>← {cup.name}</BackLink>
     <section className="page-intro"><div><p className="eyebrow">{cup.name.toUpperCase()} <span>/</span> {round.name.toUpperCase()} <span>/</span> MATCH {index + 1}</p><h1>{match.status === 'bye' ? <span className={leagueInk(left.participant?.slug ?? right.participant?.slug)}><RankMark value={(left.participant ? left : right).seed} />{heading}</span> : <><span className={leagueInk(left.participant?.slug)}><RankMark value={left.seed} />{sideTitle(match.a)}</span> vs <span className={leagueInk(right.participant?.slug)}><RankMark value={right.seed} />{sideTitle(match.b)}</span></>}</h1><p className="intro-copy">{match.status === 'bye' ? status : <>{weekPhrase(match.weeks)} · {status}{match.winner ? <> · <span className={leagueInk(match.winner.slug)}>{match.winner.manager}</span> advances</> : null}</>}</p></div></section>
     <UpdateStrip data={data} />
     {match.status === 'bye' ? <p className="source-note">{sideTitle(match.a.participant ? match.a : match.b)} has a bye in {round.name} and advances.</p> : <>
@@ -307,11 +313,16 @@ export function LeagueMatchPage() {
   const summaryState = meta ? summaries[meta.slug] : undefined;
   const data = summaryState?.data;
   const rosters = useRosters(meta ? [meta.slug] : []);
+  const scoreboard = data?.matchups.find(item => item.id === matchId);
+  const weekly = data?.weeklyMatchups?.find(item => item.id === matchId) ?? data?.weeklyMatchups?.find(item => scoreboard && item.week === data.week && item.homeTeamId === scoreboard.homeTeamId && item.awayTeamId === scoreboard.awayTeamId);
+  const matched = scoreboard ?? weekly;
+  const managerName = (id: string | null) => id && meta ? managerFor(meta.slug, id)?.manager ?? null : null;
+  const awayLabel = matched ? managerName(matched.awayTeamId) : null;
+  const homeLabel = matched ? managerName(matched.homeTeamId) : null;
+  usePageLabel(awayLabel && homeLabel ? `${awayLabel} vs ${homeLabel}` : null);
   if (!meta) return <p className="notice">League not found. <Link to="/">All leagues</Link></p>;
   if (!data) return <p className="notice">{summaryState?.error ? 'League data is temporarily unavailable.' : 'Loading league data…'}</p>;
-  const scoreboard = data.matchups.find(item => item.id === matchId);
-  const weekly = data.weeklyMatchups?.find(item => item.id === matchId) ?? data.weeklyMatchups?.find(item => scoreboard && item.week === data.week && item.homeTeamId === scoreboard.homeTeamId && item.awayTeamId === scoreboard.awayTeamId);
-  const matchup = scoreboard ?? weekly;
+  const matchup = matched;
   if (!matchup) return <p className="notice">Match not found. <Link to={`/league/${slug}`}>Back to {meta.name}</Link></p>;
   const week = weekly?.week ?? data.week;
   const decided = weekly ? weekly.status === 'final' : week < data.week;
@@ -356,7 +367,7 @@ export function LeagueMatchPage() {
     </div>
   </div>;
   return <div className="match-sheet">
-    <Link className="back-link" to={`/league/${slug}`}>← {meta.name}</Link>
+    <BackLink to={`/league/${slug}`}>← {meta.name}</BackLink>
     <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1>{away.team ? <Link className={leagueInk(meta.slug)} to={teamUrl(meta.slug, away.team.id)}><RankMark value={away.team.rank} />{away.manager}</Link> : away.manager} vs {home.team ? <Link className={leagueInk(meta.slug)} to={teamUrl(meta.slug, home.team.id)}><RankMark value={home.team.rank} />{home.manager}</Link> : home.manager}</h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
     <p className="competition-updates">{summaryState ? <Fresh data={data} error={summaryState.error} /> : null}</p>
     <article className="match-board" aria-label={heading}>
@@ -405,6 +416,7 @@ export function LeagueStandingsCard({ meta, teams, updated, error = false }: { m
 }
 
 export function SeasonPage() {
+  usePageLabel('Standings');
   const { data } = useCompetitionData();
   const [league, setLeague] = useState('all');
   const [search, setSearch] = useState('');
@@ -538,6 +550,7 @@ function StandoutBoard({ title, rows, ready }: { title: string; rows: ReturnType
 }
 
 export function WeeklyPage() {
+  usePageLabel('Weekly roundup');
   const { data } = useCompetitionData();
   const currentWeek=Math.max(0,...Object.values(data).map(summary=>summary?.week??0));
   const [selectedWeek,setSelectedWeek]=useState(0);
@@ -726,6 +739,7 @@ function SeasonRaces({ data }: { data: SummaryMap }) {
 }
 
 export function HistoryPage() {
+  usePageLabel('Trophies & history');
   const { data }=useCompetitionData();
   const [view,setView]=useState<'trophies'|'cup'>('trophies');
   const [search,setSearch]=useState('');

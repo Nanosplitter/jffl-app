@@ -13,6 +13,7 @@ import {
 } from './history/stats.ts';
 import { leagueInk, leagueOfManager, leagueSlug } from './reference';
 import { points } from './ui';
+import { BackLink, usePageLabel } from './BackLink';
 
 const dash = '\u2013';
 const managerUrl = (name: string) => `/archive/managers/${encodeURIComponent(name)}`;
@@ -205,6 +206,7 @@ function GameLevelChart({ games, caption, mode, typical }: { games: HistoryGame[
 }
 
 export function ArchivePage() {
+  usePageLabel('Archive');
   const early = eraMean(history.games, 2003, 2012);
   const later = eraMean(history.games, 2013, 2025);
   const high = recordBook(history.games, WEEKLY).highest[0];
@@ -525,6 +527,7 @@ function careerRate(row: { wins: number; losses: number }) {
 }
 
 export function ManagersPage() {
+  usePageLabel('Managers');
   const [search, setSearch] = useState('');
   const dark = useDarkMode();
   const query = search.trim().toLowerCase();
@@ -569,13 +572,14 @@ export function ManagersPage() {
 export function ManagerArchivePage() {
   const params = useParams();
   const name = params.name ? decodeURIComponent(params.name) : '';
+  usePageLabel(name || null);
   const career = careerBook.find(row => row.team === name);
   const seasons = useMemo(() => history.seasons.filter(row => row.team === name), [name]);
   const weeklyHigh = recordBook(history.games.filter(game => game.teamA === name || game.teamB === name), WEEKLY).highest.find(line => line.team === name);
   if (!career) return <Shell eyebrow="LEAGUE ARCHIVE" title="Manager not found" copy="That name is not in the workbook through 2025."><p><Link to="/archive/managers">All managers</Link></p></Shell>;
   const label = (count: number, singular: string, plural: string) => `${count} ${count === 1 ? singular : plural}`;
   return <Shell eyebrow={`${career.first}–${career.last} / ${career.seasons} SEASONS`} title={<InkName name={career.team} />} copy={`${label(career.seasonTitles, 'season title', 'season titles')}, ${label(career.superBowls, 'Superbowl', 'Superbowls')}, ${label(career.leagueCups, 'league cup', 'league cups')}, ${label(career.jfflCups, 'JFFL Cup', 'JFFL Cups')}.`}>
-    <p><Link className="back-link" to="/archive/managers">All managers</Link></p>
+    <p><BackLink to="/archive/managers">All managers</BackLink></p>
     <div className="recap-metrics">
       <article><p className="eyebrow">RECORD</p><strong>{career.wins}{dash}{career.losses}{career.ties ? `${dash}${career.ties}` : ''}</strong><span>Regular-season games in the team-season table.</span></article>
       <article><p className="eyebrow">WEEKLY HIGH</p><strong>{weeklyHigh ? points(weeklyHigh.score) : '—'}</strong><span>{weeklyHigh ? `${weeklyHigh.season} ${weeklyHigh.league} ${roundLabel(weeklyHigh)} vs ${weeklyHigh.opponent}` : 'No weekly score'}</span></article>
