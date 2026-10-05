@@ -305,12 +305,17 @@ select {
 .week-pulse strong { font-family: 'Barlow Condensed', Impact, sans-serif; font-size: 1.7rem; font-weight: 600; display: block; line-height: 1.15; }
 .week-pulse span { display: block; margin-top: 6px; color: var(--muted); font-size: .7rem; line-height: 1.45; }
 .week-pulse span span { display: inline; margin-top: 0; }
-.pulse-rows { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
-.pulse-rows a { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; color: inherit; font-size: .7rem; line-height: 1.35; text-decoration: none; }
-.pulse-rows a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.pulse-row-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.week-pulse .pulse-rows span { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
-.pulse-side { white-space: nowrap; }
+.pulse-rows { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: minmax(0, max-content) 3.4ch max-content minmax(0, max-content) 3.4ch minmax(0, 1fr); column-gap: 4px; row-gap: 4px; align-items: baseline; min-width: 0; font-size: .7rem; line-height: 1.35; }
+.pulse-rows.pulse-margins { grid-template-columns: minmax(0, max-content) 3.4ch max-content minmax(0, max-content) 3.4ch calc(3.4ch + 8px) minmax(0, 1fr); }
+.pulse-rows > li, .pulse-match { display: grid; grid-template-columns: subgrid; grid-column: 1 / -1; min-width: 0; }
+.pulse-match { color: inherit; font-size: inherit; line-height: inherit; text-decoration: none; align-items: baseline; }
+.pulse-match:hover { text-decoration: none; }
+.pulse-match:hover .pulse-match-name { text-decoration: underline; text-underline-offset: 3px; }
+.pulse-match-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pulse-match-score { text-align: right; font-variant-numeric: tabular-nums; }
+.pulse-match-dot { text-align: center; }
+.pulse-match-gap { padding-left: 10px; }
+.week-pulse .pulse-match span { margin: 0; font-size: inherit; line-height: inherit; }
 .pulse-club { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
 .pulse-club li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; font-size: .7rem; line-height: 1.35; }
 .pulse-club li > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
