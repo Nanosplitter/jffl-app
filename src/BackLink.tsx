@@ -187,6 +187,7 @@ export function SiteBack() {
   const navigate = useNavigate();
   useSyncExternalStore(subscribe, currentVersion, currentVersion);
   const path = `${location.pathname}${location.search}`;
+  if (location.pathname === '/') return null;
   const state = loadTrail();
   const crumb = state.here === path ? state.stack.at(-1) ?? null : null;
   const fallback = crumb ? null : fallbackBackTarget(location.pathname);

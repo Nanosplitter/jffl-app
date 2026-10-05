@@ -51,6 +51,15 @@ test('going forward records the page that was left', () => {
   assert.equal(forward.here, match.path);
 });
 
+test('landing on home clears the trail', () => {
+  const atMatch = arrive(emptyTrail(), match.path, 'push', home);
+  const atTeam = arrive(atMatch, team.path, 'push', match);
+  const atHome = arrive(atTeam, '/', 'push', team);
+  assert.deepEqual(atHome, { stack: [], here: '/' });
+  assert.equal(arrive(atHome, '/', 'reload', null), atHome);
+  assert.deepEqual(arrive(atMatch, '/', 'pop', match), { stack: [], here: '/' });
+});
+
 test('seeing the same page again does not grow the trail', () => {
   const atMatch = arrive(emptyTrail(), match.path, 'push', home);
   assert.equal(arrive(atMatch, match.path, 'push', home), atMatch);

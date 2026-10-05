@@ -22,9 +22,10 @@ function lastIndex(stack: BackCrumb[], path: string) {
   return -1;
 }
 
-/** Fold one arrival into the trail. The same page rendered again leaves the trail alone. */
+/** Fold one arrival into the trail. The same page rendered again leaves the trail alone. Home clears it. */
 export function arrive(state: BackTrailState, path: string, kind: Arrival, origin: BackCrumb | null): BackTrailState {
   if (!path) return state;
+  if (path.split('?')[0] === '/') return state.stack.length === 0 && state.here === path ? state : { stack: [], here: path };
   if (kind === 'reload') return state.here === path ? state : { ...state, here: path };
   if (kind === 'replace') return { ...state, here: path };
   if (kind === 'pop') {
