@@ -304,6 +304,11 @@ select {
 .week-pulse strong { font-family: 'Barlow Condensed', Impact, sans-serif; font-size: 1.7rem; font-weight: 600; display: block; line-height: 1.15; }
 .week-pulse span { display: block; margin-top: 6px; color: var(--muted); font-size: .7rem; line-height: 1.45; }
 .week-pulse span span { display: inline; margin-top: 0; }
+.pulse-club { list-style: none; margin: 8px 0 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 16px; }
+.pulse-club li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; font-size: .7rem; line-height: 1.35; }
+.pulse-club li > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.week-pulse .pulse-club span { display: inline; margin: 0; font-size: inherit; line-height: inherit; }
+.pulse-club-score { color: var(--muted); font-variant-numeric: tabular-nums; flex: 0 0 auto; }
 .home-cups { margin-bottom: 8px; }
 .home-cups .panel-section-title a { font-size: .68rem; }
 .home-cup-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 24px; border-top: 1px solid var(--line); }
