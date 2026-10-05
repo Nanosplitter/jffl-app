@@ -17,6 +17,7 @@ const DraftPage = lazy(() => import('./HistoryExplorer').then(module => ({ defau
 const WeekHistoryPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.WeekHistoryPage })));
 import { leagueInk, managerFor } from './reference';
 import { RankMark, cupSeed } from './RankMark';
+import { cupMatchChance } from './cupOdds';
 import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from './competitions';
 import { projectedWinChance } from './projections';
 import { scoringLabel } from './scoring';
@@ -211,7 +212,7 @@ function TeamPage() {
   const { slug = '', teamId = '' } = useParams();
   const meta = leagueMeta(slug);
   const summaries = useSummaries();
-  const rosters = useRosters(meta ? [meta.slug] : []);
+  const rosters = useRosters(LEAGUES.map(item => item.slug));
   if (!meta) return <NotFound />;
   const summaryState = summaries[meta.slug];
   const data = summaryState.data;
@@ -273,6 +274,11 @@ function TeamPage() {
             const status = item.match.status === 'tied' ? 'Old fashioned duel' : item.match.status === 'live' && item.match.replay ? 'Replay week' : { bye: 'Bye', waiting: '', live: '', final: 'Final', unavailable: 'Scores pending' }[item.match.status];
             const crossLeague = item.cupId === 'jffl';
             const share = item.match.status === 'bye' ? null : pointShare(item.match.a.total, item.match.b.total);
+            const open = item.match.status === 'live' || item.match.status === 'waiting';
+            const rosterPlayers = Object.fromEntries(LEAGUES.map(league => [league.slug, rosters[league.slug]?.data?.players ?? null])) as Partial<Record<LeagueSlug, RosteredPlayer[] | null>>;
+            const pending = open && [item.match.a.participant, item.match.b.participant].some(participant => participant && !rosters[participant.slug]?.data && !rosters[participant.slug]?.error);
+            const chance = open && !pending ? cupMatchChance(item.match, board, rosterPlayers) : null;
+            const odds = chance && chance !== 'level' ? chance : null;
             const cupSide = (side: typeof item.match.a) => {
               const participant = side.participant;
               const sideTeam = participant ? board[participant.slug]?.teams.find(team => team.id === participant.teamId) : undefined;
@@ -290,7 +296,7 @@ function TeamPage() {
                 winner: !!participant && participant.key === item.match.winner?.key,
               };
             };
-            return <TeamMatchSheet key={`${item.cupId}-${item.match.id}`} label={`${item.cupName} · ${item.roundName}`} status={status || undefined} to={`/cups/${item.cupId}/match/${item.match.id}`} bar={share ? { ...share, label: `${item.match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${item.match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null} sides={[cupSide(item.match.a), cupSide(item.match.b)]} />;
+            return <TeamMatchSheet key={`${item.cupId}-${item.match.id}`} label={`${item.cupName} · ${item.roundName}`} status={status || undefined} to={`/cups/${item.cupId}/match/${item.match.id}`} note={odds ? `${odds.left}% – ${odds.right}% chance to advance` : chance === 'level' ? 'Level, with both lineups done' : undefined} bar={odds ? { left: odds.left, right: odds.right, label: `${item.match.a.participant?.manager ?? 'Away'} has a ${odds.left} percent chance to advance. ${item.match.b.participant?.manager ?? 'Home'} has a ${odds.right} percent chance to advance.` } : share ? { ...share, label: `${item.match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${item.match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null} sides={[cupSide(item.match.a), cupSide(item.match.b)]} />;
           })}
         </div>
       </section>}

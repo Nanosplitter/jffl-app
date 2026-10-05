@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1",
     "test:rules": "node --test tests/firestore.rules.test.mjs",
-    "test:competitions": "node --experimental-strip-types --test tests/competitions.test.ts tests/projections.test.ts tests/scoring.test.ts tests/lineups.test.ts tests/history.test.ts tests/askTools.test.ts tests/chartSpec.test.ts tests/share.test.ts tests/askAgent.test.ts tests/askEval.test.ts tests/emailCopy.test.ts tests/liveSeason.test.ts tests/askCards.test.ts"
+    "test:competitions": "node --experimental-strip-types --test tests/competitions.test.ts tests/projections.test.ts tests/cupOdds.test.ts tests/scoring.test.ts tests/lineups.test.ts tests/history.test.ts tests/askTools.test.ts tests/chartSpec.test.ts tests/share.test.ts tests/askAgent.test.ts tests/askEval.test.ts tests/emailCopy.test.ts tests/liveSeason.test.ts tests/askCards.test.ts"
   },
   "dependencies": {
     "echarts": "^5.6.0",

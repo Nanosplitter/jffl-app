@@ -100,6 +100,11 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .match-center-score span { color: var(--muted); font-size: 1.5rem; }
 .match-center-score .leading { color: var(--accent-ink); }
 .match-board .win-bar { margin-top: 16px; }
+.match-board .cup-odds { margin-top: 16px; }
+.match-board .cup-odds .win-bar { margin-top: 8px; }
+.cup-odds-read { display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; font-weight: 650; font-size: .95rem; }
+.cup-odds-read .favored { color: var(--accent-ink); }
+.cup-odds-note { margin: 8px 0 0; color: var(--muted); font-size: .68rem; line-height: 1.45; }
 .match-stats { width: 100%; margin: 16px 0 0; }
 .match-compare { width: 100%; border-collapse: collapse; }
 .match-compare th, .match-compare td { padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); font-size: .78rem; font-weight: 500; text-align: left; }

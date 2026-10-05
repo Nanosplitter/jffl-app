@@ -1,6 +1,6 @@
 const SPREAD = 15;
 
-function standardNormalCdf(z: number): number {
+export function standardNormalCdf(z: number): number {
   const sign = z < 0 ? -1 : 1;
   const x = Math.abs(z) / Math.SQRT2;
   const t = 1 / (1 + 0.3275911 * x);

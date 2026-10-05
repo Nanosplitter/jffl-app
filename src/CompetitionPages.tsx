@@ -11,6 +11,7 @@ import { esc } from './history/chartKit';
 import { buildCup, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
+import { cupMatchChance } from './cupOdds';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity } from './PlayerIdentity';
 import { compareByLineup, historicalStarters } from './lineups';
@@ -254,6 +255,12 @@ export function CupMatchPage() {
   };
   const left = sideProfile(match.a);
   const right = sideProfile(match.b);
+  const openMatch = match.status === 'live' || match.status === 'waiting';
+  const rosterPending = openMatch && lineupSlugs.some(slug => !rosters[slug]?.data && !rosters[slug]?.error);
+  const players = Object.fromEntries(lineupSlugs.map(slug => [slug, rosters[slug]?.data?.players ?? null])) as Partial<Record<LeagueSlug, RosteredPlayer[] | null>>;
+  const chance = openMatch && !rosterPending ? cupMatchChance(match, data, players) : null;
+  const odds = chance && chance !== 'level' ? chance : null;
+  const oddsLabel = odds ? `${left.title} has a ${odds.left} percent chance to advance. ${right.title} has a ${odds.right} percent chance to advance. Finished weeks count as played. Each starter still to play uses an ESPN projection, widened by that player's weekly range.` : '';
   return <div className="match-sheet">
     <Link className="back-link" to={`/cups/${cupId}`}>← {cup.name}</Link>
     <section className="page-intro"><div><p className="eyebrow">{cup.name.toUpperCase()} <span>/</span> {round.name.toUpperCase()} <span>/</span> MATCH {index + 1}</p><h1>{match.status === 'bye' ? <span className={leagueInk(left.participant?.slug ?? right.participant?.slug)}><RankMark value={(left.participant ? left : right).seed} />{heading}</span> : <><span className={leagueInk(left.participant?.slug)}><RankMark value={left.seed} />{sideTitle(match.a)}</span> vs <span className={leagueInk(right.participant?.slug)}><RankMark value={right.seed} />{sideTitle(match.b)}</span></>}</h1><p className="intro-copy">{match.status === 'bye' ? status : <>{weekPhrase(match.weeks)} · {status}{match.winner ? <> · <span className={leagueInk(match.winner.slug)}>{match.winner.manager}</span> advances</> : null}</>}</p></div></section>
@@ -265,7 +272,7 @@ export function CupMatchPage() {
           <div className="match-center-score"><strong className={left.leading ? 'leading' : ''}>{points(match.a.total)}</strong><span aria-hidden="true">–</span><strong className={right.leading ? 'leading' : ''}>{points(match.b.total)}</strong></div>
           <MatchIdentity participant={right.participant} team={right.team} seed={right.seed} title={right.title} align="right" />
         </div>
-        {share && <div className="win-bar" role="img" aria-label={`${left.title} ${share.away} percent of the scored points. ${right.title} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
+        {odds ? <div className="cup-odds"><p className="cup-odds-read"><span className={odds.left > odds.right ? 'favored' : ''}>{odds.left}%</span><span className={odds.right > odds.left ? 'favored' : ''}>{odds.right}%</span></p><div className="win-bar" role="img" aria-label={oddsLabel}><span className={odds.left > odds.right ? 'favored' : ''} style={{ width: `${odds.left}%` }} /><span className={odds.right > odds.left ? 'favored' : ''} style={{ width: `${odds.right}%` }} /></div><p className="cup-odds-note">Chance to advance from the starters still to play. Finished weeks count as played. Each remaining projection is widened by that player’s weekly range.</p></div> : chance === 'level' ? <p className="cup-odds-note">Both lineups are done and the match is level.</p> : share && <div className="win-bar" role="img" aria-label={`${left.title} ${share.away} percent of the scored points. ${right.title} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
       </article>
       <section className="match-stats" aria-label="Score and season comparison">
         <table className="match-compare"><caption className="sr-only">Score and season comparison</caption><thead><tr><th scope="col"><span className="sr-only">Stat</span></th><th scope="col">{left.title}</th><th scope="col">{right.title}</th></tr></thead><tbody>

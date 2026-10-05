@@ -226,6 +226,7 @@ a.team-sheet:hover .team-sheet-name { text-decoration: underline; text-underline
 .team-sheet-note { min-height: 1.35em; }
 .team-sheet .score { font-size: 1.7rem; margin-top: 8px; }
 .team-sheet .win-bar { margin-top: auto; }
+.team-sheet-odds { margin: 0; color: var(--muted); font-size: .68rem; line-height: 1.35; }
 .team-sheet .win-bar.is-empty { background: transparent; }
 .team-roster .roster-section { margin-bottom: 0; }
 .team-roster .roster-section + .roster-section { margin-top: 16px; }
