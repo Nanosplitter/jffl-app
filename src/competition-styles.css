@@ -320,10 +320,19 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 :root[data-theme=dark] .could-score .could-result-old strong { color: #f0a09a; }
 :root[data-theme=dark] .swap-out b { color: #f0a09a; }
 @media (max-width: 580px) {
-  .could-have, .could-have > li, .swap-row { display: block; }
-  .swap-row { margin-top: 4px; }
-  .swap-player { display: grid; grid-template-columns: 42px minmax(0, 1fr) 2.75rem; grid-column: auto; column-gap: 10px; width: 100%; margin-top: 8px; }
-  .swap-arrow { display: block; width: 42px; margin: 4px 0 0; transform: rotate(90deg); text-align: center; }
+  .could-have, .could-have > li { display: block; min-width: 0; }
+  .could-match { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  .could-manager { grid-row: 1; }
+  .could-against { grid-column: 1; grid-row: 2; margin: 0; }
+  .could-score { grid-row: 3; justify-self: start; max-width: 100%; margin-top: 8px; }
+  .swap-row { display: grid; grid-template-columns: minmax(0, 1fr) 1.1rem minmax(0, 1fr); column-gap: 8px; align-items: center; margin: 0; padding: 12px 0; border-top: 1px solid var(--line); }
+  .swap-player { display: grid; grid-template-columns: 34px minmax(0, 1fr); grid-template-rows: auto auto; column-gap: 8px; row-gap: 1px; align-items: center; width: auto; margin: 0; min-width: 0; }
+  .swap-photo, .swap-photo .player-headshot, .swap-photo .nfl-portrait { width: 34px; height: 34px; }
+  .swap-photo { grid-column: 1; grid-row: 1 / span 2; }
+  .swap-copy { grid-column: 2; grid-row: 1; }
+  .swap-name, .swap-copy small { white-space: normal; overflow: visible; text-overflow: unset; }
+  .swap-player b { grid-column: 2; grid-row: 2; justify-self: start; }
+  .swap-arrow { display: flex; align-items: center; justify-content: center; width: auto; margin: 0; transform: none; }
 }
 .trophy-races { margin-bottom: 35px; }
 .trophy-intro { padding: 16px 0 2px; }
