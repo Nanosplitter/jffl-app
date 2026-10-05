@@ -357,7 +357,7 @@ export function LeagueMatchPage() {
   </div>;
   return <div className="match-sheet">
     <Link className="back-link" to={`/league/${slug}`}>← {meta.name}</Link>
-    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1><span className={leagueInk(meta.slug)}><RankMark value={away.team?.rank} />{away.manager}</span> vs <span className={leagueInk(meta.slug)}><RankMark value={home.team?.rank} />{home.manager}</span></h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
+    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1>{away.team ? <Link className={leagueInk(meta.slug)} to={teamUrl(meta.slug, away.team.id)}><RankMark value={away.team.rank} />{away.manager}</Link> : away.manager} vs {home.team ? <Link className={leagueInk(meta.slug)} to={teamUrl(meta.slug, home.team.id)}><RankMark value={home.team.rank} />{home.manager}</Link> : home.manager}</h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
     <p className="competition-updates">{summaryState ? <Fresh data={data} error={summaryState.error} /> : null}</p>
     <article className="match-board" aria-label={heading}>
       <div className="match-board-row">
