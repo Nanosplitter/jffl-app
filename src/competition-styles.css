@@ -282,6 +282,8 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .hundred-tag { font-size: .57rem; color: var(--accent-ink); margin-left: 8px; }
 .standouts { margin-top: 32px; }
 .standouts strong { font-size: .8rem; }
+.standout-managers { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; }
+.standout-managers a { font-weight: 600; line-height: 1.3; }
 .trophy-races { margin-bottom: 35px; }
 .trophy-intro { padding: 16px 0 2px; }
 .trophy-intro h2 { font-size: 1.5rem; text-transform: uppercase; }

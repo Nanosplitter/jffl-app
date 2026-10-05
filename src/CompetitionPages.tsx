@@ -423,6 +423,22 @@ function WeekNav({ week, count, onChange }: { week: number; count: number; onCha
   </div>;
 }
 
+function standoutGroups(states: ReturnType<typeof useRosters>) {
+  const rows = LEAGUES.flatMap(meta => (states[meta.slug]?.data?.players ?? []).filter(player => player.group === 'starter' && player.weekPoints != null).map(player => ({ player, slug: meta.slug })));
+  const groups = new Map<string, typeof rows>();
+  for (const row of rows) {
+    const spots = groups.get(row.player.id) ?? [];
+    spots.push(row);
+    groups.set(row.player.id, spots);
+  }
+  return [...groups.values()].map(spots => {
+    const ordered = [...spots].sort((a, b) => LEAGUES.findIndex(meta => meta.slug === a.slug) - LEAGUES.findIndex(meta => meta.slug === b.slug));
+    const score = Math.max(...ordered.map(spot => spot.player.weekPoints ?? 0));
+    const player = ordered.find(spot => spot.player.weekPoints === score)?.player ?? ordered[0].player;
+    return { player, score, spots: ordered };
+  }).sort((a, b) => b.score - a.score || a.player.name.localeCompare(b.player.name)).slice(0, 12);
+}
+
 function sideTeam(data: SummaryMap, slug: string, id: string | null) {
   if (!id) return null;
   return data[slug as LeagueSlug]?.teams.find(team => team.id === id) ?? null;
@@ -482,7 +498,7 @@ export function WeeklyPage() {
   const allFinal=matchups.length===15&&matchups.every(matchup=>matchup.status==='final');
   const peak=scores[0]?.score??0;
   const leagueName=(slug: string)=>LEAGUES.find(meta=>meta.slug===slug)?.name??slug;
-  const standouts=LEAGUES.flatMap(meta=>(states[meta.slug]?.data?.players??[]).filter(player=>player.group==='starter'&&player.weekPoints!==null).map(player=>({...player,slug:meta.slug}))).sort((a,b)=>b.weekPoints!-a.weekPoints!).slice(0,12);
+  const standouts=standoutGroups(states);
   return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p></div><WeekNav week={week} count={currentWeek} onChange={showWeek} /></section><UpdateStrip data={data}/>
     <div className="recap-metrics week-recap">
       <article><p className="eyebrow">High scorer</p>{scores[0] ? <WeekFace data={data} slug={scores[0].slug} id={scores[0].id} score={scores[0].score} /> : <strong>—</strong>}{scores[0] && <span className={`league-label ${scores[0].slug}`}>{leagueName(scores[0].slug)}</span>}</article>
@@ -508,7 +524,7 @@ export function WeeklyPage() {
       const result = row.opponent === null ? '—' : !ahead && !behind ? row.final ? 'Tie' : 'Level' : ahead ? row.final ? 'Won' : 'Leading' : row.final ? 'Lost' : 'Trailing';
       return <tr key={`${row.slug}-${row.id}`}><td className="rank">{index + 1}</td><td><Link className={`manager-link team-identity league-ink ${row.slug}`} to={teamUrl(row.slug, row.id)}><TeamMark logoUrl={sideTeam(data, row.slug, row.id)?.logoUrl} />{managerFor(row.slug, row.id)?.manager ?? 'Team'}<span className="sr-only">, {leagueName(row.slug)}</span></Link></td><td className="week-points"><span className="week-score"><span className="numeric emphasis">{points(row.score)}{row.score >= 100 && <span className="hundred-tag">100+</span>}</span><span className="week-bar" data-league={row.slug} aria-hidden="true"><span style={{ width: peak > 0 ? `${Math.round(row.score / peak * 100)}%` : '0%' }} /></span></span></td><td className={ahead ? 'week-result win' : behind ? 'week-result loss' : 'muted'}>{result}</td></tr>;
     })}</tbody></table></div></section>
-    {week===currentWeek&&<section className="surface standouts week-board"><div className="surface-heading"><h2>Top starting-player performances</h2></div><div className="table-scroll"><table><thead><tr><th>Player</th><th>Points</th><th>Manager</th></tr></thead><tbody>{standouts.map(player=><tr key={`${player.slug}-${player.id}`}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td><td className="numeric emphasis">{points(player.weekPoints)}</td><td><Link className={leagueInk(player.slug)} to={teamUrl(player.slug,player.teamId)}>{managerFor(player.slug,player.teamId)?.manager}<span className="sr-only">, {leagueName(player.slug)}</span></Link></td></tr>)}</tbody></table></div></section>}
+    {week===currentWeek&&<section className="surface standouts week-board"><div className="surface-heading"><h2>Top starting-player performances</h2></div><div className="table-scroll"><table><thead><tr><th>Player</th><th>Points</th><th>Manager</th></tr></thead><tbody>{standouts.map(({ player, score, spots }) => <tr key={player.id}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td><td className="numeric emphasis">{points(score)}</td><td><div className="standout-managers">{spots.map(spot => <Link key={spot.slug} className={leagueInk(spot.slug)} to={teamUrl(spot.slug, spot.player.teamId)}>{managerFor(spot.slug, spot.player.teamId)?.manager ?? 'Team'}<span className="sr-only">, {leagueName(spot.slug)}</span></Link>)}</div></td></tr>)}</tbody></table></div></section>}
     <p className="source-note">The smallest margin excludes tied games. Completed weeks use ESPN’s corrected scores; live-week winners and losers are shown as leaders and trailers.</p>
   </>;
 }
