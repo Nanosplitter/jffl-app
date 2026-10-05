@@ -313,6 +313,7 @@ select {
 .pulse-match:hover .pulse-match-name { text-decoration: underline; text-underline-offset: 3px; }
 .pulse-match-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pulse-match-score { text-align: right; font-variant-numeric: tabular-nums; }
+.week-pulse .pulse-key { font-weight: 700; color: var(--text); }
 .pulse-match-dot { text-align: center; }
 .pulse-match-gap { padding-left: 10px; }
 .week-pulse .pulse-match span { margin: 0; font-size: inherit; line-height: inherit; }

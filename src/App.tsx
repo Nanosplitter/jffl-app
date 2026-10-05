@@ -94,8 +94,8 @@ function managerName(slug: LeagueSlug, id: string | null) {
   return managerFor(slug, id ?? '')?.manager ?? 'Team';
 }
 
-function PulseMatch({ to, slug, leftId, leftScore, rightId, rightScore, margin }: { to: string; slug: LeagueSlug; leftId: string | null; leftScore: number | null; rightId: string | null; rightScore: number | null; margin?: number }) {
-  return <li><Link className="pulse-match" to={to}><span className={`pulse-match-name ${leagueInk(slug)}`}>{managerName(slug, leftId)}</span><span className="pulse-match-score">{points(leftScore)}</span><span className="pulse-match-dot" aria-hidden="true">·</span><span className={`pulse-match-name ${leagueInk(slug)}`}>{managerName(slug, rightId)}</span><span className="pulse-match-score">{points(rightScore)}</span>{margin != null && <span className="pulse-match-score pulse-match-gap">{points(margin)}</span>}</Link></li>;
+function PulseMatch({ to, slug, leftId, leftScore, rightId, rightScore, margin, emphasize }: { to: string; slug: LeagueSlug; leftId: string | null; leftScore: number | null; rightId: string | null; rightScore: number | null; margin?: number; emphasize?: 'left' | 'margin' }) {
+  return <li><Link className="pulse-match" to={to}><span className={`pulse-match-name ${leagueInk(slug)}`}>{managerName(slug, leftId)}</span><span className={`pulse-match-score${emphasize === 'left' ? ' pulse-key' : ''}`}>{points(leftScore)}</span><span className="pulse-match-dot" aria-hidden="true">·</span><span className={`pulse-match-name ${leagueInk(slug)}`}>{managerName(slug, rightId)}</span><span className="pulse-match-score">{points(rightScore)}</span>{margin != null && <span className={`pulse-match-score pulse-match-gap${emphasize === 'margin' ? ' pulse-key' : ''}`}>{points(margin)}</span>}</Link></li>;
 }
 
 function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
@@ -127,14 +127,14 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
   return <nav className="week-pulse" aria-label="This week">
     <div className="pulse-cell">
       <Link className="pulse-head" to={highTo}><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerName(high.slug, high.id) : '—'}</strong></Link>
-      {top.length ? <ul className="pulse-rows">{top.map(({ row, to, opponentId, opponentScore }) => <PulseMatch key={`${row.slug}-${row.id}`} to={to} slug={row.slug} leftId={row.id} leftScore={row.score} rightId={opponentId} rightScore={opponentScore} />)}</ul> : <span>Awaiting scores</span>}
+      {top.length ? <ul className="pulse-rows">{top.map(({ row, to, opponentId, opponentScore }) => <PulseMatch key={`${row.slug}-${row.id}`} to={to} slug={row.slug} leftId={row.id} leftScore={row.score} rightId={opponentId} rightScore={opponentScore} emphasize="left" />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">
       <Link className="pulse-head" to={closeTo}><p className="eyebrow">CLOSEST MARGIN</p><strong>{close ? `${points(close.margin)} ${close.margin === 1 ? 'pt' : 'pts'}` : '—'}</strong></Link>
-      {closeRows.length ? <ul className="pulse-rows pulse-margins">{closeRows.map(matchup => <PulseMatch key={`${matchup.slug}-${matchup.id}`} to={`/league/${matchup.slug}/match/${matchup.id}`} slug={matchup.slug} leftId={matchup.homeTeamId} leftScore={matchup.homeScore} rightId={matchup.awayTeamId} rightScore={matchup.awayScore} margin={matchup.margin} />)}</ul> : <span>Awaiting scores</span>}
+      {closeRows.length ? <ul className="pulse-rows pulse-margins">{closeRows.map(matchup => <PulseMatch key={`${matchup.slug}-${matchup.id}`} to={`/league/${matchup.slug}/match/${matchup.id}`} slug={matchup.slug} leftId={matchup.homeTeamId} leftScore={matchup.homeScore} rightId={matchup.awayTeamId} rightScore={matchup.awayScore} margin={matchup.margin} emphasize="margin" />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">
-      <Link className="pulse-head" to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <ul className="pulse-club">{club.map(row => <li key={`${row.slug}-${row.id}`}><span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span><span className="pulse-club-score">{points(row.score)}</span></li>)}</ul> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link>
+      <Link className="pulse-head" to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <ul className="pulse-club">{club.map(row => <li key={`${row.slug}-${row.id}`}><span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span><span className="pulse-club-score pulse-key">{points(row.score)}</span></li>)}</ul> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link>
     </div>
   </nav>;
 }
