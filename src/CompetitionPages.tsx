@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, NavLink, useLocation, useParams } from 'react-router-dom';
-import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Link, NavLink, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
 import { MANAGERS, TIMELINE, leagueInk, leagueOfManager, managerFor, type ManagerReference } from './reference';
@@ -16,6 +16,8 @@ import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
 import { compareByLineup, historicalStarters, lineupWouldWin, rosterForWeek, type LineupMove, type LineupSwing } from './lineups';
 import { usePageLabel } from './BackLink';
+import { copyEmail } from './history/emailCopy';
+import { renderWeeklyEmail, type EmailGame, type EmailSection, type WeeklyEmail } from './weeklyEmail';
 
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
 
@@ -672,13 +674,36 @@ function cupResultGames(data: SummaryMap, cupId: CupId, week: number) {
   }));
 }
 
+function emailGames(games: { upset: boolean; sides: { name: string; slug: string; mark: number | null; score: number | null; projected: number | null; miss: boolean; leading: boolean }[] }[]): EmailGame[] {
+  return games.map(game => ({
+    upset: game.upset,
+    sides: game.sides.map(side => ({
+      name: side.name, slug: side.slug, mark: side.mark, score: points(side.score), leading: side.leading, miss: side.miss,
+      projected: side.miss && side.projected != null ? points(side.projected) : null,
+    })),
+  }));
+}
+
+function emailSection(section: { title: string; slug: string; games: { upset: boolean; span: string | null; sides: { name: string; slug: string; mark: number | null; score: number | null; projected: number | null; miss: boolean; leading: boolean }[] }[]; empty: string }): EmailSection {
+  const spans = [...new Set(section.games.map(game => game.span).filter((span): span is string => !!span))];
+  return { title: section.title, ink: section.slug, span: spans.length === 1 ? spans[0] : null, games: emailGames(section.games), empty: section.empty };
+}
+
 export function WeeklyPage() {
   usePageLabel('Weekly roundup');
   const { data } = useCompetitionData();
+  const [params, setParams] = useSearchParams();
+  const [emailNote, setEmailNote] = useState('');
   const currentWeek=Math.max(0,...Object.values(data).map(summary=>summary?.week??0));
-  const [selectedWeek,setSelectedWeek]=useState(0);
-  const week=selectedWeek||currentWeek;
-  const showWeek=(value: number)=>setSelectedWeek(value>=currentWeek?0:value);
+  const requested=Number(params.get('week'));
+  const week=requested>=1&&requested<currentWeek?requested:currentWeek;
+  const showWeek=(value: number)=>{
+    setEmailNote('');
+    const next=new URLSearchParams(params);
+    if(value>=currentWeek||value<1) next.delete('week');
+    else next.set('week', String(value));
+    setParams(next, { replace: true });
+  };
   const states=useRosters(LEAGUES.map(meta=>meta.slug));
   const matchups=LEAGUES.flatMap(meta=>(data[meta.slug]?.weeklyMatchups??[]).filter(item=>item.week===week).map(item=>({...item,slug:meta.slug})));
   const scores=matchups.flatMap(matchup=>[[matchup.homeTeamId,matchup.homeScore,matchup.awayScore],[matchup.awayTeamId,matchup.awayScore,matchup.homeScore]].filter(([id,score])=>id!==null&&score!==null).map(([id,score,opponent])=>({id:String(id),score:Number(score),opponent:opponent as number|null,slug:matchup.slug,final:matchup.status==='final'}))).sort((a,b)=>b.score-a.score);
@@ -696,15 +721,58 @@ export function WeeklyPage() {
   const rostersReady=LEAGUES.every(meta=>!!states[meta.slug]?.data);
   const lineupsReady=!past||LEAGUES.some(meta=>states[meta.slug]?.data?.weeklyLineups?.some(lineup=>lineup.week===week));
   const missingLineups='Lineups for this week aren\'t in the latest snapshot yet.';
-  const leagueSlates=LEAGUES.map(meta=>({title:meta.name,ink:leagueInk(meta.slug),games:leagueResultGames(data,meta.slug,week),empty:'No matchups this week.'}));
-  const cupSlates=CUP_IDS.map(id=>({title:buildCup(id,data).name,ink:leagueInk(id),games:cupResultGames(data,id,week),empty:'No matches this week.'}));
-  return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p></div><WeekNav week={week} count={currentWeek} onChange={showWeek} /></section><UpdateStrip data={data}/>
+  const leagueSlates=LEAGUES.map(meta=>({title:meta.name,slug:meta.slug,ink:leagueInk(meta.slug),games:leagueResultGames(data,meta.slug,week),empty:'No matchups this week.'}));
+  const cupSlates=CUP_IDS.map(id=>({title:buildCup(id,data).name,slug:id,ink:leagueInk(id),games:cupResultGames(data,id,week),empty:'No matches this week.'}));
+  const named=(slug: string, id: string)=>({name:managerFor(slug, id)?.manager??'Team', slug});
+  const pairLine=(matchup: typeof margins[number])=>{
+    const sides=[{id:matchup.homeTeamId, score:matchup.homeScore},{id:matchup.awayTeamId, score:matchup.awayScore}].sort((a,b)=>(b.score??-1)-(a.score??-1));
+    return `${points(matchup.margin)} pts, ${sides.map(side=>`${named(matchup.slug, side.id??'').name} ${points(side.score)}`).join(', ')}`;
+  };
+  const email: WeeklyEmail={
+    week, live:!allFinal, pageUrl:week>0&&week<currentWeek?`${window.location.origin}/weekly?week=${week}`:`${window.location.origin}/weekly`,
+    extremes:[
+      {label:'High scorer', text:scores[0]?`${named(scores[0].slug, scores[0].id).name}, ${points(scores[0].score)} (${leagueName(scores[0].slug)})`:'—'},
+      {label:allFinal?'Lowest-scoring winner':'Lowest leading score', text:winners[0]?`${named(winners[0].slug, winners[0].id).name}, ${points(winners[0].score)} (${leagueName(winners[0].slug)})`:'—'},
+      {label:allFinal?'Highest-scoring loser':'Highest trailing score', text:losers[0]?`${named(losers[0].slug, losers[0].id).name}, ${points(losers[0].score)} (${leagueName(losers[0].slug)})`:'—'},
+      {label:allFinal?'Smallest winning margin':'Smallest margin', text:margins[0]?pairLine(margins[0]):'—'},
+      {label:allFinal?'Largest blowout':'Largest lead', text:margins.at(-1)?pairLine(margins.at(-1)!):'—'},
+    ],
+    hundred:hundred.map(row=>({person:named(row.slug, row.id), score:points(row.score)})),
+    leagues:leagueSlates.map(emailSection),
+    cups:cupSlates.filter(slate=>slate.games.length>0).map(emailSection),
+    idleCups:cupSlates.filter(slate=>slate.games.length===0).map(slate=>({title:slate.title, ink:slate.slug})),
+    cupCount:cupSlates.length,
+    couldHave:rostersReady&&lineupsReady?swings.map(swing=>({
+      manager:named(swing.slug, swing.teamId), opponent:named(swing.slug, swing.opponentId),
+      before:`${points(swing.score)}–${points(swing.opponentScore)}`, after:`${points(swing.wouldScore)}–${points(swing.opponentScore)}`,
+      swaps:swing.swaps.map(swap=>({outName:swap.sit.name, outPoints:points(swap.sit.points), inName:swap.start.name, inPoints:points(swap.start.points)})),
+    })) : null,
+    couldHaveEmpty:!rostersReady?'Loading lineups…':!lineupsReady?missingLineups:swings.length?null:'No one was a move or two away.',
+    leaderboard:scores.map((row, index)=>{
+      const ahead=row.opponent!==null&&row.score>row.opponent;
+      const behind=row.opponent!==null&&row.score<row.opponent;
+      const result=row.opponent===null?'—':!ahead&&!behind?row.final?'Tie':'Level':ahead?row.final?'Won':'Leading':row.final?'Lost':'Trailing';
+      return {rank:index+1, person:named(row.slug, row.id), score:points(row.score), result};
+    }),
+    starters:standouts.map(row=>({player:row.player.name, score:points(row.score), managers:row.spots.map(spot=>named(spot.slug, spot.player.teamId))})),
+    starterEmpty:!rostersReady?'Loading lineups…':!lineupsReady?missingLineups:standouts.length?null:'No scores yet.',
+    bench:bench.map(row=>({player:row.player.name, score:points(row.score), managers:row.spots.map(spot=>named(spot.slug, spot.player.teamId))})),
+    benchEmpty:!rostersReady?'Loading lineups…':!lineupsReady?missingLineups:bench.length?null:'No scores yet.',
+  };
+  const copyWeek=async()=>{
+    try {
+      const rendered=renderWeeklyEmail(email);
+      const ok=await copyEmail(rendered.html, rendered.plain);
+      setEmailNote(ok?'Copied. Paste it into the email.':'Could not copy. Try again.');
+    } catch { setEmailNote('Could not copy. Try again.'); }
+  };
+  return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p><div className="email-copy-row"><button type="button" className="email-copy" onClick={() => void copyWeek()} disabled={!week}><Copy size={15} aria-hidden="true" />Copy for email</button>{emailNote && <p className="email-copy-note" role="status">{emailNote}</p>}</div></div><WeekNav week={week} count={currentWeek} onChange={showWeek} /></section><UpdateStrip data={data}/>
     <div className="recap-metrics week-recap">
       <article><p className="eyebrow">High scorer</p>{scores[0] ? <WeekFace data={data} slug={scores[0].slug} id={scores[0].id} score={scores[0].score} /> : <strong>—</strong>}{scores[0] && <span className={`league-label ${scores[0].slug}`}>{leagueName(scores[0].slug)}</span>}</article>
-      <article><p className="eyebrow">{allFinal ? 'Lowest-scoring winner' : 'Lowest leading score'}</p>{winners[0] ? <WeekFace data={data} slug={winners[0].slug} id={winners[0].id} score={winners[0].score} /> : <strong>—</strong>}{winners[0] && <span className={`league-label ${winners[0].slug}`}>{leagueName(winners[0].slug)}</span>}</article>
-      <article><p className="eyebrow">{allFinal ? 'Highest-scoring loser' : 'Highest trailing score'}</p>{losers[0] ? <WeekFace data={data} slug={losers[0].slug} id={losers[0].id} score={losers[0].score} /> : <strong>—</strong>}{losers[0] && <span className={`league-label ${losers[0].slug}`}>{leagueName(losers[0].slug)}</span>}</article>
-      <article><header className="week-card-head"><p className="eyebrow">Smallest {allFinal ? 'winning margin' : 'margin'}</p><strong>{margins[0] ? `${points(margins[0].margin)} pts` : '—'}</strong></header>{margins[0] && <WeekPair data={data} slug={margins[0].slug} id={margins[0].id} homeId={margins[0].homeTeamId} awayId={margins[0].awayTeamId} homeScore={margins[0].homeScore} awayScore={margins[0].awayScore} />}</article>
-      <article><header className="week-card-head"><p className="eyebrow">Largest {allFinal ? 'blowout' : 'lead'}</p><strong>{margins.at(-1) ? `${points(margins.at(-1)!.margin)} pts` : '—'}</strong></header>{margins.at(-1) && <WeekPair data={data} slug={margins.at(-1)!.slug} id={margins.at(-1)!.id} homeId={margins.at(-1)!.homeTeamId} awayId={margins.at(-1)!.awayTeamId} homeScore={margins.at(-1)!.homeScore} awayScore={margins.at(-1)!.awayScore} />}</article>
+      <article><p className="eyebrow">{email.extremes[1].label}</p>{winners[0] ? <WeekFace data={data} slug={winners[0].slug} id={winners[0].id} score={winners[0].score} /> : <strong>—</strong>}{winners[0] && <span className={`league-label ${winners[0].slug}`}>{leagueName(winners[0].slug)}</span>}</article>
+      <article><p className="eyebrow">{email.extremes[2].label}</p>{losers[0] ? <WeekFace data={data} slug={losers[0].slug} id={losers[0].id} score={losers[0].score} /> : <strong>—</strong>}{losers[0] && <span className={`league-label ${losers[0].slug}`}>{leagueName(losers[0].slug)}</span>}</article>
+      <article><header className="week-card-head"><p className="eyebrow">{email.extremes[3].label}</p><strong>{margins[0] ? `${points(margins[0].margin)} pts` : '—'}</strong></header>{margins[0] && <WeekPair data={data} slug={margins[0].slug} id={margins[0].id} homeId={margins[0].homeTeamId} awayId={margins[0].awayTeamId} homeScore={margins[0].homeScore} awayScore={margins[0].awayScore} />}</article>
+      <article><header className="week-card-head"><p className="eyebrow">{email.extremes[4].label}</p><strong>{margins.at(-1) ? `${points(margins.at(-1)!.margin)} pts` : '—'}</strong></header>{margins.at(-1) && <WeekPair data={data} slug={margins.at(-1)!.slug} id={margins.at(-1)!.id} homeId={margins.at(-1)!.homeTeamId} awayId={margins.at(-1)!.awayTeamId} homeScore={margins.at(-1)!.homeScore} awayScore={margins.at(-1)!.awayScore} />}</article>
       <article className="week-club-card"><header className="week-card-head"><p className="eyebrow">100+ club</p><span>{hundred.length} {hundred.length === 1 ? 'team' : 'teams'}</span></header><ul className="week-club">{hundred.map(row => {
         const team = sideTeam(data, row.slug, row.id);
         return <li key={`${row.slug}-${row.id}`}><Link to={teamUrl(row.slug, row.id)}>

@@ -156,6 +156,11 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .bracket-controls { display: flex; align-items: center; gap: 16px; padding: 20px 0; margin-bottom: 20px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .week-picker { display: flex; flex-direction: column; gap: 8px; font-size: .68rem; color: var(--muted); }
 .week-picker select { min-width: 185px; padding: 10px 36px 10px 14px; }
+.email-copy-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin-top: 14px; }
+.email-copy { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 12px; border: 1px solid var(--line); border-radius: 2px; background: none; color: var(--text); font: inherit; font-size: .85rem; }
+.email-copy:hover { border-color: var(--accent); color: var(--accent-ink); }
+.email-copy:disabled { opacity: .45; }
+.email-copy-note { margin: 0; color: var(--muted); font-size: .8rem; }
 .week-nav { display: flex; align-items: center; gap: 8px; max-width: 100%; }
 .week-nav-weeks { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: thin; }
 .week-nav button { flex: 0 0 auto; min-width: 40px; height: 40px; padding: 0 8px; border: 1px solid var(--line); border-radius: 2px; background: none; color: var(--text); font-family: 'Barlow Condensed', sans-serif; font-size: 1.2rem; font-weight: 600; line-height: 1; }

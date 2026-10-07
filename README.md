@@ -37,7 +37,7 @@ Commissioner's pages:
 
 - `/summary`: searchable standings, points for/against, win percentage, previous-week/start/draft rank movement, league scoring averages, and provisional promotion/relegation bands.
 - `/cups`: all four cups; `/cups/jffl`, `/cups/premier`, `/cups/championship`, `/cups/league-one`: complete interactive brackets, per-week scores, totals, manager highlights, and round selection. Each match opens `/cups/{cup}/match/{id}` with the week-by-week scores and both starting lineups, including weeks that have already finished.
-- `/weekly`: current or completed-week scoring leaderboard, 100+ club, scoring extremes, margins, and current starting-player performances.
+- `/weekly`: current or completed-week scoring leaderboard, 100+ club, scoring extremes, margins, and current starting-player performances. Copy for email pastes that week into a mail client. A `?week=` link opens a completed week.
 - `/history`: 13 current trophy races, historical trophy and JFFL Cup tables, and league timeline.
 - `/archive`: league history through 2025 from the commissioner workbook. Scoring, the record book, titles, head-to-head series, manager careers, draft slot, and a week in history. Related routes sit under `/archive/`.
 - `/archive/ask` and `/archive/ask/share#...`: the AI "Ask the archive" assistant and shared answers (see below). Older `/history/archive` and `/history/ask` links redirect here.
