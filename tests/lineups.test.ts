@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { canStillSwing, closestListed, closestOpen, compareByLineup, historicalStarters, lineupWouldWin, pointsStillToPlay, slotLabel, type LineupCandidate } from '../src/lineups.ts';
+import { canStillSwing, closestListed, closestOpen, compareByLineup, historicalStarters, lineupWouldWin, pointsStillToPlay, rosterForWeek, slotLabel, type LineupCandidate } from '../src/lineups.ts';
 import type { RosteredPlayer } from '../src/types.ts';
 
 const lineups = [{
@@ -50,6 +50,34 @@ test('a week the snapshot has not published yet stays unknown', () => {
   assert.equal(historicalStarters(lineups, '7', 5), null);
   assert.deepEqual(historicalStarters(lineups, '8', 2), []);
   assert.equal(historicalStarters(undefined, '7', 2), null);
+});
+
+test('a past week keeps that week\'s starters and scores the players who sat', () => {
+  const roster = (id: string, group: RosteredPlayer['group'], weekPoints: number, stats: RosteredPlayer['weeklyStats']): RosteredPlayer => ({
+    id, teamId: '7', name: id, position: 'WR', proTeam: 'BUF', slot: group === 'ir' ? 'IR' : 'BE', group,
+    eligibleSlots: ['WR', 'FLEX', 'BE'], injuryStatus: 'Q', weekPoints, projectedPoints: null,
+    seasonPoints: null, averagePoints: null, weekStats: {}, seasonStats: {}, weeklyStats: stats,
+  });
+  const players = [
+    roster('1', 'starter', 4, [{ week: 2, points: 21.5, stats: {} }]),
+    roster('sat', 'starter', 9, [{ week: 2, points: 18, stats: {} }]),
+    roster('hurt', 'ir', 0, [{ week: 2, points: 30, stats: {} }]),
+    roster('quiet', 'bench', 1, [{ week: 1, points: 5, stats: {} }]),
+  ];
+  const week = rosterForWeek(lineups, players, '7', 2);
+  const starter = week?.find(player => player.id === '1');
+  assert.equal(starter?.group, 'starter');
+  assert.equal(starter?.weekPoints, 21.5);
+  assert.equal(starter?.slot, 'QB');
+  assert.deepEqual(starter?.eligibleSlots, ['WR', 'FLEX', 'BE']);
+  const sat = week?.find(player => player.id === 'sat');
+  assert.equal(sat?.group, 'bench');
+  assert.equal(sat?.weekPoints, 18);
+  assert.equal(sat?.injuryStatus, null);
+  assert.equal(week?.some(player => player.id === 'hurt'), false);
+  assert.equal(week?.find(player => player.id === 'quiet')?.weekPoints, null);
+  assert.equal(rosterForWeek(lineups, players, '7', 5), null);
+  assert.deepEqual(rosterForWeek(lineups, players, '8', 2), []);
 });
 
 const played = (teamId: string, points: number): RosteredPlayer => ({
@@ -204,6 +232,14 @@ test('the fewest moves win, and a flex only takes a player eligible for it', () 
     25,
   );
   assert.equal(flex?.score, 30);
+  const flexName = lineupWouldWin(
+    [spot('flex', 'RB/WR/TE', 'starter', 2, [], 'Flex'), spot('back', 'BE', 'bench', 12, ['RB', 'FLEX'], 'Back')],
+    [spot('opp', 'RB', 'starter', 25, ['RB'])],
+    20,
+    25,
+  );
+  assert.equal(flexName?.score, 30);
+  assert.equal(flexName?.start[0]?.id, 'back');
   assert.equal(lineupWouldWin(
     [spot('flex', 'RB/WR/TE', 'starter', 2, ['RB/WR/TE'], 'Flex'), spot('qb', 'QB', 'bench', 40, ['QB'], 'Quarterback')],
     [spot('opp', 'RB', 'starter', 25, ['RB'])],

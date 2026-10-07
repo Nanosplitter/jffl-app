@@ -14,7 +14,7 @@ import { projectedWinChance } from './projections';
 import { cupMatchChance } from './cupOdds';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
-import { compareByLineup, historicalStarters, lineupWouldWin, type LineupMove, type LineupSwing } from './lineups';
+import { compareByLineup, historicalStarters, lineupWouldWin, rosterForWeek, type LineupMove, type LineupSwing } from './lineups';
 import { usePageLabel } from './BackLink';
 
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
@@ -468,8 +468,7 @@ function WeekNav({ week, count, onChange }: { week: number; count: number; onCha
   </div>;
 }
 
-function standoutGroups(states: ReturnType<typeof useRosters>, group: 'starter' | 'bench') {
-  const rows = LEAGUES.flatMap(meta => (states[meta.slug]?.data?.players ?? []).filter(player => player.group === group && player.weekPoints != null).map(player => ({ player, slug: meta.slug })));
+function groupStandouts(rows: { player: RosteredPlayer; slug: LeagueSlug }[]) {
   const groups = new Map<string, typeof rows>();
   for (const row of rows) {
     const spots = groups.get(row.player.id) ?? [];
@@ -484,13 +483,31 @@ function standoutGroups(states: ReturnType<typeof useRosters>, group: 'starter' 
   }).sort((a, b) => b.score - a.score || a.player.name.localeCompare(b.player.name)).slice(0, 12);
 }
 
-function lineupSwings(states: ReturnType<typeof useRosters>, matchups: readonly { id: string; slug: LeagueSlug; status: string; homeTeamId: string | null; awayTeamId: string | null; homeScore: number | null; awayScore: number | null }[]) {
+function standoutGroups(states: ReturnType<typeof useRosters>, group: 'starter' | 'bench', week: number, currentWeek: number) {
+  if (week === currentWeek) {
+    return groupStandouts(LEAGUES.flatMap(meta => (states[meta.slug]?.data?.players ?? []).filter(player => player.group === group && player.weekPoints != null).map(player => ({ player, slug: meta.slug }))));
+  }
+  return groupStandouts(LEAGUES.flatMap(meta => {
+    const roster = states[meta.slug]?.data;
+    if (!roster) return [];
+    const teamIds = [...new Set((roster.weeklyLineups ?? []).filter(lineup => lineup.week === week).map(lineup => lineup.teamId))];
+    return teamIds.flatMap(teamId => (rosterForWeek(roster.weeklyLineups, roster.players, teamId, week) ?? [])
+      .filter(player => player.group === group && player.weekPoints != null)
+      .map(player => ({ player, slug: meta.slug })));
+  }));
+}
+
+function lineupSwings(states: ReturnType<typeof useRosters>, matchups: readonly { id: string; slug: LeagueSlug; status: string; homeTeamId: string | null; awayTeamId: string | null; homeScore: number | null; awayScore: number | null }[], week: number | null) {
   const rows: (LineupSwing & { wouldScore: number; slug: LeagueSlug; matchId: string; final: boolean; teamId: string; opponentId: string; opponentScore: number })[] = [];
   for (const match of matchups) {
     if (match.homeScore == null || match.awayScore == null || !match.homeTeamId || !match.awayTeamId) continue;
-    const players = states[match.slug]?.data?.players ?? [];
-    const home = players.filter(player => player.teamId === match.homeTeamId);
-    const away = players.filter(player => player.teamId === match.awayTeamId);
+    const roster = states[match.slug]?.data;
+    const players = roster?.players ?? [];
+    const rosterSide = (teamId: string) => week == null
+      ? players.filter(player => player.teamId === teamId)
+      : rosterForWeek(roster?.weeklyLineups, players, teamId, week) ?? [];
+    const home = rosterSide(match.homeTeamId);
+    const away = rosterSide(match.awayTeamId);
     for (const side of [
       { teamId: match.homeTeamId, score: match.homeScore, opponentId: match.awayTeamId, opponentScore: match.awayScore, team: home, opponent: away },
       { teamId: match.awayTeamId, score: match.awayScore, opponentId: match.homeTeamId, opponentScore: match.homeScore, team: away, opponent: home },
@@ -560,11 +577,11 @@ function SwapPlayer({ player, tone }: { player: LineupMove; tone: 'in' | 'out' }
   </Link>;
 }
 
-function StandoutBoard({ title, rows, ready }: { title: string; rows: ReturnType<typeof standoutGroups>; ready: boolean }) {
+function StandoutBoard({ title, rows, ready, empty = 'No scores yet.' }: { title: string; rows: ReturnType<typeof standoutGroups>; ready: boolean; empty?: string }) {
   const leagueName = (slug: string) => LEAGUES.find(meta => meta.slug === slug)?.name ?? slug;
   return <section className="surface standouts week-board">
     <div className="surface-heading"><h2>{title}</h2></div>
-    {!ready ? <p className="empty-inline">Loading lineups…</p> : rows.length ? <div className="table-scroll"><table><thead><tr><th>Player</th><th>Points</th><th>Manager</th></tr></thead><tbody>{rows.map(({ player, score, spots }) => <tr key={player.id}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td><td className="numeric emphasis">{points(score)}</td><td><div className="standout-managers">{spots.map(spot => <Link key={spot.slug} className={leagueInk(spot.slug)} to={teamUrl(spot.slug, spot.player.teamId)}>{managerFor(spot.slug, spot.player.teamId)?.manager ?? 'Team'}<span className="sr-only">, {leagueName(spot.slug)}</span></Link>)}</div></td></tr>)}</tbody></table></div> : <p className="empty-inline">No scores yet.</p>}
+    {!ready ? <p className="empty-inline">Loading lineups…</p> : rows.length ? <div className="table-scroll"><table><thead><tr><th>Player</th><th>Points</th><th>Manager</th></tr></thead><tbody>{rows.map(({ player, score, spots }) => <tr key={player.id}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td><td className="numeric emphasis">{points(score)}</td><td><div className="standout-managers">{spots.map(spot => <Link key={spot.slug} className={leagueInk(spot.slug)} to={teamUrl(spot.slug, spot.player.teamId)}>{managerFor(spot.slug, spot.player.teamId)?.manager ?? 'Team'}<span className="sr-only">, {leagueName(spot.slug)}</span></Link>)}</div></td></tr>)}</tbody></table></div> : <p className="empty-inline">{empty}</p>}
   </section>;
 }
 
@@ -585,10 +602,13 @@ export function WeeklyPage() {
   const allFinal=matchups.length===15&&matchups.every(matchup=>matchup.status==='final');
   const peak=scores[0]?.score??0;
   const leagueName=(slug: string)=>LEAGUES.find(meta=>meta.slug===slug)?.name??slug;
-  const standouts=standoutGroups(states, 'starter');
-  const bench=standoutGroups(states, 'bench');
-  const swings=week===currentWeek?lineupSwings(states, matchups):[];
+  const past=week!==currentWeek&&week>0;
+  const standouts=standoutGroups(states, 'starter', week, currentWeek);
+  const bench=standoutGroups(states, 'bench', week, currentWeek);
+  const swings=lineupSwings(states, matchups, past?week:null);
   const rostersReady=LEAGUES.every(meta=>!!states[meta.slug]?.data);
+  const lineupsReady=!past||LEAGUES.some(meta=>states[meta.slug]?.data?.weeklyLineups?.some(lineup=>lineup.week===week));
+  const missingLineups='Lineups for this week aren\'t in the latest snapshot yet.';
   return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p></div><WeekNav week={week} count={currentWeek} onChange={showWeek} /></section><UpdateStrip data={data}/>
     <div className="recap-metrics week-recap">
       <article><p className="eyebrow">High scorer</p>{scores[0] ? <WeekFace data={data} slug={scores[0].slug} id={scores[0].id} score={scores[0].score} /> : <strong>—</strong>}{scores[0] && <span className={`league-label ${scores[0].slug}`}>{leagueName(scores[0].slug)}</span>}</article>
@@ -608,7 +628,7 @@ export function WeeklyPage() {
         </Link></li>;
       })}</ul></article>
     </div>
-    {week===currentWeek&&<section className="surface week-board could-have-board"><div className="surface-heading"><h2>Could have had ’em</h2></div><p className="could-note">Hindsight is always 20/20. The fewest start and bench moves that turn a loss or a tie into a win.</p>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:swings.length?<ul className="could-have">{swings.map(swing=>{
+    <section className="surface week-board could-have-board"><div className="surface-heading"><h2>Could have had ’em</h2></div><p className="could-note">Hindsight is always 20/20. The fewest start and bench moves that turn a loss or a tie into a win.</p>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:!lineupsReady?<p className="empty-inline">{missingLineups}</p>:swings.length?<ul className="could-have">{swings.map(swing=>{
       const manager=managerFor(swing.slug, swing.teamId)?.manager??'Team';
       const opponent=managerFor(swing.slug, swing.opponentId)?.manager??'Team';
       return <li key={`${swing.slug}-${swing.teamId}`}>
@@ -619,15 +639,15 @@ export function WeeklyPage() {
         </div>
         {swing.swaps.map(swap => <div className="swap-row" key={`${swap.start.id}-${swap.sit.id}`}><SwapPlayer player={swap.sit} tone="out" /><span className="swap-arrow" aria-hidden="true">→</span><span className="sr-only"> could have started </span><SwapPlayer player={swap.start} tone="in" /></div>)}
       </li>;
-    })}</ul>:<p className="empty-inline">No one was a move or two away.</p>}</section>}
+    })}</ul>:<p className="empty-inline">No one was a move or two away.</p>}</section>
     <section className="surface week-board"><div className="surface-heading"><h2>Scoring leaderboard</h2></div><div className="table-scroll" tabIndex={0} role="region" aria-label="Weekly scoring leaderboard"><table className="week-leaderboard"><thead><tr><th>#</th><th>Manager</th><th>Points</th><th>Matchup</th></tr></thead><tbody>{scores.map((row, index) => {
       const ahead = row.opponent !== null && row.score > row.opponent;
       const behind = row.opponent !== null && row.score < row.opponent;
       const result = row.opponent === null ? '—' : !ahead && !behind ? row.final ? 'Tie' : 'Level' : ahead ? row.final ? 'Won' : 'Leading' : row.final ? 'Lost' : 'Trailing';
       return <tr key={`${row.slug}-${row.id}`}><td className="rank">{index + 1}</td><td><Link className={`manager-link team-identity league-ink ${row.slug}`} to={teamUrl(row.slug, row.id)}><TeamMark logoUrl={sideTeam(data, row.slug, row.id)?.logoUrl} />{managerFor(row.slug, row.id)?.manager ?? 'Team'}<span className="sr-only">, {leagueName(row.slug)}</span></Link></td><td className="week-points"><span className="week-score"><span className="numeric emphasis">{points(row.score)}{row.score >= 100 && <span className="hundred-tag">100+</span>}</span><span className="week-bar" data-league={row.slug} aria-hidden="true"><span style={{ width: peak > 0 ? `${Math.round(row.score / peak * 100)}%` : '0%' }} /></span></span></td><td className={ahead ? 'week-result win' : behind ? 'week-result loss' : 'muted'}>{result}</td></tr>;
     })}</tbody></table></div></section>
-    {week===currentWeek&&<StandoutBoard title="Top starting-player performances" rows={standouts} ready={rostersReady} />}
-    {week===currentWeek&&<StandoutBoard title="Top bench performances" rows={bench} ready={rostersReady} />}
+    <StandoutBoard title="Top starting-player performances" rows={standouts} ready={rostersReady} empty={lineupsReady ? undefined : missingLineups} />
+    <StandoutBoard title="Top bench performances" rows={bench} ready={rostersReady} empty={lineupsReady ? undefined : missingLineups} />
     <p className="source-note">The smallest margin excludes tied games. Completed weeks use ESPN’s corrected scores; live-week winners and losers are shown as leaders and trailers.</p>
   </>;
 }

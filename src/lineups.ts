@@ -105,8 +105,44 @@ export interface LineupSwing {
 
 const toCents = (value: number) => Math.round(value * 100);
 
+function sameSlot(left: string, right: string) {
+  const flex = (slot: string) => slot === 'FLEX' || slot === 'RB/WR/TE';
+  return left === right || (flex(left) && flex(right));
+}
+
 function canFillSlot(player: LineupCandidate, slot: string) {
-  return player.slot === slot || player.eligibleSlots.includes(slot);
+  return sameSlot(player.slot, slot) || player.eligibleSlots.some(eligible => sameSlot(eligible, slot));
+}
+
+function pointsInWeek(player: RosteredPlayer, week: number): number | null {
+  const row = player.weeklyStats?.find(item => item.week === week);
+  return row && row.points != null && Number.isFinite(row.points) ? row.points : null;
+}
+
+/**
+ * A past week's starters, plus players still on the roster who did not start.
+ * Bench points come from that week's stats. Injured reserve stays out.
+ * Null means this snapshot has no lineup for the week yet.
+ */
+export function rosterForWeek(
+  lineups: WeekLineup[] | undefined,
+  players: readonly RosteredPlayer[],
+  teamId: string,
+  week: number,
+): RosteredPlayer[] | null {
+  const starters = historicalStarters(lineups, teamId, week);
+  if (!starters?.length) return starters;
+  const onTeam = players.filter(player => player.teamId === teamId);
+  const byId = new Map(onTeam.map(player => [player.id, player]));
+  const starterIds = new Set(starters.map(player => player.id));
+  const enriched = starters.map(starter => {
+    const current = byId.get(starter.id);
+    return current ? { ...starter, eligibleSlots: current.eligibleSlots, injuryStatus: null } : starter;
+  });
+  const bench = onTeam
+    .filter(player => !starterIds.has(player.id) && player.group !== 'ir')
+    .map(player => ({ ...player, group: 'bench' as const, slot: 'BE', injuryStatus: null, weekPoints: pointsInWeek(player, week) }));
+  return [...enriched, ...bench];
 }
 
 /**
