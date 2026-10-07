@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { buildCup, currentCupMatchesForTeam, roundScoreAverage, scoreFor, type CupRound, type SummaryMap } from '../src/competitions.ts';
+import { buildCup, currentCupMatchesForTeam, roundScoreAverage, scoreFor, underdogAhead, type CupRound, type SummaryMap } from '../src/competitions.ts';
 import { MANAGERS, managerFor } from '../src/reference.ts';
 
 // Fixed public Week 3 scores keep this suite independent of ESPN and live updates.
@@ -152,6 +152,16 @@ test('team pages surface the furthest JFFL and league-cup ties for a manager',()
   const eliminated=currentCupMatchesForTeam(fixture(),seanH.slug,seanH.teamId).find(item=>item.cupId==='championship')!;
   assert.equal(eliminated.roundName,'First round');
   assert.equal(eliminated.match.winner?.manager,'Josh');
+});
+
+test('an upset is the worse rank or lower seed getting ahead', () => {
+  assert.equal(underdogAhead(8, 2, 101, 94), 'left');
+  assert.equal(underdogAhead(2, 8, 101, 94), null);
+  assert.equal(underdogAhead(1, 9, 70, 71), 'right');
+  assert.equal(underdogAhead(4, 4, 80, 70), null);
+  assert.equal(underdogAhead(8, 2, 90, 90), null);
+  assert.equal(underdogAhead(null, 2, 101, 94), null);
+  assert.equal(underdogAhead(8, 2, null, 94), null);
 });
 
 test('a round average is the mean of playing totals and leaves byes out',()=>{

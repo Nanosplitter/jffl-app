@@ -8,7 +8,7 @@ import { RankMark, cupSeed } from './RankMark';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
 import { chartTheme, horizontalBars } from './history/archiveCharts';
 import { esc } from './history/chartKit';
-import { buildCup, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
+import { buildCup, provisionalZone, regularSeason, roundScoreAverage, underdogAhead, type CupId, type CupMatch, type SummaryMap } from './competitions';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
 import { cupMatchChance } from './cupOdds';
@@ -585,6 +585,73 @@ function StandoutBoard({ title, rows, ready, empty = 'No scores yet.' }: { title
   </section>;
 }
 
+function ResultSlate({ title, ink, games, empty }: { title: string; ink: string; empty: string; games: { key: string; href: string; upset: boolean; span: string | null; sides: { key: string; name: string; slug: string; mark: number | null; score: number | null; leading: boolean }[] }[] }) {
+  const upsets = games.filter(game => game.upset).length;
+  const spans = [...new Set(games.map(game => game.span).filter((span): span is string => !!span))];
+  return <section className="surface week-board result-slate">
+    <div className="surface-heading"><h2 className={ink}>{title}</h2>{games.length > 0 && <span>{upsets === 0 ? 'No upsets' : `${upsets} ${upsets === 1 ? 'upset' : 'upsets'}`}</span>}</div>
+    {spans.length === 1 && <p className="result-span">{spans[0]}</p>}
+    {games.length ? <ul className="result-games">{games.map(game => <li key={game.key} className={game.upset ? 'result-game upset' : 'result-game'}><Link to={game.href}>{game.upset && <span className="upset-tag">Upset</span>}{game.sides.map(side => <span className="result-side" key={side.key}><span className={`result-name ${side.slug ? leagueInk(side.slug) : ''}`}><RankMark value={side.mark} />{side.name}</span><b className={side.leading ? 'leading' : ''}>{points(side.score)}</b></span>)}</Link></li>)}</ul> : <p className="empty-inline">{empty}</p>}
+  </section>;
+}
+
+function leagueResultGames(data: SummaryMap, slug: LeagueSlug, week: number) {
+  const summary = data[slug];
+  return (summary?.weeklyMatchups ?? []).filter(item => item.week === week).map(matchup => {
+    const rank = (id: string | null) => id ? summary?.teams.find(team => team.id === id)?.rank ?? null : null;
+    const homeRank = rank(matchup.homeTeamId);
+    const awayRank = rank(matchup.awayTeamId);
+    const sides = [
+      { key: 'home', id: matchup.homeTeamId, score: matchup.homeScore, mark: homeRank },
+      { key: 'away', id: matchup.awayTeamId, score: matchup.awayScore, mark: awayRank },
+    ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || a.key.localeCompare(b.key));
+    const leader = sides[0].score;
+    const trailer = sides[1].score;
+    return {
+      key: matchup.id,
+      href: `/league/${slug}/match/${matchup.id}`,
+      upset: underdogAhead(homeRank, awayRank, matchup.homeScore, matchup.awayScore) !== null,
+      span: null,
+      sides: sides.map(side => ({
+        key: side.key,
+        name: side.id ? managerFor(slug, side.id)?.manager ?? 'Team' : 'Bye',
+        slug: side.id ? slug : '',
+        mark: side.mark,
+        score: side.score,
+        leading: side.score != null && leader != null && side.score === leader && leader !== trailer,
+      })),
+    };
+  });
+}
+
+function cupResultGames(data: SummaryMap, cupId: CupId, week: number) {
+  const cup = buildCup(cupId, data);
+  return cup.rounds.flatMap(round => round.matches.filter(match => match.status !== 'bye' && match.weeks.includes(week)).map(match => {
+    const leftSeed = cupSeed(cupId, match.a.participant);
+    const rightSeed = cupSeed(cupId, match.b.participant);
+    const sides = [
+      { key: 'a', side: match.a, mark: leftSeed },
+      { key: 'b', side: match.b, mark: rightSeed },
+    ].sort((a, b) => (b.side.total ?? -1) - (a.side.total ?? -1) || a.key.localeCompare(b.key));
+    const leader = sides[0].side.total;
+    const trailer = sides[1].side.total;
+    return {
+      key: match.id,
+      href: `/cups/${cupId}/match/${match.id}`,
+      upset: underdogAhead(leftSeed, rightSeed, match.a.total, match.b.total) !== null,
+      span: match.weeks.length > 1 ? `Weeks ${match.weeks.join(' + ')}` : null,
+      sides: sides.map(item => ({
+        key: item.key,
+        name: item.side.participant?.manager ?? (item.side.label || 'TBD'),
+        slug: item.side.participant?.slug ?? '',
+        mark: item.mark,
+        score: item.side.total,
+        leading: item.side.total != null && leader != null && item.side.total === leader && leader !== trailer,
+      })),
+    };
+  }));
+}
+
 export function WeeklyPage() {
   usePageLabel('Weekly roundup');
   const { data } = useCompetitionData();
@@ -609,6 +676,8 @@ export function WeeklyPage() {
   const rostersReady=LEAGUES.every(meta=>!!states[meta.slug]?.data);
   const lineupsReady=!past||LEAGUES.some(meta=>states[meta.slug]?.data?.weeklyLineups?.some(lineup=>lineup.week===week));
   const missingLineups='Lineups for this week aren\'t in the latest snapshot yet.';
+  const leagueSlates=LEAGUES.map(meta=>({title:meta.name,ink:leagueInk(meta.slug),games:leagueResultGames(data,meta.slug,week),empty:'No matchups this week.'}));
+  const cupSlates=CUP_IDS.map(id=>({title:buildCup(id,data).name,ink:leagueInk(id),games:cupResultGames(data,id,week),empty:'No ties this week.'}));
   return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p></div><WeekNav week={week} count={currentWeek} onChange={showWeek} /></section><UpdateStrip data={data}/>
     <div className="recap-metrics week-recap">
       <article><p className="eyebrow">High scorer</p>{scores[0] ? <WeekFace data={data} slug={scores[0].slug} id={scores[0].id} score={scores[0].score} /> : <strong>—</strong>}{scores[0] && <span className={`league-label ${scores[0].slug}`}>{leagueName(scores[0].slug)}</span>}</article>
@@ -627,6 +696,11 @@ export function WeeklyPage() {
           <b>{points(row.score)}</b>
         </Link></li>;
       })}</ul></article>
+    </div>
+    <div className="week-slates">
+      <div className="week-slate-row">{leagueSlates.map(slate => <ResultSlate key={slate.title} {...slate} />)}</div>
+      <div className="week-slate-row week-slate-cups">{cupSlates.map(slate => <ResultSlate key={slate.title} {...slate} />)}</div>
+      <p className="result-note">An upset is the worse rank leading a league game, or the lower seed leading a cup tie.</p>
     </div>
     <section className="surface week-board could-have-board"><div className="surface-heading"><h2>Could have had ’em</h2></div><p className="could-note">Hindsight is always 20/20. The fewest start and bench moves that turn a loss or a tie into a win.</p>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:!lineupsReady?<p className="empty-inline">{missingLineups}</p>:swings.length?<ul className="could-have">{swings.map(swing=>{
       const manager=managerFor(swing.slug, swing.teamId)?.manager??'Team';
