@@ -703,7 +703,7 @@ export function WeeklyPage() {
   const lineupsReady=!past||LEAGUES.some(meta=>states[meta.slug]?.data?.weeklyLineups?.some(lineup=>lineup.week===week));
   const missingLineups='Lineups for this week aren\'t in the latest snapshot yet.';
   const leagueSlates=LEAGUES.map(meta=>({title:meta.name,ink:leagueInk(meta.slug),games:leagueResultGames(data,meta.slug,week),empty:'No matchups this week.'}));
-  const cupSlates=CUP_IDS.map(id=>({title:buildCup(id,data).name,ink:leagueInk(id),games:cupResultGames(data,id,week),empty:'No ties this week.'}));
+  const cupSlates=CUP_IDS.map(id=>({title:buildCup(id,data).name,ink:leagueInk(id),games:cupResultGames(data,id,week),empty:'No matches this week.'}));
   return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p></div><WeekNav week={week} count={currentWeek} onChange={showWeek} /></section><UpdateStrip data={data}/>
     <div className="recap-metrics week-recap">
       <article><p className="eyebrow">High scorer</p>{scores[0] ? <WeekFace data={data} slug={scores[0].slug} id={scores[0].id} score={scores[0].score} /> : <strong>—</strong>}{scores[0] && <span className={`league-label ${scores[0].slug}`}>{leagueName(scores[0].slug)}</span>}</article>
@@ -726,7 +726,7 @@ export function WeeklyPage() {
     <div className="week-slates">
       <div className="week-slate-row">{leagueSlates.map(slate => <ResultSlate key={slate.title} {...slate} />)}</div>
       {cupSlates.some(slate => slate.games.length > 0) && <div className="week-slate-row week-slate-cups">{cupSlates.filter(slate => slate.games.length > 0).map(slate => <ResultSlate key={slate.title} {...slate} />)}</div>}
-      {cupSlates.some(slate => slate.games.length === 0) && <p className="result-note">{cupSlates.every(slate => slate.games.length === 0) ? 'No cup ties this week.' : <>No ties this week: {cupSlates.filter(slate => slate.games.length === 0).map((slate, index) => <span key={slate.title}>{index > 0 && ', '}<span className={slate.ink}>{slate.title}</span></span>)}.</>}</p>}
+      {cupSlates.some(slate => slate.games.length === 0) && <p className="result-note">{cupSlates.every(slate => slate.games.length === 0) ? 'No cup matches this week.' : <>No matches this week: {cupSlates.filter(slate => slate.games.length === 0).map((slate, index) => <span key={slate.title}>{index > 0 && ', '}<span className={slate.ink}>{slate.title}</span></span>)}.</>}</p>}
       <p className="result-note">An upset is a final result flipped by a score at least 15 points off its ESPN projection.</p>
     </div>
     <section className="surface week-board could-have-board"><div className="surface-heading"><h2>Could have had ’em</h2></div><p className="could-note">Hindsight is always 20/20. The fewest start and bench moves that turn a loss or a tie into a win.</p>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:!lineupsReady?<p className="empty-inline">{missingLineups}</p>:swings.length?<ul className="could-have">{swings.map(swing=>{
