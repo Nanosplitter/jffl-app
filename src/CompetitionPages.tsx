@@ -8,7 +8,7 @@ import { RankMark, cupSeed } from './RankMark';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
 import { chartTheme, horizontalBars } from './history/archiveCharts';
 import { esc } from './history/chartKit';
-import { buildCup, projectionUpset, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
+import { buildCup, matchupProjection, projectionUpset, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
 import { cupMatchChance } from './cupOdds';
@@ -637,14 +637,8 @@ function leagueResultGames(data: SummaryMap, slug: LeagueSlug, week: number) {
 }
 
 function cupProjection(data: SummaryMap, slug: LeagueSlug, teamId: string, weeks: number[]) {
-  let total = 0;
-  for (const week of weeks) {
-    const matchup = data[slug]?.weeklyMatchups?.find(item => item.week === week && (item.homeTeamId === teamId || item.awayTeamId === teamId));
-    const projected = !matchup || matchup.status !== 'final' ? null : matchup.homeTeamId === teamId ? matchup.homeProjected : matchup.awayProjected;
-    if (projected == null) return null;
-    total += projected;
-  }
-  return Math.round(total * 100) / 100;
+  const participant = managerFor(slug, teamId);
+  return participant ? matchupProjection(data, participant, weeks, true) : null;
 }
 
 function cupResultGames(data: SummaryMap, cupId: CupId, week: number) {

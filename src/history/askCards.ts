@@ -1,4 +1,4 @@
-import { buildCup, type Cup, type CupId, type CupMatch, type SummaryMap } from '../competitions.ts';
+import { buildCup, matchupProjection, type Cup, type CupId, type CupMatch, type SummaryMap } from '../competitions.ts';
 import { MANAGERS, managerFor, type ManagerReference } from '../reference.ts';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup } from '../types.ts';
 
@@ -67,6 +67,11 @@ export function splitNames(text: string, matcher: RegExp | null, seen: Set<strin
 }
 
 const score = (value: number | null | undefined) => (value == null ? 'no score yet' : String(Math.round(value * 100) / 100));
+const projectionFact = (away: number | null, home: number | null) => {
+  if (away == null && home == null) return '';
+  const text = (value: number | null) => (value == null ? 'unknown' : score(value));
+  return `, projected ${text(away)} to ${text(home)}`;
+};
 const managerOf = (slug: LeagueSlug, teamId: string | null, summary: LeagueSummary) =>
   (teamId ? managerFor(slug, teamId)?.manager ?? summary.teams.find(team => team.id === teamId)?.name : null) ?? 'Bye';
 const recordOf = (team: { wins: number | null; losses: number | null; ties: number | null }) =>
@@ -135,8 +140,7 @@ export function describeCard(summaries: SummaryMap, spec: CardSpec): CardText | 
     const away = managerOf(spec.league, matchup.awayTeamId, summary);
     const home = managerOf(spec.league, matchup.homeTeamId, summary);
     const state = view.status === 'final' ? 'final' : view.status === 'live' ? 'in progress' : 'not started';
-    const projected = view.status !== 'final' && spec.week === summary.week && (matchup.awayProjected != null || matchup.homeProjected != null)
-      ? `, projected ${score(matchup.awayProjected)} to ${score(matchup.homeProjected)}` : '';
+    const projected = projectionFact(matchup.awayProjected, matchup.homeProjected);
     return {
       title: `${away} vs ${home}, week ${spec.week}`,
       facts: `${leagueName(spec.league)} week ${spec.week}: ${away} ${score(matchup.awayScore)}, ${home} ${score(matchup.homeScore)} (${state}${projected})`,
@@ -153,9 +157,13 @@ export function describeCard(summaries: SummaryMap, spec: CardSpec): CardText | 
     const state = match.status === 'bye' ? `${a} has a bye` : match.status === 'waiting' ? 'not started'
       : match.status === 'tied' ? 'tied, decided by an old fashioned duel' : match.status === 'unavailable' ? 'scores pending'
       : match.status === 'final' ? `final${match.winner ? `, ${match.winner.manager} advances` : ''}` : 'in progress';
+    const projected = projectionFact(
+      match.a.participant ? matchupProjection(summaries, match.a.participant, match.weeks) : null,
+      match.b.participant ? matchupProjection(summaries, match.b.participant, match.weeks) : null,
+    );
     return {
       title: `${a} vs ${b}, ${view.cup.name} ${view.roundName}`,
-      facts: `${view.cup.name} ${view.roundName} (${weeks}): ${a} ${score(match.a.total)}, ${b} ${score(match.b.total)} (${state})`,
+      facts: `${view.cup.name} ${view.roundName} (${weeks}): ${a} ${score(match.a.total)}, ${b} ${score(match.b.total)} (${state}${projected})`,
       url: view.url,
     };
   }

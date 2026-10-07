@@ -1,4 +1,4 @@
-import { buildCup, type CupId, type SummaryMap } from '../competitions.ts';
+import { buildCup, matchupProjection, type CupId, type SummaryMap } from '../competitions.ts';
 import { managerFor } from '../reference.ts';
 import { LEAGUES, type LeagueRosterSnapshot, type LeagueSlug, type LeagueSummary } from '../types.ts';
 import type { GameType, HistoryGame, HistorySeason, LeagueName } from './stats.ts';
@@ -54,6 +54,9 @@ export interface ScheduleRow {
   opponent: string;
   score: number | null;
   opponentScore: number | null;
+  /** Last ESPN projection saved for that side. Null when none was saved. */
+  projected: number | null;
+  opponentProjected: number | null;
   status: 'final' | 'live' | 'scheduled';
 }
 
@@ -190,8 +193,8 @@ function leagueSchedule(slug: LeagueSlug, summary: LeagueSummary): ScheduleRow[]
     const away = managerName(slug, matchup.awayTeamId, summary);
     const round = matchup.week > REGULAR_WEEKS ? 'Playoffs' : 'Regular season';
     const base = { week: matchup.week, lastWeek: matchup.week, league: LEAGUE_OF[slug], type: 'Season' as const, round, status };
-    if (home) rows.push({ ...base, team: home, opponent: away ?? 'Bye', score: matchup.homeScore, opponentScore: matchup.awayScore });
-    if (away) rows.push({ ...base, team: away, opponent: home ?? 'Bye', score: matchup.awayScore, opponentScore: matchup.homeScore });
+    if (home) rows.push({ ...base, team: home, opponent: away ?? 'Bye', score: matchup.homeScore, opponentScore: matchup.awayScore, projected: matchup.homeProjected, opponentProjected: matchup.awayProjected });
+    if (away) rows.push({ ...base, team: away, opponent: home ?? 'Bye', score: matchup.awayScore, opponentScore: matchup.homeScore, projected: matchup.awayProjected, opponentProjected: matchup.homeProjected });
   }
   return rows;
 }
@@ -209,7 +212,9 @@ function cupSchedule(data: SummaryMap): ScheduleRow[] {
         for (const [own, other] of sides) {
           if (!own.participant) continue;
           const opponent = other.participant?.manager ?? (match.status === 'bye' ? 'Bye' : other.label || 'To be decided');
-          rows.push({ ...base, team: own.participant.manager, opponent, score: own.total, opponentScore: other.total });
+          const projected = matchupProjection(data, own.participant, match.weeks);
+          const opponentProjected = other.participant ? matchupProjection(data, other.participant, match.weeks) : null;
+          rows.push({ ...base, team: own.participant.manager, opponent, score: own.total, opponentScore: other.total, projected, opponentProjected });
         }
       }
     }

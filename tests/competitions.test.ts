@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { buildCup, currentCupMatchesForTeam, projectionUpset, roundScoreAverage, scoreFor, type CupRound, type SummaryMap } from '../src/competitions.ts';
+import { buildCup, currentCupMatchesForTeam, matchupProjection, projectionUpset, roundScoreAverage, scoreFor, type CupRound, type SummaryMap } from '../src/competitions.ts';
 import { MANAGERS, managerFor } from '../src/reference.ts';
 
 // Fixed public Week 3 scores keep this suite independent of ESPN and live updates.
@@ -163,6 +163,24 @@ test('an upset is a projection miss of 15 or more that flips the result by itsel
   assert.equal(projectionUpset(100, 100, 90, 110), null);
   assert.equal(projectionUpset(112, 108, 110, 110), null);
   assert.equal(projectionUpset(112, 108, null, 110), null);
+});
+
+test('a saved projection adds across a tie and stays absent when any week has none', () => {
+  const data = fixture();
+  const jason = managerFor('premier', '16')!;
+  const weeks = [1, 2];
+  assert.equal(matchupProjection(data, jason, weeks), null);
+  for (const week of weeks) {
+    const matchup = data.premier!.weeklyMatchups!.find(item => item.week === week && [item.homeTeamId, item.awayTeamId].includes(jason.teamId))!;
+    const side = matchup.homeTeamId === jason.teamId ? 'homeProjected' : 'awayProjected';
+    matchup[side] = week === 1 ? 100.25 : 90;
+    matchup.status = 'final';
+  }
+  assert.equal(matchupProjection(data, jason, weeks), 190.25);
+  assert.equal(matchupProjection(data, jason, weeks, true), 190.25);
+  data.premier!.weeklyMatchups!.find(item => item.week === 2 && [item.homeTeamId, item.awayTeamId].includes(jason.teamId))!.status = 'live';
+  assert.equal(matchupProjection(data, jason, weeks), 190.25);
+  assert.equal(matchupProjection(data, jason, weeks, true), null);
 });
 
 test('a round average is the mean of playing totals and leaves byes out',()=>{

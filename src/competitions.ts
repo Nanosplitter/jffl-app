@@ -15,6 +15,19 @@ export function scoreFor(data: SummaryMap, participant: ManagerReference, week: 
   return { score: matchup.homeTeamId === participant.teamId ? matchup.homeScore : matchup.awayScore, final: matchup.status === 'final' };
 }
 
+/** Saved ESPN projection for these weeks, added when a tie covers more than one. Null when any week has none. */
+export function matchupProjection(data: SummaryMap, participant: ManagerReference, weeks: number[], finalsOnly = false) {
+  let total = 0;
+  for (const week of weeks) {
+    const matchup = data[participant.slug]?.weeklyMatchups?.find(item => item.week === week && [item.homeTeamId, item.awayTeamId].includes(participant.teamId));
+    if (!matchup || (finalsOnly && matchup.status !== 'final')) return null;
+    const value = matchup.homeTeamId === participant.teamId ? matchup.homeProjected : matchup.awayProjected;
+    if (value == null || !Number.isFinite(value)) return null;
+    total += value;
+  }
+  return Math.round(total * 100) / 100;
+}
+
 function side(data: SummaryMap, participant: ManagerReference | null, label: string, weeks: number[]): CupSide {
   const legs = weeks.map(week => participant ? scoreFor(data, participant, week).score : null);
   return { participant, label, legs, total: legs.some(value => value !== null) ? Math.round(legs.reduce<number>((sum, value) => sum + (value ?? 0), 0) * 100) / 100 : null };

@@ -117,3 +117,27 @@ test('player weeks flag starters, bench, and unknown slots, and keep unknown poi
   assert.equal(dst.points, null);
   assert.equal(dst.starter, 1);
 });
+
+test('the schedule keeps a saved projection and leaves a missing one null', () => {
+  const copy = structuredClone(summaries);
+  for (const matchup of copy.premier!.weeklyMatchups ?? []) {
+    if (matchup.week === 1) {
+      matchup.homeProjected = matchup.homeTeamId === '16' ? 101.2 : 88;
+      matchup.awayProjected = matchup.awayTeamId === '16' ? 101.2 : 88;
+    }
+    if (matchup.week === 2) {
+      matchup.homeProjected = null;
+      matchup.awayProjected = null;
+    }
+  }
+  const built = buildLiveSeason(copy)!;
+  const week1 = built.schedule.find(row => row.team === 'Jason' && row.type === 'Season' && row.week === 1)!;
+  assert.equal(week1.projected, 101.2);
+  assert.equal(week1.opponentProjected, 88);
+  const week2 = built.schedule.find(row => row.team === 'Jason' && row.type === 'Season' && row.week === 2)!;
+  assert.equal(week2.projected, null);
+  assert.equal(week2.opponentProjected, null);
+  const cup = built.schedule.find(row => row.team === 'Jason' && row.type === 'Cup' && row.round === 'Premier League Cup Quarterfinals')!;
+  assert.equal(cup.projected, null);
+  assert.equal(cup.opponentProjected, null);
+});

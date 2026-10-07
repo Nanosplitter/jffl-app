@@ -3,12 +3,16 @@ from types import SimpleNamespace
 
 import pytest
 from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, espn_image_url, normalize_player, validate_snapshot, week_lineups, weekly_matchups
-from sync_service import sync_leagues
+from sync_service import retain_projections, sync_leagues
 
 
 class MemoryStore:
     def __init__(self):
         self.snapshots = {}
+
+    def latest(self, slug):
+        snapshot = self.snapshots.get(slug)
+        return copy.deepcopy(snapshot[0]) if snapshot else None
 
     def publish(self, slug, summary, roster):
         self.snapshots[slug] = (copy.deepcopy(summary), copy.deepcopy(roster))
@@ -217,3 +221,58 @@ def test_future_weeks_are_published_as_pending_and_unset_playoff_slots_are_left_
     assert [(row['week'], row['status']) for row in rows] == [(1, 'live'), (5, 'pending')]
     assert rows[1]['homeTeamId'] == '3' and rows[1]['homeScore'] is None
     boundary.session.close()
+
+
+def _matchup(week, status, home_projected, away_projected, teams=("1", "2")):
+    return {
+        "id": f"{week}-9", "week": week, "status": status,
+        "homeTeamId": teams[0], "awayTeamId": teams[1],
+        "homeScore": 80, "awayScore": 70,
+        "homeProjected": home_projected, "awayProjected": away_projected,
+    }
+
+
+def test_a_later_refresh_keeps_projections_espn_stops_sending():
+    store = MemoryStore()
+    stage = {"rows": [
+        _matchup(4, "final", 110.5, 95),
+        _matchup(5, "live", 101, 99),
+    ]}
+
+    def fetch(_slug):
+        return {"teams": [{"id": "1"}], "weeklyMatchups": [dict(row) for row in stage["rows"]]}, {"players": []}
+
+    sync_leagues(store, fetch)
+    stage["rows"] = [
+        _matchup(4, "final", None, None),
+        _matchup(5, "live", 104, 88),
+    ]
+    sync_leagues(store, fetch)
+    rows = {row["week"]: row for row in store.snapshots["premier"][0]["weeklyMatchups"]}
+    assert rows[4]["homeProjected"] == 110.5 and rows[4]["awayProjected"] == 95
+    assert rows[5]["homeProjected"] == 104 and rows[5]["awayProjected"] == 88
+
+    stage["rows"] = [
+        _matchup(4, "final", None, None),
+        _matchup(5, "final", None, None),
+        _matchup(6, "live", 90, None),
+    ]
+    sync_leagues(store, fetch)
+    stage["rows"] = [
+        _matchup(4, "final", None, None),
+        _matchup(5, "final", None, None),
+        _matchup(6, "live", None, None),
+        _matchup(4, "final", None, None, teams=("1", "3")),
+    ]
+    sync_leagues(store, fetch)
+    rows = { (row["week"], row["awayTeamId"]): row for row in store.snapshots["premier"][0]["weeklyMatchups"] }
+    assert rows[(4, "2")]["homeProjected"] == 110.5 and rows[(4, "2")]["awayProjected"] == 95
+    assert rows[(5, "2")]["homeProjected"] == 104 and rows[(5, "2")]["awayProjected"] == 88
+    assert rows[(6, "2")]["homeProjected"] == 90 and rows[(6, "2")]["awayProjected"] is None
+    assert rows[(4, "3")]["homeProjected"] is None and rows[(4, "3")]["awayProjected"] is None
+
+
+def test_retain_projections_leaves_a_first_snapshot_unchanged():
+    summary = {"weeklyMatchups": [_matchup(1, "live", None, None)]}
+    retain_projections(None, summary)
+    assert summary["weeklyMatchups"][0]["homeProjected"] is None

@@ -115,7 +115,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'schedule',
-    description: 'The 2026 schedule: league games for every scheduled week (including future weeks) and cup ties, one row per manager per game, with opponent, status (final, live, or scheduled), and scores (null until played). Use it for who someone plays next, upcoming weeks, or a remaining schedule. Defaults to the current week and the two after it.',
+    description: 'The 2026 schedule: league games for every scheduled week (including future weeks) and cup ties, one row per manager per game, with opponent, status (final, live, or scheduled), scores (null until played), and the saved ESPN projection for each side (null when none was saved). A cup projection adds the weekly projections and is null when any week of the tie has none. Use it for who someone plays next, upcoming weeks, a remaining schedule, or how a result compared with its projection. Defaults to the current week and the two after it.',
     parameters: {
       type: 'object',
       properties: {

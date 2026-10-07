@@ -249,7 +249,7 @@ uses connection/read timeouts, and allows at most one retry of selected transien
 errors. Each league refresh runs independently. A validated summary and roster
 are committed together in a Firestore batch:
 
-- `publicLeagues/{slug}`: teams, standings, weekly matchups for every scheduled week (future weeks are `pending` with null scores; playoff slots appear once ESPN assigns teams), completed weeks, scoring, freshness.
+- `publicLeagues/{slug}`: teams, standings, weekly matchups for every scheduled week (future weeks are `pending` with null scores; playoff slots appear once ESPN assigns teams), completed weeks, scoring, freshness. A matchup projection ESPN sends is kept on later refreshes. A missing projection stays null, and a later refresh does not replace a saved number with null.
 - `publicRosters/{slug}`: rostered players, slots, weekly and cumulative stats.
 - `_sync/lease`: private synchronization state.
 

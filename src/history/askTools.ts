@@ -814,14 +814,14 @@ export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<s
         .filter(row => !manager || fold(row.team) === manager)
         .filter(row => !league || fold(row.league).replace(/league$/, '') === league)
         .filter(row => args.type !== 'Season' && args.type !== 'Cup' || row.type === args.type)
-        .map(row => ({ week: row.week === row.lastWeek ? String(row.week) : `${row.week}-${row.lastWeek}`, league: row.league, type: row.type, round: row.round, team: row.team, opponent: row.opponent, status: row.status, score: row.score, opponentScore: row.opponentScore }));
+        .map(row => ({ week: row.week === row.lastWeek ? String(row.week) : `${row.week}-${row.lastWeek}`, league: row.league, type: row.type, round: row.round, team: row.team, opponent: row.opponent, status: row.status, score: row.score, opponentScore: row.opponentScore, projected: row.projected, opponentProjected: row.opponentProjected }));
       const capped = rows.slice(0, 120);
       const scheduledCup = rows.some(row => row.type === 'Cup' && row.status === 'scheduled');
       return {
-        ok: true, title: `${live.season} schedule, weeks ${from}-${to}`, columns: inferColumns(['week', 'league', 'type', 'round', 'team', 'opponent', 'status', 'score', 'opponentScore'], capped), rows: capped,
+        ok: true, title: `${live.season} schedule, weeks ${from}-${to}`, columns: inferColumns(['week', 'league', 'type', 'round', 'team', 'opponent', 'status', 'score', 'opponentScore', 'projected', 'opponentProjected'], capped), rows: capped,
         matched: rows.length, truncated: rows.length > capped.length,
         caveats: [
-          `Schedule as of ${asOfLabel(asOf)}. Scores are null for games not played yet.`,
+          `Schedule as of ${asOfLabel(asOf)}. Scores are null for games not played yet. Projections are the last ESPN live projection saved for that week; null means none was saved. A cup tie adds those weekly projections and is null when any week of the tie has none.`,
           ...(rows.some(row => row.status === 'live') ? ['Games marked live are still being played, so their scores can change.'] : []),
           ...(scheduledCup ? ['Cup opponents shown as "Winner of ..." depend on games not finished yet. JFFL Cup ties are two-week totals.'] : []),
           ...(to >= REGULAR_WEEKS ? ['Playoff pairings appear only once ESPN sets them.'] : []),
