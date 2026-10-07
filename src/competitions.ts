@@ -107,12 +107,32 @@ export function regularSeason(data: LeagueSummary) {
 
 export const provisionalZone=(slug:LeagueSlug,rank:number|null)=>rank===null?'Unranked':slug==='premier'?rank<=6?'Premier safety zone':'Relegation zone':slug==='championship'?rank<=4?'Premier promotion zone':rank>=7?'Relegation zone':'Championship safety zone':rank<=4?'Championship promotion zone':'League One';
 
-/** The side that is ahead despite the worse rank or seed. Higher numbers are worse. */
-export function underdogAhead(leftRank: number | null | undefined, rightRank: number | null | undefined, leftScore: number | null, rightScore: number | null): 'left' | 'right' | null {
-  if (leftRank == null || rightRank == null || leftScore == null || rightScore == null) return null;
-  if (leftScore === rightScore || leftRank === rightRank) return null;
-  const ahead = leftScore > rightScore ? 'left' : 'right';
-  const aheadRank = ahead === 'left' ? leftRank : rightRank;
-  const otherRank = ahead === 'left' ? rightRank : leftRank;
-  return aheadRank > otherRank ? ahead : null;
+const PROJECTION_MISS = 15;
+
+/**
+ * The side whose final score missed its ESPN projection by at least 15 points
+ * and, on its own, flipped the projected winner. Pass final totals only.
+ * Returns null when the favorite won, the miss is smaller, or a projection is missing.
+ */
+export function projectionUpset(leftScore: number | null, rightScore: number | null, leftProjected: number | null, rightProjected: number | null): 'left' | 'right' | null {
+  if (leftScore == null || rightScore == null || leftProjected == null || rightProjected == null) return null;
+  if (![leftScore, rightScore, leftProjected, rightProjected].every(Number.isFinite)) return null;
+  if (leftScore === rightScore || leftProjected === rightProjected) return null;
+  const cents = (value: number) => Math.round(value * 100);
+  const favorite = leftProjected > rightProjected ? 'left' : 'right';
+  const winner = leftScore > rightScore ? 'left' : 'right';
+  if (winner === favorite) return null;
+  const score = { left: leftScore, right: rightScore };
+  const projected = { left: leftProjected, right: rightProjected };
+  const other = (side: 'left' | 'right') => side === 'left' ? 'right' : 'left';
+  const responsible = (['left', 'right'] as const).filter(side => {
+    if (Math.abs(cents(score[side]) - cents(projected[side])) < PROJECTION_MISS * 100) return false;
+    const restoredLeft = side === 'left' ? projected.left : score.left;
+    const restoredRight = side === 'right' ? projected.right : score.right;
+    if (restoredLeft === restoredRight) return true;
+    const restoredWinner = restoredLeft > restoredRight ? 'left' : 'right';
+    return restoredWinner === favorite;
+  });
+  responsible.sort((a, b) => Math.abs(cents(score[b]) - cents(projected[b])) - Math.abs(cents(score[a]) - cents(projected[a])) || (a === winner ? -1 : 1));
+  return responsible[0] ?? null;
 }

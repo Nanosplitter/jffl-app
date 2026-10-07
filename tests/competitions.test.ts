@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { buildCup, currentCupMatchesForTeam, roundScoreAverage, scoreFor, underdogAhead, type CupRound, type SummaryMap } from '../src/competitions.ts';
+import { buildCup, currentCupMatchesForTeam, projectionUpset, roundScoreAverage, scoreFor, type CupRound, type SummaryMap } from '../src/competitions.ts';
 import { MANAGERS, managerFor } from '../src/reference.ts';
 
 // Fixed public Week 3 scores keep this suite independent of ESPN and live updates.
@@ -154,14 +154,15 @@ test('team pages surface the furthest JFFL and league-cup ties for a manager',()
   assert.equal(eliminated.match.winner?.manager,'Josh');
 });
 
-test('an upset is the worse rank or lower seed getting ahead', () => {
-  assert.equal(underdogAhead(8, 2, 101, 94), 'left');
-  assert.equal(underdogAhead(2, 8, 101, 94), null);
-  assert.equal(underdogAhead(1, 9, 70, 71), 'right');
-  assert.equal(underdogAhead(4, 4, 80, 70), null);
-  assert.equal(underdogAhead(8, 2, 90, 90), null);
-  assert.equal(underdogAhead(null, 2, 101, 94), null);
-  assert.equal(underdogAhead(8, 2, null, 94), null);
+test('an upset is a projection miss of 15 or more that flips the result by itself', () => {
+  assert.equal(projectionUpset(112, 108, 95, 110), 'left');
+  assert.equal(projectionUpset(102, 80, 100, 110), 'right');
+  assert.equal(projectionUpset(71, 70, 99, 100), 'right');
+  assert.equal(projectionUpset(101, 99, 98, 100), null);
+  assert.equal(projectionUpset(140, 90, 100, 110), null);
+  assert.equal(projectionUpset(100, 100, 90, 110), null);
+  assert.equal(projectionUpset(112, 108, 110, 110), null);
+  assert.equal(projectionUpset(112, 108, null, 110), null);
 });
 
 test('a round average is the mean of playing totals and leaves byes out',()=>{
