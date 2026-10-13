@@ -191,6 +191,10 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .single-round .round-matches { grid-template-columns: repeat(3,minmax(0,1fr)); }
 .source-note { font-size: .68rem; color: var(--muted); line-height: 1.8; margin: 20px 0 28px; max-width: 1000px; }
 .champion-pill { color: var(--accent-ink); padding: 12px 0; display: flex; align-items: center; gap: 12px; font-weight: 600; }
+.champion-pill.followed { padding: 10px 14px; }
+.cup-match.highlighted > header, .cup-match.highlighted .cup-body { padding-left: 16px; padding-right: 16px; }
+.cup-match.highlighted .cup-body { padding-bottom: 16px; }
+.bracket-node.highlighted .bracket-row { padding-left: 12px; padding-right: 12px; }
 
 .summary-controls { display: flex; gap: 12px; margin-bottom: 28px; }
 .summary-controls .search-field { max-width: 450px; }
