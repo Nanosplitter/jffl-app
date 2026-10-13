@@ -63,12 +63,12 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'query_seasons',
-    description: 'Search team-season results: finishes, records, points, pointsAgainst, draft slot, and championship flags (seasonChamp, superBowlChamp, leagueCupChamp, jfflCupChamp, topThree are 1, 0, or null when unknown). Wins and points on this table are the official regular-season totals. pointsAgainst is null when the weekly log does not match that record, including 2002; leave those nulls out and say so. One row per manager per season. The 2026 rows have status live: standing is the current position and undecided titles are null. Returns a datasetId you can pass to render_chart.',
+    description: 'Search team-season results: finishes, records, points, pointsAgainst, draft slot, club, rank movement, the provisional zone, and championship flags (seasonChamp, superBowlChamp, leagueCupChamp, jfflCupChamp, topThree are 1, 0, or null when unknown). Wins and points on this table are the official regular-season totals. Before 2026, pointsAgainst is null when the weekly log does not match that record, including 2002; leave those nulls out and say so. For 2026, pointsAgainst is the ESPN figure, and club, previousRank, week2Rank, draft, and zone are filled. One row per manager per season. The 2026 rows have status live: standing is the current position and undecided titles are null. Returns a datasetId you can pass to render_chart.',
     parameters: { type: 'object', properties: queryProperties },
   },
   {
     name: 'query_players',
-    description: 'Search 2026 player scores. One row per rostered player per week, with the manager (team), slot, starter (1 starter, 0 bench or IR, null unknown), points, and status (live while that week is being played). Use it for top scorers this week, a manager\u2019s best starters, or points left on the bench (starter 0). There is no player data before 2026. Returns a datasetId you can pass to render_chart.',
+    description: 'Search 2026 player scores. One row per rostered player per week, with the manager (team), slot, starter (1 starter, 0 bench or IR, null unknown), points, and status (live while that week is being played). The current week also has projected, seasonPoints, averagePoints, and injury. Use it for top scorers this week, a manager\u2019s best starters, or points left on the bench (starter 0). Counting stats such as yards and touchdowns are player_stats, not this table. There is no player data before 2026. Returns a datasetId you can pass to render_chart.',
     parameters: { type: 'object', properties: queryProperties },
   },
   {
@@ -83,7 +83,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'manager_career',
-    description: 'One manager\u2019s career: every season with finish, record, draft slot, and trophies, plus career totals for finished seasons. The 2026 row is in progress. Returns a datasetId.',
+    description: 'One manager\u2019s career: every season with finish, record, draft slot, and trophies, plus career totals for finished seasons. The summary also includes trophyRoom, the commissioner snapshot through 2025. The 2026 row is in progress and is not part of trophyRoom. Returns a datasetId.',
     parameters: { type: 'object', properties: { name: str('Manager nickname.') }, required: ['name'] },
   },
   {
@@ -115,7 +115,7 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
   },
   {
     name: 'schedule',
-    description: 'The 2026 schedule: league games for every scheduled week (including future weeks) and cup ties, one row per manager per game, with opponent, status (final, live, or scheduled), scores (null until played), and the saved ESPN projection for each side (null when none was saved). A cup projection adds the weekly projections and is null when any week of the tie has none. Use it for who someone plays next, upcoming weeks, a remaining schedule, or how a result compared with its projection. Defaults to the current week and the two after it.',
+    description: 'The 2026 schedule: league games for every scheduled week (including future weeks) and cup ties, one row per manager per game, with opponent, status (final, live, or scheduled), scores (null until played), and the saved ESPN projection for each side (null when none was saved). A cup projection adds the weekly projections and is null when any week of the tie has none. winChance is the scoreboard percent for an undecided league game and is null once the game is final, when a projection is missing, or on a cup tie. Use it for who someone plays next, upcoming weeks, a remaining schedule, or how a result compared with its projection. Defaults to the current week and the two after it.',
     parameters: {
       type: 'object',
       properties: {
@@ -126,6 +126,26 @@ export const TOOL_DECLARATIONS: ToolDeclaration[] = [
         toWeek: int('Last week. Defaults to two weeks after fromWeek.'),
       },
     },
+  },
+  {
+    name: 'scoring_settings',
+    description: 'The ESPN scoring settings for each league this season, the same list as the league page. One row per setting: league, item, and points. Each league scores independently. Filter with league or item when you need one rule, such as a rushing touchdown. A setting that is not returned is unknown, not zero.',
+    parameters: { type: 'object', properties: { league: str('Optional: Premier, Championship, or League One.'), item: str('Optional text contained in the setting name, such as "Rush TD" or "pass yards".') } },
+  },
+  {
+    name: 'manager_profiles',
+    description: 'The trophy room: one row per current manager, through 2025. Trophies, finals, the 2025, 2021-onward, and 2013-onward trophy counts, seasons, the all-time JFFL Cup record (cupRank, cupWins, cupLosses, cupTitles), and the 2026 seeds and draft rank. cupRankLabel is Rookie when that snapshot had no cup rank. These totals do not include 2026 results. Leave name out for every manager.',
+    parameters: { type: 'object', properties: { name: str('Optional manager nickname.') } },
+  },
+  {
+    name: 'could_have',
+    description: 'The weekly roundup\'s could-have lineups: the fewest start/sit moves that would have beaten the opponent. Each row has the actual score, the would-be score, and the swaps. Injured reserve is left out. A starter with no posted score leaves that side out. A missing bench score is not zero. Defaults to the current week.',
+    parameters: { type: 'object', properties: { week: int('Week number. Leave out for the current week.'), manager: str('Optional manager nickname.') } },
+  },
+  {
+    name: 'player_stats',
+    description: 'The player page for one 2026 rostered player: fantasy points by week, the season total and average, the current projection, injury, slot, and counting stats (yards, touchdowns, and the rest) with the same labels the site shows. A stat that is absent was not on the snapshot. Do not invent a zero. There is no player data before 2026.',
+    parameters: { type: 'object', properties: { name: str('Player name, such as the name on the roster.'), week: int('Optional week. Leave out for every week on the snapshot.') }, required: ['name'] },
   },
   {
     name: 'render_chart',
@@ -198,7 +218,7 @@ export function buildSystemPrompt(managers: string[], live?: LivePromptInfo | nu
 
 How to work
 - Get every number from a tool. Never state a score, count, rate, or year that did not come from a tool result in this conversation.
-- Pick the simplest tool. query_games and query_seasons answer most questions. Use query_players for 2026 player scores, and head_to_head, manager_career, records, title_years, draft_slot_stats, and week_slice when they fit.
+- Pick the simplest tool. query_games and query_seasons answer most questions. Use query_players for 2026 player scores, player_stats for a player's yards and other counting stats, scoring_settings for how a league scores, manager_profiles for the trophy room, could_have for a would-be lineup, and head_to_head, manager_career, records, title_years, draft_slot_stats, week_slice, and schedule when they fit.
 - 2026 is in progress. When a score comes from a row with status live, say it is live and can still change. Give 2026 standings as current positions, not finishes. Never predict outcomes, final standings, or who will win a game or title.
 - For records, "best ever", and other all-time comparisons, use finished games: filter status final in query_games. The records, head_to_head, and week_slice tools already skip live games.
 - "This week" or "this season" means the 2026 season in progress. For upcoming opponents or a remaining schedule, use schedule; describe future games as scheduled, without picking winners.
@@ -208,7 +228,21 @@ How to work
 - teamFinish and opponentFinish are the final regular-season rank that year, 1 best. They are not the standing during the week of the game. betterFinish is 1 when this manager finished ahead of the opponent in the same league, 0 when behind, and null across leagues, on a tied finish, or when a finish is unknown, including 2026 until the season ends. Use betterFinish for how often the better regular-season team won, and for upsets.
 - head_to_head lists every finished meeting. Use its summary: the top-level win counts are the regular season, and cup, superBowl, and all are separate totals. Quote the split the question asked for.
 - title_years is every season in the range, including who won the JFFL Cup. Use it for a list of champions.
-- Wins, losses, ties, and points on a season row are the official regular-season totals. Do not rebuild them by summing games. pointsAgainst is points allowed, and it is null when the weekly log does not match that record, including 2002. If a sum says some rows had no value, those rows are missing from the total; say so.
+- Wins, losses, ties, and points on a season row are the official regular-season totals. Do not rebuild them by summing games. Before 2026, pointsAgainst is null when the weekly log does not match that record, including 2002. For 2026, pointsAgainst is the ESPN figure on the standings page. If a sum says some rows had no value, those rows are missing from the total; say so.
+- On a 2026 season row, standing is the current league position. Week Δ is previousRank minus standing. Start Δ is leagueCupSeed minus standing. Draft Δ is draft minus standing. A positive number is a climb. week2Rank is the Week 2 starting rank, not the Start Δ. zone is the provisional band. club is the ESPN team name.
+
+League rules
+- Three leagues of ten. The regular season is weeks 1 through 14. Each league's Superbowl is the playoff after week 14, shown as a top-8 bracket. Playoff pairings exist only once ESPN has set them. The championship is called the Superbowl.
+- A manager's score in a week counts for the league matchup and for any cup tie that uses that week. Each league keeps its own scoring settings, so the same NFL player can be worth different points in two leagues. Read those settings with scoring_settings.
+- The JFFL Cup is all thirty managers, seeded 1 to 30, with two-week totals in weeks 3–4, 6–7, 9–10, 12–13, and 15–16. Seeds 1 and 2 have a first-round bye. Each league cup is that league's ten managers, seeded 1 to 10, with one-week scores in weeks 2, 5, 8, and 11. Seeds 1 through 6 have a first-round bye, and the first round is seed 8 vs 9 and seed 7 vs 10. A winner advances only after every scoring week is final. A level tie plays the next week, a second week in a league cup and a third in the JFFL Cup. If that replay is also level, it is an old fashioned duel and nobody advances.
+- There are thirteen trophies: the four cups, each league's best regular-season record, each league's most points, and each league's Superbowl. A leader is provisional until that race is finished. The trophy room marks the JFFL Cup, and Championship's best record and Superbowl, as a path to Premier, and League One's best record and Superbowl as a path to Championship. Most-points titles have no promotion mark.
+- Promotion and relegation bands are provisional. Premier's top six are safe and the bottom four are in the relegation zone. Championship's top four are in the Premier promotion zone, the bottom four are in the relegation zone, and the middle is safe. League One's top four are in the Championship promotion zone. zone on a 2026 season row is that band. Trophy-based promotions and saved relegations can change the final list. The site does not publish the formula for those exceptions, so do not invent who is saved or automatically promoted.
+- An upset, on a finished game only, is a side that missed its saved ESPN projection by at least 15 points and, on its own, flipped the projected winner. No saved projection means it is not an upset. Do not call a live score an upset by comparing it with a full-game projection. Do not use rank, seed, or season average for an upset.
+- winChance on a schedule row is the scoreboard percent while a league game is undecided. It comes from the gap in the two ESPN projections. It is hidden once the game is final, and cup ties do not have one.
+- The weekly roundup's 100+ club is every team that scored at least 100 that week. While the week is live, the extremes are the high scorer, the lowest leading score, the highest trailing score, the smallest margin, and the largest lead. Once all fifteen league games are final, those last four become the lowest-scoring winner, the highest-scoring loser, the smallest winning margin, and the largest blowout.
+- Could have had 'em is the fewest start/sit moves that would have beaten the opponent. Read it from could_have. Do not invent a lineup.
+- Trophy-room totals run through 2025 and come from manager_profiles. They are not a sum of the 2026 season. If they disagree with query_seasons, say which source you are quoting.
+- History: 2002 was 12 teams on NFL.com in three divisions. 2003 to 2005 was Yahoo, growing from 14 to 18 teams. 2007 was ESPN, 20 teams, team quarterbacks, and four divisions. 2013 split into Premier and Championship, and the cups began. 2021 added League One and reached 30 teams. 2026 is season 25. Combined is the single league before 2013. 2002 has standings and a Superbowl and almost no weekly scores.
 - winStreak and lossStreak are consecutive regular-season results inside one season, measured at the end of that game. A tie resets both. They start over each season and do not include cup or Superbowl games. When the weekly log does not match the official record, including 2002, they are null. For the longest streak, filter type Season and status final, groupBy team and season, aggregate max of winStreak or lossStreak, sort that max descending, and limit it. For the current streak, read both fields on that manager's latest final regular-season game. Do not walk the games and count them yourself.
 - You may divide two numbers that came from the same tool result, such as wins divided by games. Every other number you state has to be a value a tool returned.
 - If a name could be a typo or could match more than one manager, call resolve_entity. If several managers match, ask which one the user means before answering.

@@ -95,7 +95,12 @@ test('season rows hold current positions and keep undecided titles unknown', () 
   assert.equal(jason.rankFinal, null);
   assert.equal(jason.jfflRank, null);
   assert.equal(jason.cupRank, null);
-  assert.equal(jason.draft, null);
+  assert.equal(jason.club, 'Hot Machete');
+  assert.equal(jason.previousRank, 1);
+  assert.equal(jason.draft, 5);
+  assert.equal(jason.week2Rank, 1);
+  assert.equal(jason.zone, 'Premier safety zone');
+  assert.equal(jason.snapshotPointsAgainst, 185);
   assert.equal(jason.wins, 2);
   assert.equal(jason.points, 231);
   assert.equal(jason.pointsPerWeek, 115.5);
@@ -105,7 +110,12 @@ test('player weeks flag starters, bench, and unknown slots, and keep unknown poi
   const rows = live.players;
   assert.equal(rows.length, 8);
   const find = (player: string, week: number) => rows.find(row => row.player === player && row.week === week);
-  assert.deepEqual(find('Test Quarterback', 2), { season: 2026, league: 'Premier', week: 2, team: 'Jason', player: 'Test Quarterback', position: 'QB', proTeam: 'KC', slot: 'QB', starter: 1, points: 20.5, status: 'final' });
+  assert.deepEqual(find('Test Quarterback', 2), { season: 2026, league: 'Premier', week: 2, team: 'Jason', player: 'Test Quarterback', position: 'QB', proTeam: 'KC', slot: 'QB', starter: 1, points: 20.5, projected: null, seasonPoints: null, averagePoints: null, injury: null, status: 'final' });
+  const current = find('Test Quarterback', 3)!;
+  assert.equal(current.projected, 19.5);
+  assert.equal(current.seasonPoints, 50.5);
+  assert.equal(current.averagePoints, 16.8);
+  assert.equal(current.injury, null);
   assert.equal(find('Test Runner', 2)!.points, null);
   assert.equal(find('Test Receiver', 3)!.starter, 0);
   assert.equal(find('Test Receiver', 3)!.slot, 'BE');
@@ -142,4 +152,9 @@ test('the schedule keeps a saved projection and leaves a missing one null', () =
   const cup = built.schedule.find(row => row.team === 'Jason' && row.type === 'Cup' && row.round === 'Premier League Cup Quarterfinals')!;
   assert.equal(cup.projected, null);
   assert.equal(cup.opponentProjected, null);
+  assert.equal(cup.winChance, null);
+  const liveGame = live.schedule.find(row => row.team === 'Jason' && row.type === 'Season' && row.week === 3)!;
+  assert.equal(typeof liveGame.winChance, 'number');
+  const finished = live.schedule.find(row => row.team === 'Jason' && row.type === 'Season' && row.week === 2)!;
+  assert.equal(finished.winChance, null);
 });

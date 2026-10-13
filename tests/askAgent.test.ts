@@ -188,6 +188,10 @@ test('every tool declaration is valid for Gemini and the prompt carries the sche
   assert.match(prompt, /betterFinish/);
   assert.match(prompt, /pointsAgainst/);
   assert.match(prompt, /winStreak/);
+  assert.match(prompt, /old fashioned duel/);
+  assert.match(prompt, /do not invent who is saved/);
+  assert.match(prompt, /scoring_settings/);
+  assert.ok(names.has('player_stats') && names.has('could_have') && names.has('manager_profiles'));
 });
 
 test('the local test assistant exercises the whole path on the real archive', async () => {

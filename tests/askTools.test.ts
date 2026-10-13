@@ -268,8 +268,24 @@ test('archive rows are final and live 2026 rows carry their status', () => {
   const jason = seasons.find(row => row.team === 'Jason');
   assert.equal(jason?.jfflSeed, 2);
   assert.equal(jason?.leagueCupSeed, 1);
-  assert.equal(liveCtx.tables.seasons.find(row => row.season === 2025)?.jfflSeed, null);
-  assert.equal(liveCtx.tables.seasons.find(row => row.season === 2025)?.leagueCupSeed, null);
+  assert.equal(jason?.club, 'Hot Machete');
+  assert.equal(jason?.previousRank, 1);
+  assert.equal(jason?.draft, 5);
+  assert.equal(jason?.week2Rank, 1);
+  assert.equal(jason?.zone, 'Premier safety zone');
+  assert.equal(jason?.pointsAgainst, 185);
+  const past = liveCtx.tables.seasons.find(row => row.season === 2025);
+  assert.equal(past?.jfflSeed, null);
+  assert.equal(past?.leagueCupSeed, null);
+  assert.equal(past?.club, null);
+  assert.equal(past?.previousRank, null);
+  assert.equal(past?.week2Rank, null);
+  assert.equal(past?.zone, null);
+  const quarterback = liveCtx.tables.player_weeks.find(row => row.player === 'Test Quarterback' && row.week === 3);
+  assert.equal(quarterback?.projected, 19.5);
+  assert.equal(quarterback?.seasonPoints, 50.5);
+  assert.equal(quarterback?.averagePoints, 16.8);
+  assert.equal(liveCtx.tables.player_weeks.find(row => row.player === 'Test Quarterback' && row.week === 2)?.projected, null);
 });
 
 test('a query spanning 2025 and 2026 returns both seasons and the live caveat', () => {
@@ -373,4 +389,28 @@ test('streaks are consecutive regular-season results inside one season', () => {
   });
   assert.equal(longest.rows[0].streak, 13);
   assert.ok(longest.rows.some(row => row.team === 'Michael' && row.season === 2019));
+});
+
+test('scoring, the trophy room, could-have lineups, and player stats come from the same snapshots as the site', () => {
+  const scoring = liveRun('scoring_settings', { league: 'Premier', item: 'Rush TD' });
+  assert.ok(scoring.rows.some(row => row.league === 'Premier' && row.item === 'Rush TD' && row.points === 6));
+  const room = liveRun('manager_profiles', { name: 'Jason' });
+  assert.equal(room.rows[0]?.trophies, 13);
+  assert.equal(room.rows[0]?.cupRank, 7);
+  assert.ok(room.caveats.some(text => text.includes('through 2025')));
+  const career = liveRun('manager_career', { name: 'Jason' });
+  assert.equal((career.summary?.trophyRoom as { trophies?: number } | undefined)?.trophies, 13);
+  const swings = liveRun('could_have', { week: 3 });
+  assert.ok(Array.isArray(swings.rows));
+  assert.ok(swings.caveats.some(text => text.includes('Injured reserve')));
+  const stats = liveRun('player_stats', { name: 'Test Quarterback' });
+  assert.equal(stats.rows.find(row => row.week === 1 && row.stat === 'Fantasy points')?.value, 18);
+  assert.equal(stats.rows.find(row => row.week === 2 && row.stat === 'Fantasy points')?.value, 20.5);
+  assert.equal((stats.summary?.players as { projected?: number; seasonPoints?: number; averagePoints?: number }[])[0]?.projected, 19.5);
+  assert.equal((stats.summary?.players as { seasonPoints?: number }[])[0]?.seasonPoints, 50.5);
+  assert.equal((stats.summary?.players as { averagePoints?: number }[])[0]?.averagePoints, 16.8);
+  assert.equal(stats.rows.some(row => row.value === 0), false);
+  assert.ok(stats.caveats.some(text => text.includes('no counting stats')));
+  const schedule = liveRun('schedule', { manager: 'Jason', fromWeek: 3, toWeek: 3, type: 'Season' });
+  assert.equal(typeof schedule.rows.find(row => row.team === 'Jason')?.winChance, 'number');
 });

@@ -1,3 +1,8 @@
+import { slotsLabel } from '../lineups.ts';
+import { injuryName } from '../injury.ts';
+import { MANAGERS } from '../reference.ts';
+import { scoringLabel } from '../scoring.ts';
+import { LEAGUES as LEAGUE_META, type LeagueSlug } from '../types.ts';
 import {
   JFFL_CUP, LEAGUE_CUP, SUPER_BOWL, WEEKLY,
   careers, draftBuckets, rate, recordBook, roundLabel, titleYears,
@@ -95,14 +100,18 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     jfflRank: { type: 'number', about: 'JFFL Cup finish, 1 is champion (2013 onward)' },
     cupRank: { type: 'number', about: 'League cup finish, 1 is champion' },
     jfflSeed: { type: 'number', about: '2026 JFFL Cup seed, 1 is the top seed. Seeds 1 and 2 have a first-round bye. Null in every season before 2026. Not the current league standing, and not a random draw.' },
-    leagueCupSeed: { type: 'number', about: '2026 seed in that manager\'s own league cup, 1 is the top seed. Seeds 1 through 6 have a first-round bye. Null before 2026. Not the JFFL Cup seed and not the current league standing.' },
+    leagueCupSeed: { type: 'number', about: '2026 seed in that manager\'s own league cup, 1 is the top seed. Seeds 1 through 6 have a first-round bye. Null before 2026. Not the JFFL Cup seed and not the current league standing. The standings page Start Δ is this seed minus standing.' },
+    club: { type: 'string', about: 'ESPN team name for 2026, such as the name under the manager on the standings page. Null before 2026.' },
+    previousRank: { type: 'number', about: 'League rank after the previous completed week. Null before 2026. Week Δ on the standings page is previousRank minus standing.' },
+    week2Rank: { type: 'number', about: 'Starting rank from the 2026 Week 2 commissioner sheet. Null before 2026. This is not the Start Δ and not the draft slot.' },
+    zone: { type: 'string', about: 'Provisional promotion or relegation band for the current 2026 rank: Premier safety zone, Relegation zone, Premier promotion zone, Championship safety zone, Championship promotion zone, or League One. Null before 2026. Trophy exceptions can still change the final allocation.' },
     points: { type: 'number', about: 'Total regular-season points scored (2026: so far). This is the official total; do not rebuild it by summing games.' },
-    pointsAgainst: { type: 'number', about: 'Points allowed in regular-season games. Null when the weekly log does not match the season record, including every 2002 season. Never treat that null as zero.' },
+    pointsAgainst: { type: 'number', about: 'Points allowed. For 2026 this is the ESPN points against on the standings page. For earlier seasons it is filled only when the weekly log matches the season record, and it is null otherwise, including every 2002 season. Never treat that null as zero.' },
     pointsPerWeek: { type: 'number', about: 'Average points per week' },
     wins: { type: 'number', about: 'Regular-season wins' },
     losses: { type: 'number', about: 'Regular-season losses' },
     ties: { type: 'number', about: 'Regular-season ties' },
-    draft: { type: 'number', about: 'Draft slot, 1 picks first. Unknown (null) for 2026' },
+    draft: { type: 'number', about: 'Draft slot, 1 picks first. For 2026 this is the ESPN draft rank, or the commissioner sheet when ESPN has none. Draft Δ is this number minus standing.' },
     pointsRank: { type: 'number', about: 'Rank by points scored within the league' },
     seasonChamp: { type: 'number', about: '1 if finished first in the regular season, 0 if not, null if unknown' },
     superBowlChamp: { type: 'number', about: '1 if won the league Superbowl, 0 if not, null if unknown' },
@@ -122,6 +131,10 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     slot: { type: 'string', about: 'Lineup slot such as QB, RB, FLEX, BE (bench), or IR. Null when the slot for that week is unknown' },
     starter: { type: 'number', about: '1 if in the starting lineup, 0 if on the bench or IR, null if unknown' },
     points: { type: 'number', about: 'Fantasy points that week (null if not reported)' },
+    projected: { type: 'number', about: 'ESPN projection for the current week only. Null on an earlier week and when ESPN has not sent one.' },
+    seasonPoints: { type: 'number', about: 'Fantasy points for the season so far, from the current roster. Null on an earlier week.' },
+    averagePoints: { type: 'number', about: 'Average fantasy points, from the current roster. Null on an earlier week.' },
+    injury: { type: 'string', about: 'Injury report on the current roster, such as Questionable or Out. Null when healthy or on an earlier week.' },
     status: { type: 'string', about: 'final, or live while that week is still being played' },
   },
 };
@@ -135,7 +148,8 @@ export const DATA_NOTES = [
   'Ties are separate from wins and losses.',
   'Names are manager nicknames. "team" always means the manager.',
   '2026 cups are seeded. jfflSeed is the JFFL Cup seed and leagueCupSeed is the seed in that manager\'s league cup. Both are null before 2026, so those seasons have no cup seeds. A seed is not the current standing.',
-  'Wins, losses, ties, and points on a season row are the official regular-season totals. teamFinish is the final regular-season rank that year, not the rank at the time of a game, and it only compares with another finish inside the same league. pointsAgainst is null when the weekly log does not match the season record. winStreak and lossStreak count consecutive regular-season results inside one season; a tie resets both, and they do not cross seasons or include cup games.',
+  '2026 season rows also carry the standings page: club, previousRank, week2Rank, draft, zone, and ESPN pointsAgainst. Those fields are null before 2026. Scoring settings, trophy-room profiles, could-have lineups, and player counting stats are separate tools.',
+  'Wins, losses, ties, and points on a season row are the official regular-season totals. teamFinish is the final regular-season rank that year, not the rank at the time of a game, and it only compares with another finish inside the same league. Before 2026, pointsAgainst is null when the weekly log does not match the season record. For 2026 it is the ESPN points against on the standings page. winStreak and lossStreak count consecutive regular-season results inside one season; a tie resets both, and they do not cross seasons or include cup games.',
 ];
 
 const TABLE_INTRO: Record<TableName, string> = {
@@ -234,12 +248,15 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
     list.forEach((row, index) => Object.assign(row, streaks[index]));
   }
   const flag = (rank: number | null, test: (value: number) => boolean) => rank == null ? null : test(rank) ? 1 : 0;
-  const seasonRow = (row: HistorySeason & { standing?: number | null; jfflSeed?: number | null; leagueCupSeed?: number | null }, status: string): Row => ({
+  const seasonRow = (row: HistorySeason & { standing?: number | null; jfflSeed?: number | null; leagueCupSeed?: number | null; club?: string | null; previousRank?: number | null; week2Rank?: number | null; zone?: string | null; snapshotPointsAgainst?: number | null }, status: string): Row => ({
     season: row.season, team: row.team, league: row.league,
     rankSeason: row.rankSeason, standing: row.standing === undefined ? row.rankSeason : row.standing,
     rankFinal: row.rankFinal, jfflRank: row.jfflRank, cupRank: row.cupRank,
     jfflSeed: row.jfflSeed ?? null, leagueCupSeed: row.leagueCupSeed ?? null,
-    points: row.points, pointsPerWeek: row.pointsPerWeek, pointsAgainst: pointsAllowed(scored.get(`${row.season}|${row.team}`), row), wins: row.wins, losses: row.losses, ties: row.ties,
+    club: row.club ?? null, previousRank: row.previousRank ?? null, week2Rank: row.week2Rank ?? null, zone: row.zone ?? null,
+    points: row.points, pointsPerWeek: row.pointsPerWeek,
+    pointsAgainst: row.snapshotPointsAgainst !== undefined ? row.snapshotPointsAgainst ?? null : pointsAllowed(scored.get(`${row.season}|${row.team}`), row),
+    wins: row.wins, losses: row.losses, ties: row.ties,
     draft: row.draft, pointsRank: row.pointsRank,
     seasonChamp: flag(row.rankSeason, value => value === 1),
     superBowlChamp: flag(row.rankFinal, value => value === 1),
@@ -636,7 +653,7 @@ export type ToolOutcome =
   | { ok: false; error: string }
   | { ok: true; entity: ReturnType<typeof resolveEntity> };
 
-export const DATA_TOOL_NAMES = ['query_games', 'query_seasons', 'query_players', 'resolve_entity', 'head_to_head', 'manager_career', 'records', 'title_years', 'draft_slot_stats', 'week_slice', 'schedule'] as const;
+export const DATA_TOOL_NAMES = ['query_games', 'query_seasons', 'query_players', 'resolve_entity', 'head_to_head', 'manager_career', 'records', 'title_years', 'draft_slot_stats', 'week_slice', 'schedule', 'scoring_settings', 'manager_profiles', 'could_have', 'player_stats'] as const;
 export type DataToolName = (typeof DATA_TOOL_NAMES)[number];
 export const isDataTool = (name: string): name is DataToolName => (DATA_TOOL_NAMES as readonly string[]).includes(name);
 
@@ -666,6 +683,42 @@ function gameRow(game: HistoryGame, perspective?: string): Row {
     season: game.season, league: game.league, when: roundLabel(game), type: game.type,
     team: first.team, opponent: first.opponent, score: first.score, opponentScore: first.other, diff: first.score - first.other,
   };
+}
+
+const STAT_ORDER = ['Pass attempts', 'Completions', 'Pass yards', 'Pass TD', 'Interceptions', 'Rush attempts', 'Rush yards', 'Rush TD', 'Receptions', 'Rec yards', 'Rec TD', 'Targets', 'Fumbles', 'Fumbles lost', 'Field goals', 'Extra points', 'Defensive TD', 'Defensive INT', 'Fumble recoveries', 'Safeties', 'Sacks', 'Points allowed', 'Yards allowed'];
+const SHORT_LEAGUE: Record<LeagueSlug, string> = { premier: 'Premier', championship: 'Championship', 'league-one': 'League One' };
+const foldName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+function trophyRoom(manager: string) {
+  const person = MANAGERS.find(item => item.manager === manager);
+  if (!person) return null;
+  return {
+    through: 2025,
+    league: SHORT_LEAGUE[person.slug],
+    seasons: person.seasons,
+    trophies: person.trophies,
+    trophies2025: person.trophies2025,
+    trophies2021: person.trophies2021,
+    trophies2013: person.trophies2013,
+    finals: person.finals,
+    cupRank: person.cupRank || null,
+    cupRankLabel: person.cupRank ? String(person.cupRank) : 'Rookie',
+    cupAverageFinish: person.cupRank ? person.cupAverageFinish : null,
+    cupWins: person.cupWins,
+    cupLosses: person.cupLosses,
+    cupTitles: person.cupTitles,
+    jfflSeed: person.jfflSeed,
+    leagueCupSeed: person.leagueSeed,
+    week2Rank: person.week2Rank,
+    draftRank: person.draftRank,
+  };
+}
+
+function namedManagers(name: string | null) {
+  if (!name) return MANAGERS;
+  const folded = foldName(name);
+  const exact = MANAGERS.filter(item => foldName(item.manager) === folded);
+  return exact.length ? exact : MANAGERS.filter(item => foldName(item.manager).includes(folded));
 }
 
 export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<string, unknown>): ToolOutcome {
@@ -721,11 +774,15 @@ export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<s
       const career = careers(archive.seasons).find(row => row.team === manager);
       const rows = tables.seasons.filter(row => row.team === manager).sort((a, b) => (a.season as number) - (b.season as number));
       const inProgress = rows.some(row => row.status === 'live');
+      const room = trophyRoom(manager);
       return {
         ok: true, title: `${manager} career`, columns: inferColumns(Object.keys(TABLE_COLUMNS.seasons), rows, 'seasons'), rows,
         matched: rows.length, truncated: false,
-        caveats: inProgress ? [`${IN_PROGRESS_CAVEAT} The career summary counts 2002 to 2025 only.`] : [],
-        summary: career ? { ...career } : { team: manager, note: 'No finished seasons before 2026.' },
+        caveats: [
+          ...(inProgress ? [`${IN_PROGRESS_CAVEAT} The career summary counts 2002 to 2025 only.`] : []),
+          ...(room ? ['trophyRoom is the commissioner snapshot through 2025. It does not include 2026, and it can disagree with the season rows.'] : []),
+        ],
+        summary: { ...(career ? { ...career } : { team: manager, note: 'No finished seasons before 2026.' }), ...(room ? { trophyRoom: room } : {}) },
       };
     }
     case 'records': {
@@ -818,14 +875,14 @@ export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<s
         .filter(row => !manager || fold(row.team) === manager)
         .filter(row => !league || fold(row.league).replace(/league$/, '') === league)
         .filter(row => args.type !== 'Season' && args.type !== 'Cup' || row.type === args.type)
-        .map(row => ({ week: row.week === row.lastWeek ? String(row.week) : `${row.week}-${row.lastWeek}`, league: row.league, type: row.type, round: row.round, team: row.team, opponent: row.opponent, status: row.status, score: row.score, opponentScore: row.opponentScore, projected: row.projected, opponentProjected: row.opponentProjected }));
+        .map(row => ({ week: row.week === row.lastWeek ? String(row.week) : `${row.week}-${row.lastWeek}`, league: row.league, type: row.type, round: row.round, team: row.team, opponent: row.opponent, status: row.status, score: row.score, opponentScore: row.opponentScore, projected: row.projected, opponentProjected: row.opponentProjected, winChance: row.winChance }));
       const capped = rows.slice(0, 120);
       const scheduledCup = rows.some(row => row.type === 'Cup' && row.status === 'scheduled');
       return {
-        ok: true, title: `${live.season} schedule, weeks ${from}-${to}`, columns: inferColumns(['week', 'league', 'type', 'round', 'team', 'opponent', 'status', 'score', 'opponentScore', 'projected', 'opponentProjected'], capped), rows: capped,
+        ok: true, title: `${live.season} schedule, weeks ${from}-${to}`, columns: inferColumns(['week', 'league', 'type', 'round', 'team', 'opponent', 'status', 'score', 'opponentScore', 'projected', 'opponentProjected', 'winChance'], capped), rows: capped,
         matched: rows.length, truncated: rows.length > capped.length,
         caveats: [
-          `Schedule as of ${asOfLabel(asOf)}. Scores are null for games not played yet. Projections are the last ESPN live projection saved for that week; null means none was saved. A cup tie adds those weekly projections and is null when any week of the tie has none.`,
+          `Schedule as of ${asOfLabel(asOf)}. Scores are null for games not played yet. Projections are the last ESPN live projection saved for that week; null means none was saved. A cup tie adds those weekly projections and is null when any week of the tie has none. winChance is the scoreboard percent for an undecided league game; it is null once the game is final, when a projection is missing, and on cup ties.`,
           ...(rows.some(row => row.status === 'live') ? ['Games marked live are still being played, so their scores can change.'] : []),
           ...(scheduledCup ? ['Cup opponents shown as "Winner of ..." depend on games not finished yet. JFFL Cup ties are two-week totals.'] : []),
           ...(to >= REGULAR_WEEKS ? ['Playoff pairings appear only once ESPN sets them.'] : []),
@@ -844,6 +901,129 @@ export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<s
         ok: true, title: `Week ${week} high score by season`, columns: inferColumns(['season', 'league', 'team', 'score', 'opponent', 'opponentScore'], rows), rows, matched: board.games, truncated: false,
         caveats: [...(board.games ? [] : [`No regular-season games were played in week ${week}.`]), ...liveNote],
         summary: { games: board.games, highest: high ? { team: high.team, score: high.score, season: high.season } : null, lowest: low ? { team: low.team, score: low.score, season: low.season } : null },
+      };
+    }
+    case 'scoring_settings': {
+      const live = archive.live;
+      if (!live) return fail('The current season is not loaded, so scoring settings are not available.');
+      const leagueFilter = typeof args.league === 'string' && args.league.trim() ? foldName(args.league).replace(/league$/, '') : null;
+      const itemFilter = typeof args.item === 'string' && args.item.trim() ? args.item.trim().toLowerCase() : null;
+      const rows: Row[] = [];
+      const missing: string[] = [];
+      for (const meta of LEAGUE_META) {
+        const summary = live.summaries[meta.slug];
+        if (!summary) continue;
+        const short = SHORT_LEAGUE[meta.slug];
+        if (leagueFilter && foldName(short).replace(/league$/, '') !== leagueFilter && foldName(meta.slug).replace(/-/g, '') !== leagueFilter) continue;
+        if (!summary.scoring.length) missing.push(`${short} has no scoring list on this snapshot.`);
+        for (const item of summary.scoring) {
+          const label = scoringLabel(item.name);
+          if (itemFilter && !label.toLowerCase().includes(itemFilter)) continue;
+          rows.push({ league: short, item: label, points: item.points });
+        }
+      }
+      return {
+        ok: true, title: 'Scoring settings', columns: inferColumns(['league', 'item', 'points'], rows), rows,
+        matched: rows.length, truncated: false,
+        caveats: ['Each league keeps its own ESPN scoring. The same NFL player can be worth different points in two leagues. A setting that is not listed is unknown, not zero.', ...missing, ...(rows.length ? [] : ['No scoring settings matched. Call again with a shorter item name.'])],
+        summary: { season: live.season },
+      };
+    }
+    case 'manager_profiles': {
+      const requested = typeof args.name === 'string' && args.name.trim() ? args.name.trim() : null;
+      const people = namedManagers(requested);
+      if (requested && !people.length) return fail(`No trophy-room profile for "${requested}". Use resolve_entity to check the name.`);
+      const rows: Row[] = people.map(person => ({ manager: person.manager, ...trophyRoom(person.manager)! }));
+      return {
+        ok: true, title: 'Trophy room', columns: inferColumns(['manager', 'league', 'trophies', 'finals', 'trophies2025', 'trophies2021', 'trophies2013', 'seasons', 'cupRank', 'cupRankLabel', 'cupAverageFinish', 'cupWins', 'cupLosses', 'cupTitles', 'jfflSeed', 'leagueCupSeed', 'week2Rank', 'draftRank'], rows), rows,
+        matched: rows.length, truncated: false,
+        caveats: ['These totals run through 2025 from the commissioner snapshot. They do not include 2026 results. cupRankLabel Rookie means that snapshot had no cup rank. The season rows from query_seasons are a separate workbook and can disagree.'],
+      };
+    }
+    case 'could_have': {
+      const live = archive.live;
+      if (!live) return fail('The current season is not loaded, so lineups are not available.');
+      if (!Object.keys(live.rosters).length) return fail('Rosters are not loaded, so could-have lineups are not available.');
+      const week = args.week == null || args.week === '' ? (live.week ?? 1) : clamp(args.week, live.week ?? 1, 1, 18);
+      const manager = typeof args.manager === 'string' && args.manager.trim() ? foldName(args.manager) : null;
+      const rows: Row[] = live.swings
+        .filter(row => row.week === week && (!manager || foldName(row.team) === manager))
+        .map(row => ({ week: row.week, league: row.league, team: row.team, opponent: row.opponent, score: row.score, opponentScore: row.opponentScore, wouldScore: row.wouldScore, final: row.final ? 1 : 0, swaps: row.swaps }));
+      return {
+        ok: true, title: `Could have had 'em, week ${week}`, columns: inferColumns(['week', 'league', 'team', 'opponent', 'score', 'opponentScore', 'wouldScore', 'final', 'swaps'], rows), rows,
+        matched: rows.length, truncated: false,
+        caveats: [
+          'Same rule as the weekly roundup: the fewest start/sit moves that would have beaten the opponent. Injured reserve is left out. A starter with no posted score leaves that side out. A missing bench score is left out, not treated as zero.',
+          ...(rows.length ? [] : [`No would-be lineup in week ${week}. The trailing lineups may already be optimal, a starter may have no score yet, or that week's lineup may be missing from the snapshot.`]),
+          ...(!live.rostersLoaded ? ['Not every league roster is loaded.'] : []),
+        ],
+      };
+    }
+    case 'player_stats': {
+      const live = archive.live;
+      if (!live || !Object.keys(live.rosters).length) return fail('Rosters are not loaded, so player stats are not available.');
+      const name = String(args.name ?? '').trim();
+      if (!name) return fail('player_stats needs a player name.');
+      const folded = foldName(name);
+      const spots = LEAGUE_META.flatMap(meta => (live.rosters[meta.slug]?.players ?? []).filter(player => foldName(player.name).includes(folded)).map(player => ({ slug: meta.slug, player })));
+      const exact = spots.filter(spot => foldName(spot.player.name) === folded);
+      const chosen = exact.length ? exact : spots;
+      if (!chosen.length) return fail(`No rostered player matches "${name}".`);
+      const distinct = [...new Set(chosen.map(spot => spot.player.name))];
+      if (!exact.length && distinct.length > 1) return fail(`Several players match "${name}": ${distinct.join(', ')}. Use the full name.`);
+      const weekFilter = args.week == null || args.week === '' ? null : clamp(args.week, 1, 1, 18);
+      const rank = (stat: string) => { const index = STAT_ORDER.indexOf(stat); return index === -1 ? STAT_ORDER.length : index; };
+      const rows: Row[] = [];
+      const profiles: Record<string, unknown>[] = [];
+      for (const spot of chosen) {
+        const roster = live.rosters[spot.slug];
+        if (!roster) continue;
+        const team = MANAGERS.find(item => item.slug === spot.slug && item.teamId === spot.player.teamId)?.manager ?? spot.player.teamId;
+        const base = { league: SHORT_LEAGUE[spot.slug], team, player: spot.player.name };
+        const add = (scope: string, week: number | null, stat: string, value: number | null | undefined) => {
+          if (typeof value !== 'number' || !Number.isFinite(value)) return;
+          rows.push({ ...base, scope, week, stat, value });
+        };
+        profiles.push({
+          ...base, slot: spot.player.slot, eligible: slotsLabel(spot.player.eligibleSlots),
+          injury: injuryName(spot.player.injuryStatus) ?? null,
+          projected: spot.player.projectedPoints, seasonPoints: spot.player.seasonPoints, averagePoints: spot.player.averagePoints, weekPoints: spot.player.weekPoints, week: roster.week,
+        });
+        if (weekFilter == null) {
+          add('season', null, 'Fantasy points', spot.player.seasonPoints);
+          add('season', null, 'Average', spot.player.averagePoints);
+          for (const [key, value] of Object.entries(spot.player.seasonStats)) add('season', null, key, value);
+        }
+        const weeks = new Map<number, { points: number | null; stats: Record<string, number> }>();
+        for (const line of spot.player.weeklyStats ?? []) weeks.set(line.week, { points: line.points ?? null, stats: { ...(line.stats ?? {}) } });
+        for (const lineup of roster.weeklyLineups ?? []) {
+          const played = lineup.players.find(item => item.id === spot.player.id);
+          if (played?.points == null) continue;
+          const existing = weeks.get(lineup.week) ?? { points: null, stats: {} };
+          if (existing.points == null) existing.points = played.points;
+          weeks.set(lineup.week, existing);
+        }
+        if (spot.player.weekPoints != null || Object.keys(spot.player.weekStats).length) {
+          const existing = weeks.get(roster.week) ?? { points: null, stats: {} };
+          if (existing.points == null) existing.points = spot.player.weekPoints;
+          for (const [key, value] of Object.entries(spot.player.weekStats)) if (existing.stats[key] == null && value != null) existing.stats[key] = value;
+          weeks.set(roster.week, existing);
+        }
+        for (const [week, info] of [...weeks.entries()].sort((a, b) => a[0] - b[0])) {
+          if (weekFilter != null && week !== weekFilter) continue;
+          add('week', week, 'Fantasy points', info.points);
+          for (const key of Object.keys(info.stats).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))) add('week', week, key, info.stats[key]);
+        }
+      }
+      const counting = rows.some(row => row.stat !== 'Fantasy points' && row.stat !== 'Average');
+      return {
+        ok: true, title: `${distinct[0] ?? name} stats`, columns: inferColumns(['league', 'team', 'player', 'scope', 'week', 'stat', 'value'], rows), rows,
+        matched: rows.length, truncated: false,
+        caveats: [
+          'Counting stats use the same labels as the player page. A stat that is absent was not on the snapshot. Do not turn that absence into zero.',
+          ...(counting ? [] : ['This snapshot has fantasy points for this player and no counting stats such as yards or touchdowns.']),
+        ],
+        summary: { players: profiles },
       };
     }
     default: return fail(`Unknown tool ${String(name)}.`);

@@ -1,6 +1,9 @@
-import { buildCup, matchupProjection, type CupId, type SummaryMap } from '../competitions.ts';
+import { buildCup, matchupProjection, provisionalZone, type CupId, type SummaryMap } from '../competitions.ts';
+import { lineupWouldWin, rosterForWeek } from '../lineups.ts';
+import { injuryName } from '../injury.ts';
+import { projectedWinChance } from '../projections.ts';
 import { managerFor } from '../reference.ts';
-import { LEAGUES, type LeagueRosterSnapshot, type LeagueSlug, type LeagueSummary } from '../types.ts';
+import { LEAGUES, type LeagueRosterSnapshot, type LeagueSlug, type LeagueSummary, type RosteredPlayer } from '../types.ts';
 import type { GameType, HistoryGame, HistorySeason, LeagueName } from './stats.ts';
 
 export const REGULAR_WEEKS = 14;
@@ -30,6 +33,16 @@ export interface LiveSeasonRow extends HistorySeason {
   jfflSeed: number | null;
   /** Seed in this manager's own league cup, 1 is the top seed. Fixed for 2026. */
   leagueCupSeed: number | null;
+  /** ESPN team name. */
+  club: string | null;
+  /** Rank after the previous completed week. */
+  previousRank: number | null;
+  /** Starting rank from the Week 2 commissioner sheet. */
+  week2Rank: number | null;
+  /** Provisional promotion or relegation band for the current rank. */
+  zone: string | null;
+  /** ESPN season points against, the number on the standings page. */
+  snapshotPointsAgainst: number | null;
 }
 
 export interface PlayerWeek {
@@ -43,7 +56,26 @@ export interface PlayerWeek {
   slot: string | null;
   starter: number | null;
   points: number | null;
+  /** Current-week roster only. Null on a saved lineup from an earlier week. */
+  projected: number | null;
+  seasonPoints: number | null;
+  averagePoints: number | null;
+  /** Empty when the player is healthy or the week has no injury report. */
+  injury: string | null;
   status: LiveStatus;
+}
+
+/** A would-be lineup from the weekly roundup. The score is what that lineup would have scored. */
+export interface SwingRow {
+  week: number;
+  league: LeagueName;
+  team: string;
+  opponent: string;
+  score: number;
+  opponentScore: number;
+  wouldScore: number;
+  final: boolean;
+  swaps: string;
 }
 
 /** One manager's league game or cup tie in a given week, including weeks not played yet. */
@@ -61,6 +93,8 @@ export interface ScheduleRow {
   /** Last ESPN projection saved for that side. Null when none was saved. */
   projected: number | null;
   opponentProjected: number | null;
+  /** Scoreboard win chance while the game is undecided. Null once it is final or a projection is missing. */
+  winChance: number | null;
   status: 'final' | 'live' | 'scheduled';
 }
 
@@ -75,8 +109,11 @@ export interface LiveSeason {
   rostersLoaded: boolean;
   /** League games for every scheduled week and every cup tie, from each manager's side. */
   schedule: ScheduleRow[];
+  /** Would-be lineups for weeks the snapshots can still reconstruct. */
+  swings: SwingRow[];
   /** The snapshots these rows came from, so cards in answers can be checked against the same data. */
   summaries: SummaryMap;
+  rosters: RosterMap;
 }
 
 export type RosterMap = Partial<Record<LeagueSlug, LeagueRosterSnapshot>>;
@@ -150,19 +187,37 @@ function seasonRows(slug: LeagueSlug, summary: LeagueSummary, champions: Map<Cup
       points: team.pointsFor,
       pointsPerWeek: team.pointsFor !== null && played ? Math.round(team.pointsFor / played * 100) / 100 : null,
       wins: team.wins, losses: team.losses, ties: team.ties,
-      draft: null,
       pointsRank: index === -1 ? null : index + 1,
       standing: team.rank,
       jfflSeed: person?.jfflSeed ?? null,
       leagueCupSeed: person?.leagueSeed ?? null,
+      club: team.name,
+      previousRank: team.previousRank ?? null,
+      week2Rank: person?.week2Rank ?? null,
+      zone: provisionalZone(slug, team.rank),
+      draft: team.draftRank ?? person?.draftRank ?? null,
+      snapshotPointsAgainst: team.pointsAgainst,
     };
   });
+}
+
+const blankPlayer = { projected: null, seasonPoints: null, averagePoints: null, injury: null };
+
+function rosterFacts(player: RosteredPlayer | undefined) {
+  if (!player) return blankPlayer;
+  return {
+    projected: player.projectedPoints,
+    seasonPoints: player.seasonPoints,
+    averagePoints: player.averagePoints,
+    injury: injuryName(player.injuryStatus) ?? null,
+  };
 }
 
 function playerWeeks(slug: LeagueSlug, summary: LeagueSummary, roster: LeagueRosterSnapshot): PlayerWeek[] {
   const rows: PlayerWeek[] = [];
   const seen = new Set<string>();
   const add = (row: PlayerWeek, key: string) => { if (!seen.has(key)) { seen.add(key); rows.push(row); } };
+  const onRoster = (teamId: string, id: string) => roster.players.find(player => player.teamId === teamId && player.id === id);
   const base = (teamId: string, week: number) => {
     const team = managerName(slug, teamId, summary);
     return team ? { season: summary.season, league: LEAGUE_OF[slug], week, team, status: weekStatus(summary, teamId, week) } : null;
@@ -171,21 +226,22 @@ function playerWeeks(slug: LeagueSlug, summary: LeagueSummary, roster: LeagueRos
     const shared = base(lineup.teamId, lineup.week);
     if (!shared) continue;
     for (const player of lineup.players) {
-      add({ ...shared, player: player.name, position: player.position, proTeam: player.proTeam, slot: player.slot, starter: isBench(player.slot) ? 0 : 1, points: player.points ?? null },
+      const facts = lineup.week === roster.week ? rosterFacts(onRoster(lineup.teamId, player.id)) : blankPlayer;
+      add({ ...shared, ...facts, player: player.name, position: player.position, proTeam: player.proTeam, slot: player.slot, starter: isBench(player.slot) ? 0 : 1, points: player.points ?? null },
         `${lineup.week}:${lineup.teamId}:${player.id}`);
     }
   }
   for (const player of roster.players) {
     const current = base(player.teamId, roster.week);
     if (current) {
-      add({ ...current, player: player.name, position: player.position, proTeam: player.proTeam, slot: player.slot, starter: player.group === 'starter' ? 1 : 0, points: player.weekPoints ?? null },
+      add({ ...current, ...rosterFacts(player), player: player.name, position: player.position, proTeam: player.proTeam, slot: player.slot, starter: player.group === 'starter' ? 1 : 0, points: player.weekPoints ?? null },
         `${roster.week}:${player.teamId}:${player.id}`);
     }
     for (const line of player.weeklyStats ?? []) {
       if (line.week >= roster.week) continue;
       const shared = base(player.teamId, line.week);
       if (!shared) continue;
-      add({ ...shared, player: player.name, position: player.position, proTeam: player.proTeam, slot: null, starter: null, points: line.points ?? null },
+      add({ ...shared, ...blankPlayer, player: player.name, position: player.position, proTeam: player.proTeam, slot: null, starter: null, points: line.points ?? null },
         `${line.week}:${player.teamId}:${player.id}`);
     }
   }
@@ -199,9 +255,10 @@ function leagueSchedule(slug: LeagueSlug, summary: LeagueSummary): ScheduleRow[]
     const home = managerName(slug, matchup.homeTeamId, summary);
     const away = managerName(slug, matchup.awayTeamId, summary);
     const round = matchup.week > REGULAR_WEEKS ? 'Playoffs' : 'Regular season';
+    const chance = status === 'final' ? null : projectedWinChance(matchup.homeProjected, matchup.awayProjected);
     const base = { week: matchup.week, lastWeek: matchup.week, league: LEAGUE_OF[slug], type: 'Season' as const, round, status };
-    if (home) rows.push({ ...base, team: home, opponent: away ?? 'Bye', score: matchup.homeScore, opponentScore: matchup.awayScore, projected: matchup.homeProjected, opponentProjected: matchup.awayProjected });
-    if (away) rows.push({ ...base, team: away, opponent: home ?? 'Bye', score: matchup.awayScore, opponentScore: matchup.homeScore, projected: matchup.awayProjected, opponentProjected: matchup.homeProjected });
+    if (home) rows.push({ ...base, team: home, opponent: away ?? 'Bye', score: matchup.homeScore, opponentScore: matchup.awayScore, projected: matchup.homeProjected, opponentProjected: matchup.awayProjected, winChance: chance?.home ?? null });
+    if (away) rows.push({ ...base, team: away, opponent: home ?? 'Bye', score: matchup.awayScore, opponentScore: matchup.homeScore, projected: matchup.awayProjected, opponentProjected: matchup.homeProjected, winChance: chance?.away ?? null });
   }
   return rows;
 }
@@ -221,8 +278,42 @@ function cupSchedule(data: SummaryMap): ScheduleRow[] {
           const opponent = other.participant?.manager ?? (match.status === 'bye' ? 'Bye' : other.label || 'To be decided');
           const projected = matchupProjection(data, own.participant, match.weeks);
           const opponentProjected = other.participant ? matchupProjection(data, other.participant, match.weeks) : null;
-          rows.push({ ...base, team: own.participant.manager, opponent, score: own.total, opponentScore: other.total, projected, opponentProjected });
+          rows.push({ ...base, team: own.participant.manager, opponent, score: own.total, opponentScore: other.total, projected, opponentProjected, winChance: null });
         }
+      }
+    }
+  }
+  return rows;
+}
+
+function swingRows(summaries: SummaryMap, rosters: RosterMap): SwingRow[] {
+  const rows: SwingRow[] = [];
+  for (const { slug } of LEAGUES) {
+    const summary = summaries[slug];
+    const roster = rosters[slug];
+    if (!summary || !roster) continue;
+    for (const matchup of summary.weeklyMatchups ?? []) {
+      if (matchup.homeScore == null || matchup.awayScore == null || !matchup.homeTeamId || !matchup.awayTeamId) continue;
+      const past = matchup.week !== summary.week;
+      const side = (teamId: string) => past
+        ? rosterForWeek(roster.weeklyLineups, roster.players, teamId, matchup.week) ?? []
+        : roster.players.filter(player => player.teamId === teamId);
+      const home = side(matchup.homeTeamId);
+      const away = side(matchup.awayTeamId);
+      for (const item of [
+        { teamId: matchup.homeTeamId, opponentId: matchup.awayTeamId, score: matchup.homeScore, opponentScore: matchup.awayScore, team: home, opponent: away },
+        { teamId: matchup.awayTeamId, opponentId: matchup.homeTeamId, score: matchup.awayScore, opponentScore: matchup.homeScore, team: away, opponent: home },
+      ]) {
+        const swing = lineupWouldWin(item.team, item.opponent, item.score, item.opponentScore);
+        if (!swing) continue;
+        const team = managerName(slug, item.teamId, summary);
+        const opponent = managerName(slug, item.opponentId, summary);
+        if (!team || !opponent) continue;
+        rows.push({
+          week: matchup.week, league: LEAGUE_OF[slug], team, opponent, score: item.score, opponentScore: item.opponentScore,
+          wouldScore: swing.score, final: matchup.status === 'final',
+          swaps: swing.swaps.map(swap => `start ${swap.start.name} (${swap.start.points}) instead of ${swap.sit.name} (${swap.sit.points})`).join('; '),
+        });
       }
     }
   }
@@ -257,7 +348,7 @@ export function buildLiveSeason(summaries: SummaryMap, rosters: RosterMap = {}):
   const stamps = loaded.map(meta => summaries[meta.slug]!.updatedAt).filter(Boolean).sort();
   return {
     season, asOf: stamps[0] ?? null, week: Math.max(...loaded.map(meta => summaries[meta.slug]!.week)),
-    games, seasons, players, rostersLoaded: LEAGUES.every(meta => !!rosters[meta.slug]), schedule, summaries,
+    games, seasons, players, rostersLoaded: LEAGUES.every(meta => !!rosters[meta.slug]), schedule, swings: swingRows(summaries, rosters), summaries, rosters,
   };
 }
 
