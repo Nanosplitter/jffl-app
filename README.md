@@ -150,7 +150,7 @@ Configuration (all public client config; no secrets):
 | `ask_enabled` | Remote Config | Kill switch. `false` pauses the assistant without a deploy. |
 | `ask_model` | Remote Config | Model name, default `gemini-3.8-flash`. |
 | `ask_thinking` | Remote Config | `minimal`, `low` (default), `medium`, `high`, or `default`. |
-| `ask_max_output_tokens` | Remote Config | Default 2048. |
+| `ask_max_output_tokens` | Remote Config | Default 65536, the Gemini 3.x Flash maximum. The page clamps this between 512 and 65536. Thinking tokens count toward the same budget. |
 
 Client-side courtesy limits (`src/history/askGuards.ts`): 500 characters per question, 20 questions
 per chat, a short cooldown, and 40 questions per browser per day. They are not security; App Check,

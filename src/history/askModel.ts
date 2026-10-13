@@ -5,12 +5,15 @@ import { getAiFirebaseApp } from '../firebaseApp';
 import type { ModelLike } from './askAgent.ts';
 import { buildSystemPrompt, TOOL_DECLARATIONS, type LivePromptInfo } from './askDeclarations.ts';
 
+/** Gemini 3.x Flash output ceiling. Thinking tokens count toward the same budget, so a low cap cuts the visible answer off. */
+export const MAX_OUTPUT_TOKENS = 65_536;
+
 /** Remote Config defaults. Changing them in the Firebase console takes effect without a deploy. */
 export const REMOTE_DEFAULTS = {
   ask_enabled: true,
   ask_model: 'gemini-3.8-flash',
   ask_thinking: 'low',
-  ask_max_output_tokens: 2048,
+  ask_max_output_tokens: MAX_OUTPUT_TOKENS,
 } as const;
 
 export interface Assistant { model: ModelLike; modelName: string; mock: boolean }
@@ -80,7 +83,7 @@ export async function loadAssistant(managers: string[], live?: LivePromptInfo | 
     systemInstruction: buildSystemPrompt(managers, live),
     tools: [{ functionDeclarations: TOOL_DECLARATIONS as never }],
     generationConfig: {
-      maxOutputTokens: Math.min(Math.max(remote.ask_max_output_tokens, 512), 8192),
+      maxOutputTokens: Math.min(Math.max(remote.ask_max_output_tokens, 512), MAX_OUTPUT_TOKENS),
       ...(level ? { thinkingConfig: { thinkingLevel: level as never } } : {}),
     },
   });
