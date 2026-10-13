@@ -132,11 +132,39 @@ export function AskPage() {
   const restored = useRef(false);
   const lastUser = useRef<HTMLDivElement | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const composer = useRef<HTMLDivElement>(null);
   const handledPrompt = useRef<string | null>(null);
   const chartHandles = useRef(new Map<string, ChartHandle>());
   const unavailable = !aiConfigured && !import.meta.env.DEV;
   const managerKey = session.managers.join('|');
   const links = useMemo(() => managerLinks(managerKey.split('|')), [managerKey]);
+
+  // Keep the composer on screen when the phone keyboard opens, without letting the page pan sideways.
+  useEffect(() => {
+    const root = document.documentElement;
+    const viewport = window.visualViewport;
+    const bar = composer.current;
+    const pin = () => {
+      const focused = document.activeElement === input.current;
+      const covered = viewport ? window.innerHeight - viewport.height - viewport.offsetTop : 0;
+      const keyboard = focused ? Math.max(0, Math.round(covered)) : 0;
+      root.style.setProperty('--ask-keyboard', `${keyboard}px`);
+      if (bar) root.style.setProperty('--ask-composer-space', `${Math.ceil(bar.getBoundingClientRect().height)}px`);
+      if (keyboard > 0 && window.scrollX !== 0) window.scrollTo(0, window.scrollY);
+    };
+    pin();
+    viewport?.addEventListener('resize', pin);
+    viewport?.addEventListener('scroll', pin);
+    const observer = bar ? new ResizeObserver(pin) : null;
+    if (bar && observer) observer.observe(bar);
+    return () => {
+      viewport?.removeEventListener('resize', pin);
+      viewport?.removeEventListener('scroll', pin);
+      observer?.disconnect();
+      root.style.removeProperty('--ask-keyboard');
+      root.style.removeProperty('--ask-composer-space');
+    };
+  }, []);
 
   // Restore this tab's chat once the live snapshots are in, so charts built on this season can be rebuilt.
   // Charts are validated again, so stored data can never bypass the checks.
@@ -336,7 +364,7 @@ export function AskPage() {
     <p className="sr-only" role="status">{busy ? `${note || 'Working'}` : messages.length ? 'Answer ready' : ''}</p>
     {toast && <div className="ask-toast" role="status">{toast}</div>}
 
-    <div className="ask-composer">
+    <div className="ask-composer" ref={composer}>
       {notice && <p className="ask-error" role="alert">{notice}</p>}
       <form onSubmit={event => { event.preventDefault(); void send(draft); }}>
         <label className="sr-only" htmlFor="ask-input">Your question</label>
