@@ -11,10 +11,11 @@
   "functions": [{"source":"functions","codebase":"jffl","runtime":"python313","ignore":["venv",".venv","__pycache__","tests","local-data.json"]}],
   "firestore": {"rules":"firestore.rules","indexes":"firestore.indexes.json"},
   "auth": {
-    "authorizedDomains": ["localhost", "jffl.org", "jffl-live-colin.firebaseapp.com", "jffl-live-colin.web.app"],
+    "authorizedDomains": ["localhost", "127.0.0.1", "jffl.org", "jffl-live-colin.firebaseapp.com", "jffl-live-colin.web.app"],
     "providers": {
       "googleSignIn": {
-        "oAuthBrandDisplayName": "JFFL"
+        "oAuthBrandDisplayName": "JFFL",
+        "supportEmail": "nanosplitter21@gmail.com"
       }
     }
   },
