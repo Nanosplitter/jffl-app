@@ -1,0 +1,158 @@
+{
+  "premier": {
+    "16": {
+      "manager": "Jason",
+      "jfflSeed": 2,
+      "leagueSeed": 1
+    },
+    "30": {
+      "manager": "Brendan",
+      "jfflSeed": 14,
+      "leagueSeed": 4
+    },
+    "34": {
+      "manager": "Donna",
+      "jfflSeed": 11,
+      "leagueSeed": 3
+    },
+    "38": {
+      "manager": "Wayne",
+      "jfflSeed": 3,
+      "leagueSeed": 2
+    },
+    "42": {
+      "manager": "Paula",
+      "jfflSeed": 18,
+      "leagueSeed": 6
+    },
+    "43": {
+      "manager": "Chris",
+      "jfflSeed": 17,
+      "leagueSeed": 5
+    },
+    "44": {
+      "manager": "Jeff",
+      "jfflSeed": 1,
+      "leagueSeed": 7
+    },
+    "45": {
+      "manager": "Ryan",
+      "jfflSeed": 8,
+      "leagueSeed": 9
+    },
+    "46": {
+      "manager": "Brandi",
+      "jfflSeed": 5,
+      "leagueSeed": 8
+    },
+    "47": {
+      "manager": "Allison",
+      "jfflSeed": 10,
+      "leagueSeed": 10
+    }
+  },
+  "championship": {
+    "1": {
+      "manager": "Jasmin",
+      "jfflSeed": 4,
+      "leagueSeed": 1
+    },
+    "61": {
+      "manager": "Michael",
+      "jfflSeed": 13,
+      "leagueSeed": 6
+    },
+    "71": {
+      "manager": "SeanT",
+      "jfflSeed": 20,
+      "leagueSeed": 8
+    },
+    "72": {
+      "manager": "SeanH",
+      "jfflSeed": 29,
+      "leagueSeed": 10
+    },
+    "73": {
+      "manager": "Josh",
+      "jfflSeed": 19,
+      "leagueSeed": 7
+    },
+    "74": {
+      "manager": "Patrick",
+      "jfflSeed": 22,
+      "leagueSeed": 9
+    },
+    "75": {
+      "manager": "Randall",
+      "jfflSeed": 6,
+      "leagueSeed": 2
+    },
+    "76": {
+      "manager": "Brad",
+      "jfflSeed": 7,
+      "leagueSeed": 3
+    },
+    "77": {
+      "manager": "Becky",
+      "jfflSeed": 12,
+      "leagueSeed": 5
+    },
+    "78": {
+      "manager": "Tom",
+      "jfflSeed": 9,
+      "leagueSeed": 4
+    }
+  },
+  "league-one": {
+    "1": {
+      "manager": "Sophia",
+      "jfflSeed": 27,
+      "leagueSeed": 8
+    },
+    "12": {
+      "manager": "Joe",
+      "jfflSeed": 26,
+      "leagueSeed": 7
+    },
+    "15": {
+      "manager": "JoshuaS",
+      "jfflSeed": 28,
+      "leagueSeed": 9
+    },
+    "18": {
+      "manager": "Richie",
+      "jfflSeed": 16,
+      "leagueSeed": 2
+    },
+    "22": {
+      "manager": "J-Seitz",
+      "jfflSeed": 15,
+      "leagueSeed": 1
+    },
+    "25": {
+      "manager": "Gabriel",
+      "jfflSeed": 24,
+      "leagueSeed": 5
+    },
+    "26": {
+      "manager": "Wolfe",
+      "jfflSeed": 25,
+      "leagueSeed": 6
+    },
+    "27": {
+      "manager": "Reggie",
+      "jfflSeed": 21,
+      "leagueSeed": 3
+    },
+    "28": {
+      "manager": "Al",
+      "jfflSeed": 23,
+      "leagueSeed": 4
+    },
+    "29": {
+      "manager": "RonniColin",
+      "jfflSeed": 30,
+      "leagueSeed": 10
+    }
+  }
+}

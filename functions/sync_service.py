@@ -1,6 +1,8 @@
 """Refresh each league independently; never replace a valid snapshot with an error."""
 import logging
+
 from espn_adapter import fetch_league, now_iso
+from history_archive import retain_finished_scores
 from league_config import LEAGUES
 
 
@@ -29,8 +31,14 @@ def sync_leagues(store, fetch=fetch_league):
     for slug in LEAGUES:
         try:
             summary, roster = fetch(slug)
-            retain_projections(store.latest(slug), summary)
+            previous = store.latest(slug)
+            retain_projections(previous, summary)
+            retain_finished_scores(previous, summary)
             store.publish(slug, summary, roster)
+            try:
+                store.fold_history(summary)
+            except Exception as history_error:
+                logging.error("JFFL history archive unavailable for %s (%s)", slug, type(history_error).__name__)
             outcomes[slug] = "ok"
             logging.info("JFFL refreshed %s: %s teams, %s players", slug, len(summary["teams"]), len(roster["players"]))
         except Exception as error:

@@ -17,6 +17,7 @@ before(async () => {
         setDoc(doc(db, 'publicRosters', slug), { slug }),
       ]),
       setDoc(doc(db, '_sync', 'lease'), { token: 'private' }),
+      setDoc(doc(db, 'publicHistory', '2026'), { schemaVersion: 1, season: 2026 }),
     ]);
   });
 });
@@ -41,4 +42,11 @@ test('internal state, unlisted leagues, and collection scans are denied', async 
   await assertFails(getDoc(doc(db, '_sync', 'lease')));
   await assertFails(getDoc(doc(db, 'publicLeagues', 'other')));
   await assertFails(getDocs(collection(db, 'publicLeagues')));
+  await assertFails(getDocs(collection(db, 'publicHistory')));
+});
+test('a saved season is publicly readable and not writable', async () => {
+  const db = environment.unauthenticatedContext().firestore();
+  await assertSucceeds(getDoc(doc(db, 'publicHistory', '2026')));
+  await assertFails(getDoc(doc(db, 'publicHistory', 'notes')));
+  await assertFails(setDoc(doc(db, 'publicHistory', '2026'), { overwritten: true }));
 });

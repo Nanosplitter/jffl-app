@@ -59,8 +59,8 @@ function nextRound(data: SummaryMap, previous: CupRound, name: string, weeks: nu
   return { name, weeks, matches };
 }
 
-export function buildCup(id: CupId, data: SummaryMap): Cup {
-  const participants=MANAGERS.filter(item=>id==='jffl'||item.slug===id);
+export function buildCup(id: CupId, data: SummaryMap, roster: readonly ManagerReference[] = MANAGERS): Cup {
+  const participants=roster.filter(item=>id==='jffl'||item.slug===id);
   const bySeed=(seed:number|null)=>participants.find(item=>(id==='jffl'?item.jfflSeed:item.leagueSeed)===seed)??null;
   const rounds: CupRound[]=[];
   if(id==='jffl') {

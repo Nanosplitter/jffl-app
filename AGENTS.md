@@ -45,8 +45,8 @@ and are static source data, not ESPN history.
 - Each league refresh is independent. Validate before publishing summary and
   roster documents together. A failed refresh must preserve that league's last
   good data and must not block the other leagues.
-- Published documents are only `publicLeagues/{slug}` and
-  `publicRosters/{slug}`. Internal lease/status data stays private.
+- Published documents are `publicLeagues/{slug}`, `publicRosters/{slug}`,
+  and `publicHistory/{year}`. Internal lease/status data stays private.
 - Firestore allows public reads only for published documents. Do not add client
   writes, collection listing, or public access to internal synchronization data.
 - Preserve missing values as `null`/absent; never turn an unknown score,

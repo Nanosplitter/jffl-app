@@ -9,14 +9,15 @@ import {
   careers, draftBuckets, rate, recordBook, roundLabel, titleYears,
   type HistoryGame, type HistorySeason,
 } from './stats.ts';
+import { playedArchive } from './played.ts';
 import { finishedGames, REGULAR_WEEKS, type LiveSeason } from './liveSeason.ts';
 
 export type Cell = string | number | null;
 export type Row = Record<string, Cell>;
 export type ColumnType = 'number' | 'string';
 export interface Column { name: string; type: ColumnType }
-/** `live` is the in-progress season built from the shared league snapshots; history stays in games and seasons. */
-export interface Archive { games: HistoryGame[]; seasons: HistorySeason[]; live?: LiveSeason | null }
+/** `live` is the in-progress season built from the shared league snapshots. `saved` is each season copied into publicHistory so it stays after that year ends. */
+export interface Archive { games: HistoryGame[]; seasons: HistorySeason[]; live?: LiveSeason | null; saved?: LiveSeason[] }
 
 export const TABLES = ['team_games', 'seasons', 'player_weeks'] as const;
 export type TableName = (typeof TABLES)[number];
@@ -204,7 +205,9 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
   const seasonOf = new Map<string, { league: string; finish: number | null }>();
   for (const row of [...archive.seasons, ...(archive.live?.seasons ?? [])]) seasonOf.set(`${row.season}|${row.team}`, { league: row.league, finish: row.rankSeason });
   const teamGames: Row[] = [];
-  const games: GameLike[] = [...archive.games, ...(archive.live?.games ?? [])];
+  const carried = (archive.saved ?? []).flatMap(item => finishedGames(item));
+  const present = new Set([...archive.games, ...(archive.live?.games ?? [])].map(game => `${game.season}|${game.league}|${game.type}|${game.week ?? ''}|${game.round}|${[game.teamA, game.teamB].sort().join('|')}`));
+  const games: GameLike[] = [...archive.games, ...carried.filter(game => !present.has(`${game.season}|${game.league}|${game.type}|${game.week ?? ''}|${game.round}|${[game.teamA, game.teamB].sort().join('|')}`)), ...(archive.live?.games ?? [])];
   const scored = new Map<string, { wins: number; losses: number; ties: number; against: number }>();
   for (const game of games) {
     const twoWeek = game.type === 'Cup' && game.league === 'JFFL' ? 1 : 0;
@@ -289,10 +292,10 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
   return { team_games: teamGames, seasons, player_weeks: players };
 }
 
-/** All seasons including the in-progress one, for title and manager lookups. Undecided 2026 ranks are null. */
-const allSeasons = (archive: Archive): HistorySeason[] => [...archive.seasons, ...(archive.live?.seasons ?? [])];
-/** History games plus finished 2026 games. Live games are never counted as results. */
-const resultGames = (archive: Archive): HistoryGame[] => [...archive.games, ...finishedGames(archive.live)];
+/** All seasons including saved years and the in-progress one. Undecided ranks stay null. */
+const allSeasons = (archive: Archive): HistorySeason[] => playedArchive(archive).seasons;
+/** Workbook games, saved seasons, and finished games from the season in progress. Live games are never counted as results. */
+const resultGames = (archive: Archive): HistoryGame[] => playedArchive(archive).games;
 export const lastSeason = (archive: Archive) => archive.live?.season ?? 2025;
 
 export function asOfLabel(asOf: string | null | undefined) {

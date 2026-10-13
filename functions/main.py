@@ -5,6 +5,7 @@ from firebase_admin import initialize_app, firestore
 from firebase_functions import options, scheduler_fn
 from google.cloud.firestore_v1 import transactional
 
+from history_archive import fold_public_history
 from sync_service import sync_leagues
 
 initialize_app()
@@ -25,6 +26,16 @@ class FirestoreStore:
         batch.set(self.db.collection("publicLeagues").document(slug), summary)
         batch.set(self.db.collection("publicRosters").document(slug), roster)
         batch.commit()
+
+    def fold_history(self, summary):
+        season = summary.get("season")
+        if not isinstance(season, int):
+            return
+        ref = self.db.collection("publicHistory").document(str(season))
+        snapshot = ref.get()
+        folded = fold_public_history(snapshot.to_dict() if snapshot.exists else None, summary)
+        if folded:
+            ref.set(folded)
 
     def mark_failed(self, slug, stamp):
         # Update only existing snapshots; no incomplete documents on first-run failure.

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { useRosters, useSummaries } from './data';
+import { usePublicHistory, useRosters, useSummaries } from './data';
 import { history } from './history/archive.ts';
 import type { Archive } from './history/askTools.ts';
 import { buildLiveSeason, type RosterMap } from './history/liveSeason.ts';
+import { savedSeason } from './history/savedSeason.ts';
 import type { SummaryMap } from './competitions.ts';
 import { LEAGUES } from './types';
 
@@ -18,7 +19,11 @@ const ARCHIVE_LAST = Math.max(...history.seasons.map(row => row.season));
 export function useLiveArchive(withRosters: boolean): { archive: Archive; ready: boolean } {
   const summaries = useSummaries();
   const rosters = useRosters(withRosters ? SLUGS : NONE);
+  const latest = Math.max(ARCHIVE_LAST + 1, ...SLUGS.map(slug => summaries[slug].data?.season ?? 0));
+  const years = Array.from({ length: latest - ARCHIVE_LAST }, (_, index) => ARCHIVE_LAST + 1 + index);
+  const savedDocs = usePublicHistory(years);
   const key = SLUGS.map(slug => `${summaries[slug].data?.updatedAt ?? ''}|${rosters[slug]?.data?.updatedAt ?? ''}`).join(',');
+  const savedKey = savedDocs.map(doc => `${doc.season}:${Object.values(doc.leagues).map(league => league?.updatedAt ?? '').join(',')}`).join('|');
   const ready = SLUGS.every(slug => !summaries[slug].loading && (!withRosters || (rosters[slug] !== undefined && !rosters[slug]!.loading)));
   const archive = useMemo<Archive>(() => {
     const summaryMap: SummaryMap = {};
@@ -30,8 +35,9 @@ export function useLiveArchive(withRosters: boolean): { archive: Archive; ready:
       if (roster) rosterMap[slug] = roster;
     }
     const live = buildLiveSeason(summaryMap, rosterMap);
-    return { ...history, live: live && live.season > ARCHIVE_LAST ? live : null };
+    const saved = savedDocs.map(savedSeason).filter((item): item is NonNullable<ReturnType<typeof savedSeason>> => !!item).map(item => item.live);
+    return { ...history, live: live && live.season > ARCHIVE_LAST ? live : null, saved };
     // The snapshot times change whenever the data does, so they stand in for the snapshot objects.
-  }, [key]);
+  }, [key, savedKey]);
   return { archive, ready };
 }

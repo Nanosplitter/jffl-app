@@ -1,16 +1,17 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArchiveNav } from './ArchiveNav';
-import { history } from './history/archive.ts';
+import { useLiveArchive } from './useLiveArchive';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart.tsx';
 import { careerSeasons, draftGroups, h2hMargins, horizontalBars, scoringLine, seasonLine, seriesBars, stackedBars } from './history/archiveCharts.ts';
 import { esc } from './history/chartKit.ts';
 import {
   JFFL_CUP, LEAGUE_CUP, SUPER_BOWL, WEEKLY,
-  careers, draftBuckets, draftSlots, eraMean, rate, recordBook, roundLabel,
+  careers, draftSlots, eraMean, rate, recordBook, roundLabel,
   scoringByYear, seriesTable, superBowlOverlap, titleYears, weekSlice,
-  type HistoryGame, type HistorySeason, type ScoreLine, type TitleLeague,
+  type HistoryGame, type HistorySeason, type ScoreLine, type SeriesRow, type TitleLeague,
 } from './history/stats.ts';
+import { playedArchive } from './history/played.ts';
 import { leagueInk, leagueOfManager, leagueSlug } from './reference';
 import { points } from './ui';
 import { usePageLabel } from './BackLink';
@@ -19,15 +20,29 @@ import { historyWeek } from './weeklyPath';
 
 const dash = '\u2013';
 const managerUrl = (name: string) => `/archive/managers/${encodeURIComponent(name)}`;
-const names = careers(history.seasons).map(row => row.team).sort((a, b) => a.localeCompare(b));
-const years = scoringByYear(history.games);
-const titleBook = titleYears(history.seasons);
-const overlap = superBowlOverlap(titleBook);
-const careerBook = careers(history.seasons);
-const series = seriesTable(history.games);
-const drafts = draftBuckets(history.seasons);
-const draftPositions = draftSlots(history.seasons).filter(slot => slot.slot >= 1 && slot.slot <= 10);
-const mostPlayed = series.slice(0, 8);
+function usePlayed() {
+  const { archive } = useLiveArchive(false);
+  return useMemo(() => {
+    const played = playedArchive(archive);
+    const careerBook = careers(played.seasons);
+    const series = seriesTable(played.games);
+    const titleBook = titleYears(played.seasons);
+    const latest = Math.max(...played.seasons.map(row => row.season));
+    return {
+      ...played,
+      names: careerBook.map(row => row.team).sort((a, b) => a.localeCompare(b)),
+      years: scoringByYear(played.games),
+      titleBook,
+      overlap: superBowlOverlap(titleBook),
+      careerBook,
+      series,
+      mostPlayed: series.slice(0, 8),
+      draftPositions: draftSlots(played.seasons).filter(slot => slot.slot >= 1 && slot.slot <= 10),
+      seasonIndex: new Map(played.seasons.map(row => [`${row.season}\0${row.team}`, row])),
+      everyYear: careerBook.filter(row => row.first === 2002 && row.last === latest && row.seasons === latest - 2002 + 1).length,
+    };
+  }, [archive]);
+}
 
 function InkName({ name }: { name: string }) {
   return <span className={leagueInk(leagueOfManager(name))}>{name}</span>;
@@ -55,11 +70,12 @@ function place(game: HistoryGame) {
   return `${game.season} ${game.league} ${roundLabel(game)}`;
 }
 
-const SCORING_SUMMARY = 'Mean regular-season score by year. About 65 points from 2003 to 2012, then about 88 from 2013 through 2025. Hover a year for its mean score and game count.';
+const SCORING_SUMMARY = 'Mean regular-season score by year. About 65 points from 2003 to 2012, then about 88 from 2013 on. The current season is included as its weeks finish. Hover a year for its mean score and game count.';
 
 function ScoringChart() {
+  const { years } = usePlayed();
   const dark = useDarkMode();
-  const option = useMemo(() => scoringLine(dark, years), [dark]);
+  const option = useMemo(() => scoringLine(dark, years), [dark, years]);
   return <>
     <ArchiveChart option={option} summary={SCORING_SUMMARY} height={420} />
     <p className="source-note">Mean of both teams’ scores in regular-season games. The vertical line is 2013, when the single league split. Cup totals are not included. Axis is points, starting at zero.</p>
@@ -209,28 +225,29 @@ function GameLevelChart({ games, caption, mode, typical }: { games: HistoryGame[
 
 export function ArchivePage() {
   usePageLabel('Archive');
-  const early = eraMean(history.games, 2003, 2012);
-  const later = eraMean(history.games, 2013, 2025);
-  const high = recordBook(history.games, WEEKLY).highest[0];
-  const jeffBecky = headToHead('Jeff', 'Becky');
-  return <Shell eyebrow="2002–2025 / COMMISSIONER’S WORKBOOK" title="League archive" copy="Every played game through 2025. Weekly scores, titles, rivalries, careers, and the draft.">
+  const played = usePlayed();
+  const early = eraMean(played.games, 2003, 2012);
+  const later = eraMean(played.games, 2013, 2025);
+  const high = recordBook(played.games, WEEKLY).highest[0];
+  const jeffBecky = headToHead(played.games, 'Jeff', 'Becky');
+  return <Shell eyebrow="2002 ONWARD / COMMISSIONER’S WORKBOOK" title="League archive" copy="Every played game since 2002. Finished games from the current season are included as each week ends, and they stay in the archive after the season.">
     <div className="recap-metrics">
-      <article><p className="eyebrow">PLAYED GAMES</p><strong>{history.games.length.toLocaleString('en-US')}</strong><span>With both scores. 2026 is still in progress.</span></article>
+      <article><p className="eyebrow">PLAYED GAMES</p><strong>{played.games.length.toLocaleString('en-US')}</strong><span>With both scores. The current season is included as each week ends.</span></article>
       <article><p className="eyebrow">WEEKLY SCORING</p><strong>{early} to {later}</strong><span>Mean points, 2003–2012, then 2013–2025.</span></article>
-      <article><p className="eyebrow">SEASON AND SUPERBOWL</p><strong>{overlap.same} of {overlap.leagues}</strong><span>Leagues where the best record also won the Superbowl.</span></article>
+      <article><p className="eyebrow">SEASON AND SUPERBOWL</p><strong>{played.overlap.same} of {played.overlap.leagues}</strong><span>Leagues where the best record also won the Superbowl.</span></article>
     </div>
     <div className="section-heading"><h2>Regular-season scoring</h2></div>
     <ScoringChart />
     <div className="section-heading"><h2>Explore</h2></div>
     <nav className="archive-links" aria-label="Archive sections">
       <Link to="/archive/records"><strong>Record book</strong><span>Weekly high is {high ? `${high.team} ${points(high.score)} in ${high.season}` : '—'}. JFFL Cup totals are listed separately because they add two weeks.</span></Link>
-      <Link to="/archive/titles"><strong>Three titles</strong><span>Season rank, Superbowl, and cup. The best record won the Superbowl in {overlap.same} of {overlap.leagues} leagues.</span></Link>
+      <Link to="/archive/titles"><strong>Three titles</strong><span>Season rank, Superbowl, and cup. The best record won the Superbowl in {played.overlap.same} of {played.overlap.leagues} leagues.</span></Link>
       <Link to="/archive/rivals"><strong>Head-to-head</strong><span>{jeffBecky.played.length ? `Jeff is ${jeffBecky.winsLeft}${dash}${jeffBecky.winsRight} against Becky across every match.` : 'Every match, including playoffs and cups.'}</span></Link>
-      <Link to="/archive/managers"><strong>Managers</strong><span>{careerBook.filter(row => row.seasons === 24).length} managers have a season in every year since 2002.</span></Link>
+      <Link to="/archive/managers"><strong>Managers</strong><span>{played.everyYear} managers have a season in every year since 2002.</span></Link>
       <Link to="/archive/draft"><strong>Draft</strong><span>Picks 1 through 8 win the league about 10% of the time. Pick 9 or later wins it about 5%.</span></Link>
-      <Link to="/archive/weeks"><strong>Week in history</strong><span>Weeks 1 through 14, across every finished season that played that week.</span></Link>
+      <Link to="/archive/weeks"><strong>Week in history</strong><span>Weeks 1 through 14, across every season that played that week, including this one once the week is final.</span></Link>
     </nav>
-    <p className="source-note">Built from the commissioner workbook’s game log and team-season table. Combined is the single league before 2013. Names are the workbook’s nicknames.</p>
+    <p className="source-note">Built from the commissioner workbook’s game log and team-season table through 2025. Finished games after that come from the live league snapshots and stay saved with that season. Combined is the single league before 2013. Names are the workbook’s nicknames.</p>
   </Shell>;
 }
 
@@ -246,10 +263,11 @@ export function RecordsPage() {
   const bookId = recordBookId(bookParam);
   const book = BOOKS.find(item => item.id === bookId) ?? BOOKS[0];
   usePageLabel('Record book');
-  const board = useMemo(() => recordBook(history.games, book.pick), [book]);
+  const { games } = usePlayed();
+  const board = useMemo(() => recordBook(games, book.pick), [games, book]);
   const typicalScore = median(board.highest.map(row => row.score));
   if (bookParam !== book.id) return <Navigate to={`/archive/records/${book.id}`} replace />;
-  return <Shell eyebrow="THROUGH 2025 / SCORES" title="Record book" copy={book.note}>
+  return <Shell eyebrow="2002 ONWARD / SCORES" title="Record book" copy={book.note}>
     <div className="history-tabs" role="navigation" aria-label="Record book">{BOOKS.map(item => <Link key={item.id} to={`/archive/records/${item.id}`} aria-current={item.id === book.id ? 'page' : undefined}>{item.label}</Link>)}</div>
     <p className="archive-count">{board.games.toLocaleString('en-US')} games · {board.ties.length} ties · {board.closest.length} decided by one point</p>
     <ScoreChart key={`${book.id}-high`} rows={board.highest} caption="Highest scores" />
@@ -257,6 +275,7 @@ export function RecordsPage() {
     <MarginChart key={`${book.id}-blow`} games={board.blowouts} caption="Widest margins" />
     {board.closest.length > 0 && <GameLevelChart key={`${book.id}-close`} games={board.closest} caption="Decided by one point" mode="close" typical={typicalScore} />}
     {board.ties.length > 0 && <GameLevelChart key={`${book.id}-ties`} games={board.ties} caption="Ties" mode="tie" typical={typicalScore} />}
+    <p className="source-note">Finished games from the current season are included once both scores are final. A game still being played stays off these lists. Saved seasons remain after the year ends.</p>
   </Shell>;
 }
 
@@ -270,8 +289,6 @@ function racePhrase(races: Race[]) {
   if (words.length === 2) return `${words[0]} and ${words[1]}`;
   return `${words[0]}, ${words[1]}, and ${words[2]}`;
 }
-
-const seasonIndex = new Map(history.seasons.map(row => [`${row.season}\0${row.team}`, row]));
 
 function seasonFact(row: HistorySeason) {
   const record = `${row.wins ?? '—'}${dash}${row.losses ?? '—'}${row.ties ? `${dash}${row.ties}` : ''}`;
@@ -288,6 +305,7 @@ function seasonFact(row: HistorySeason) {
 }
 
 function SeasonTip({ season, name }: { season: number; name: string }) {
+  const { seasonIndex } = usePlayed();
   const row = seasonIndex.get(`${season}\0${name}`);
   if (!row) return null;
   const fact = seasonFact(row);
@@ -318,7 +336,8 @@ function titleLanes(league: TitleLeague) {
 }
 
 function TitlesBoard() {
-  const seasons = [...titleBook].reverse();
+  const { titleBook } = usePlayed();
+  const seasons = [...titleBook].filter(year => year.jffl || year.leagues.some(league => league.seasonChamps.length || league.superBowl || league.cup)).reverse();
   return <div className="titles">
     <ol className="title-years">
       {seasons.map(year => <li className="title-year" key={year.season}>
@@ -363,7 +382,8 @@ function TitlesBoard() {
 
 export function TitlesPage() {
   usePageLabel('Titles');
-  return <Shell eyebrow="2002–2025 / THREE RACES" title="Titles" copy="The regular-season winner, the Superbowl champion, and the league cup champion are often three different managers.">
+  const { overlap } = usePlayed();
+  return <Shell eyebrow="2002 ONWARD / THREE RACES" title="Titles" copy="The regular-season winner, the Superbowl champion, and the league cup champion are often three different managers. A race joins this list once it has a winner.">
     <div className="archive-stats"><span><strong>{overlap.same}</strong> of {overlap.leagues} Superbowls won by that league’s top record</span></div>
     <TitlesBoard />
     <p className="source-note">Each column is a race. A name stretched across columns won each of those races. The same name in two separate columns won both, with someone else in between. Hover a name for that season’s record, points, and finishes. In 2006, Brendan and Tom both sit at rank 1. JFFL Cup begins in 2013 and is listed once for the year. League cups begin when that league does. 2002 has standings and a Superbowl, and almost no weekly scores.</p>
@@ -375,22 +395,23 @@ export function RivalsPage() {
   const navigate = useNavigate();
   const requestedLeft = params.left ? decodeURIComponent(params.left) : '';
   const requestedRight = params.right ? decodeURIComponent(params.right) : '';
+  const { names, series, mostPlayed, games } = usePlayed();
   const left = names.includes(requestedLeft) ? requestedLeft : 'SeanT';
   const right = names.includes(requestedRight) ? requestedRight : 'Wayne';
   usePageLabel(params.left && params.right ? `${left} vs ${right}` : 'Head-to-head');
   const lopsided = useMemo(() => [...series].filter(item => item.meetings >= 10 && item.winsA + item.winsB > 0)
     .sort((a, b) => Math.max(b.winsA, b.winsB) / (b.winsA + b.winsB) - Math.max(a.winsA, a.winsB) / (a.winsA + a.winsB) || b.meetings - a.meetings)
-    .slice(0, 8), []);
+    .slice(0, 8), [series]);
   const choosePair = (pair: [string, string]) => {
     navigate(rivalPath(pair[0], pair[1]));
     document.querySelector('h1')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
   const canonical = rivalPath(left, right);
-  const match = headToHead(left, right);
+  const match = headToHead(games, left, right);
   const marginGames = match.played.filter(game => !isJfflCup(game));
   const notes = pairNotes(marginGames, match.played, left, right);
   if (`/archive/rivals/${params.left ?? ''}/${params.right ?? ''}` !== canonical) return <Navigate to={canonical} replace />;
-  return <Shell eyebrow="EVERY MATCH / THROUGH 2025" title="Head-to-head" copy="Every match counts in the series, including playoffs and cups. JFFL Cup scores cover two weeks, so they are in the points and out of the margins.">
+  return <Shell eyebrow="EVERY MATCH / 2002 ONWARD" title="Head-to-head" copy="Every match counts in the series, including playoffs and cups. Finished games from the current season are included. JFFL Cup scores cover two weeks, so they are in the points and out of the margins.">
     <div className="filters">
       <label>First manager<select aria-label="First manager" value={left} onChange={event => navigate(rivalPath(event.target.value, right))}>{names.map(name => <option key={name}>{name}</option>)}</select></label>
       <label>Second manager<select aria-label="Second manager" value={right} onChange={event => navigate(rivalPath(left, event.target.value))}>{names.map(name => <option key={name}>{name}</option>)}</select></label>
@@ -415,8 +436,8 @@ function isJfflCup(game: HistoryGame) {
   return game.type === 'Cup' && game.league === 'JFFL';
 }
 
-function headToHead(left: string, right: string) {
-  const played = history.games.filter(game => left !== right && (game.teamA === left && game.teamB === right || game.teamA === right && game.teamB === left))
+function headToHead(games: HistoryGame[], left: string, right: string) {
+  const played = games.filter(game => left !== right && (game.teamA === left && game.teamB === right || game.teamA === right && game.teamB === left))
     .sort((a, b) => a.season - b.season || (a.type === 'Season' ? 0 : a.type === 'Cup' ? 1 : 2) - (b.type === 'Season' ? 0 : b.type === 'Cup' ? 1 : 2) || (a.week ?? 0) - (b.week ?? 0) || a.round.localeCompare(b.round));
   let winsLeft = 0;
   let winsRight = 0;
@@ -515,7 +536,7 @@ function PairChart({ left, right, games }: { left: string; right: string; games:
   return <div className="chart-panel chart-scroll"><ArchiveChart option={option} summary={`${left} versus ${right}. Each bar is ${left}'s single-week margin, including playoffs and league cups. JFFL Cup games are left off because their scores cover two weeks. Bars above zero are wins for ${left}.`} height={460} /></div>;
 }
 
-function SeriesChart({ rows, mode, summary, onSelect }: { rows: typeof series; mode: 'meetings' | 'share'; summary: string; onSelect?: (pair: [string, string]) => void }) {
+function SeriesChart({ rows, mode, summary, onSelect }: { rows: SeriesRow[]; mode: 'meetings' | 'share'; summary: string; onSelect?: (pair: [string, string]) => void }) {
   const dark = useDarkMode();
   const [compact, setCompact] = useState(() => window.matchMedia('(max-width: 720px)').matches);
   useEffect(() => {
@@ -540,10 +561,11 @@ function careerRate(row: { wins: number; losses: number }) {
 
 export function ManagersPage() {
   usePageLabel('Managers');
+  const { careerBook } = usePlayed();
   const [search, setSearch] = useState('');
   const dark = useDarkMode();
   const query = search.trim().toLowerCase();
-  const matches = useMemo(() => careerBook.filter(row => row.team.toLowerCase().includes(query)), [query]);
+  const matches = useMemo(() => careerBook.filter(row => row.team.toLowerCase().includes(query)), [careerBook, query]);
   const ranked = useMemo(() => {
     const sorted = [...matches].sort((a, b) => titleTotal(b) - titleTotal(a) || b.seasons - a.seasons || a.team.localeCompare(b.team));
     return query ? sorted : sorted.filter(row => titleTotal(row) > 0);
@@ -574,7 +596,7 @@ export function ManagersPage() {
     });
   }, [dark, ranked]);
   const summary = ranked.map(row => { const total = titleTotal(row); return `${row.team}: ${total} ${total === 1 ? 'title' : 'titles'} in ${row.seasons} seasons`; }).join('. ');
-  return <Shell eyebrow="2002–2025 / CAREERS" title="Managers" copy="Each bar is split by title. The label is the total and how many seasons it took.">
+  return <Shell eyebrow="2002 ONWARD / CAREERS" title="Managers" copy="Each bar is split by title. The label is the total and how many seasons it took. The current season’s wins are included; its titles appear once they are decided.">
     <div className="filters"><label className="search-field"><span className="sr-only">Search managers</span><input aria-label="Search managers" placeholder="Search managers" value={search} onChange={event => setSearch(event.target.value)} /></label></div>
     {ranked.length ? <div className="chart-panel"><ArchiveChart option={option} summary={summary} height={Math.max(280, 72 + ranked.length * 42)} /></div> : <p className="empty-inline">No managers match that search.</p>}
     <p className="source-note">Everyone with at least one title is listed. Search finds any manager, including those with none. Select a name to open that career. Win rate leaves ties out and shows when you hover.</p>
@@ -585,14 +607,15 @@ export function ManagerArchivePage() {
   const params = useParams();
   const name = params.name ? decodeURIComponent(params.name) : '';
   usePageLabel(name || null);
+  const { careerBook, games, seasons: allSeasons } = usePlayed();
   const career = careerBook.find(row => row.team === name);
-  const seasons = useMemo(() => history.seasons.filter(row => row.team === name), [name]);
-  const weeklyHigh = recordBook(history.games.filter(game => game.teamA === name || game.teamB === name), WEEKLY).highest.find(line => line.team === name);
-  if (!career) return <Shell eyebrow="LEAGUE ARCHIVE" title="Manager not found" copy="That name is not in the workbook through 2025."><p><Link to="/archive/managers">All managers</Link></p></Shell>;
+  const seasons = useMemo(() => allSeasons.filter(row => row.team === name), [allSeasons, name]);
+  const weeklyHigh = recordBook(games.filter(game => game.teamA === name || game.teamB === name), WEEKLY).highest.find(line => line.team === name);
+  if (!career) return <Shell eyebrow="LEAGUE ARCHIVE" title="Manager not found" copy="That name is not in the archive."><p><Link to="/archive/managers">All managers</Link></p></Shell>;
   const label = (count: number, singular: string, plural: string) => `${count} ${count === 1 ? singular : plural}`;
   return <Shell eyebrow={`${career.first}–${career.last} / ${career.seasons} SEASONS`} title={<InkName name={career.team} />} copy={`${label(career.seasonTitles, 'season title', 'season titles')}, ${label(career.superBowls, 'Superbowl', 'Superbowls')}, ${label(career.leagueCups, 'league cup', 'league cups')}, ${label(career.jfflCups, 'JFFL Cup', 'JFFL Cups')}.`}>
     <div className="recap-metrics">
-      <article><p className="eyebrow">RECORD</p><strong>{career.wins}{dash}{career.losses}{career.ties ? `${dash}${career.ties}` : ''}</strong><span>Regular-season games in the team-season table.</span></article>
+      <article><p className="eyebrow">RECORD</p><strong>{career.wins}{dash}{career.losses}{career.ties ? `${dash}${career.ties}` : ''}</strong><span>Regular-season games, including the season in progress.</span></article>
       <article><p className="eyebrow">WEEKLY HIGH</p><strong>{weeklyHigh ? points(weeklyHigh.score) : '—'}</strong><span>{weeklyHigh ? `${weeklyHigh.season} ${weeklyHigh.league} ${roundLabel(weeklyHigh)} vs ${weeklyHigh.opponent}` : 'No weekly score'}</span></article>
     </div>
     <CareerChart seasons={seasons} />
@@ -600,7 +623,7 @@ export function ManagerArchivePage() {
   </Shell>;
 }
 
-function CareerChart({ seasons }: { seasons: typeof history.seasons }) {
+function CareerChart({ seasons }: { seasons: HistorySeason[] }) {
   const dark = useDarkMode();
   const ordered = useMemo(() => [...seasons].sort((a, b) => a.season - b.season || a.league.localeCompare(b.league)), [seasons]);
   const option = useMemo(() => careerSeasons(dark, ordered.map(row => ({
@@ -619,15 +642,16 @@ function slotTip(slot: { slot: number; seasons: number; titles: number; topThree
 
 export function DraftPage() {
   usePageLabel('Draft');
+  const { draftPositions } = usePlayed();
   const dark = useDarkMode();
   const option = useMemo(() => draftGroups(
     dark,
     draftPositions.map(slot => String(slot.slot)),
     draftPositions.map(slot => ({ value: rate(slot.titles, slot.seasons), tip: slotTip(slot) })),
     draftPositions.map(slot => ({ value: rate(slot.topThree, slot.seasons), tip: slotTip(slot) })),
-  ), [dark]);
+  ), [dark, draftPositions]);
   const summary = draftPositions.map(slot => `Pick ${slot.slot}: ${rate(slot.titles, slot.seasons)}% won the league, ${rate(slot.topThree, slot.seasons)}% top 3, from ${slot.seasons} seasons`).join('. ');
-  return <Shell eyebrow="2003–2025 / WHERE THEY FINISHED" title="Draft slot" copy="Picks 1 through 10. Blue is how often that pick won the league. Orange is how often it finished in the top 3.">
+  return <Shell eyebrow="WHERE THEY FINISHED" title="Draft slot" copy="Picks 1 through 10. Blue is how often that pick won the league. Orange is how often it finished in the top 3. A season joins this chart once it has a final rank.">
     <div className="chart-card"><ArchiveChart option={option} summary={summary} height={520} /></div>
     <p className="source-note">A season counts when the workbook has both a draft slot and a numeric season rank. Top 3 means finish 1, 2, or 3 in that league. Hover a pick for how many seasons it covers. Picks after 10 are left off this chart.</p>
   </Shell>;
@@ -646,7 +670,8 @@ export function WeekHistoryPage() {
   const navigate = useNavigate();
   const week = historyWeek(weekParam);
   usePageLabel(weekParam ? `Week ${week} in history` : 'Week in history');
-  const board = useMemo(() => weekSlice(history.games, week), [week]);
+  const { games } = usePlayed();
+  const board = useMemo(() => weekSlice(games, week), [games, week]);
   const highs = useMemo(() => {
     const byYear = new Map<number, ScoreLine>();
     for (const line of board.highest) if (!byYear.has(line.season)) byYear.set(line.season, line);
@@ -656,7 +681,7 @@ export function WeekHistoryPage() {
   const low = board.lowest[0];
   const blowout = board.blowouts[0];
   if (weekParam !== String(week)) return <Navigate to={`/archive/weeks/${week}`} replace />;
-  return <Shell eyebrow="REGULAR SEASON / WEEKS 1–14" title={`Week ${week} in history`} copy="The same week number across finished seasons. Early years did not always play all 14 weeks.">
+  return <Shell eyebrow="REGULAR SEASON / WEEKS 1–14" title={`Week ${week} in history`} copy="The same week number across every season. The current season is included once that week is final. Early years did not always play all 14 weeks.">
     <label className="week-picker">Choose week<select aria-label="Choose week" value={week} onChange={event => navigate(`/archive/weeks/${event.target.value}`)}>{Array.from({ length: 14 }, (_, index) => <option key={index} value={index + 1}>Week {index + 1}</option>)}</select></label>
     <div className="recap-metrics">
       <article><p className="eyebrow">HIGH SCORE</p><strong>{high ? <><InkName name={high.team} /> {points(high.score)}</> : '—'}</strong><span>{high ? `${high.season} ${high.league}` : 'No games'}</span></article>

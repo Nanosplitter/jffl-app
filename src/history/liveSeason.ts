@@ -2,7 +2,7 @@ import { buildCup, matchupProjection, provisionalZone, type CupId, type SummaryM
 import { lineupWouldWin, rosterForWeek } from '../lineups.ts';
 import { injuryName } from '../injury.ts';
 import { projectedWinChance } from '../projections.ts';
-import { managerFor } from '../reference.ts';
+import { managerFor, type ManagerReference } from '../reference.ts';
 import { LEAGUES, type LeagueRosterSnapshot, type LeagueSlug, type LeagueSummary, type RosteredPlayer } from '../types.ts';
 import type { GameType, HistoryGame, HistorySeason, LeagueName } from './stats.ts';
 
@@ -118,8 +118,10 @@ export interface LiveSeason {
 
 export type RosterMap = Partial<Record<LeagueSlug, LeagueRosterSnapshot>>;
 
-const managerName = (slug: LeagueSlug, teamId: string | null, summary: LeagueSummary) => {
+const managerName = (slug: LeagueSlug, teamId: string | null, summary: LeagueSummary, roster?: readonly ManagerReference[]) => {
   if (!teamId) return null;
+  const listed = roster?.find(item => item.slug === slug && item.teamId === teamId)?.manager;
+  if (listed) return listed;
   return managerFor(slug, teamId)?.manager ?? summary.teams.find(team => team.id === teamId)?.name ?? null;
 };
 
@@ -131,13 +133,13 @@ function weekStatus(summary: LeagueSummary, teamId: string, week: number): LiveS
   return week < summary.week ? 'final' : 'live';
 }
 
-function regularGames(slug: LeagueSlug, summary: LeagueSummary): LiveGame[] {
+function regularGames(slug: LeagueSlug, summary: LeagueSummary, roster?: readonly ManagerReference[]): LiveGame[] {
   const games: LiveGame[] = [];
   for (const matchup of summary.weeklyMatchups ?? []) {
     if (matchup.week > REGULAR_WEEKS || matchup.status === 'pending') continue;
     if (matchup.homeScore === null && matchup.awayScore === null) continue;
-    const teamA = managerName(slug, matchup.homeTeamId, summary);
-    const teamB = managerName(slug, matchup.awayTeamId, summary);
+    const teamA = managerName(slug, matchup.homeTeamId, summary, roster);
+    const teamB = managerName(slug, matchup.awayTeamId, summary, roster);
     if (!teamA || !teamB) continue;
     games.push({
       season: summary.season, league: LEAGUE_OF[slug], type: 'Season', round: String(matchup.week), week: matchup.week,
@@ -147,12 +149,12 @@ function regularGames(slug: LeagueSlug, summary: LeagueSummary): LiveGame[] {
   return games;
 }
 
-function cupGames(data: SummaryMap, season: number): LiveGame[] {
+function cupGames(data: SummaryMap, season: number, roster?: readonly ManagerReference[]): LiveGame[] {
   const games: LiveGame[] = [];
   for (const id of CUPS) {
     if (id !== 'jffl' && !data[id]) continue;
     if (id === 'jffl' && LEAGUES.some(meta => !data[meta.slug])) continue;
-    const cup = buildCup(id, data);
+    const cup = buildCup(id, data, roster);
     cup.rounds.forEach((round, index) => {
       const label = index === cup.rounds.length - 1 ? `${index + 1}-Final` : String(index + 1);
       for (const match of round.matches) {
@@ -169,12 +171,12 @@ function cupGames(data: SummaryMap, season: number): LiveGame[] {
   return games;
 }
 
-function seasonRows(slug: LeagueSlug, summary: LeagueSummary, champions: Map<CupId, string | null>): LiveSeasonRow[] {
+function seasonRows(slug: LeagueSlug, summary: LeagueSummary, champions: Map<CupId, string | null>, roster?: readonly ManagerReference[]): LiveSeasonRow[] {
   const regularDone = (summary.completedWeeks ?? 0) >= REGULAR_WEEKS;
   const byPoints = [...summary.teams].filter(team => team.pointsFor !== null).sort((a, b) => b.pointsFor! - a.pointsFor!);
   const jffl = champions.get('jffl'); const leagueCup = champions.get(slug);
   return summary.teams.map(team => {
-    const manager = managerName(slug, team.id, summary) ?? team.name;
+    const manager = managerName(slug, team.id, summary, roster) ?? team.name;
     const played = team.wins === null || team.losses === null ? null : team.wins + team.losses + (team.ties ?? 0);
     const index = byPoints.findIndex(item => item.id === team.id);
     const person = managerFor(slug, team.id);
@@ -320,15 +322,15 @@ function swingRows(summaries: SummaryMap, rosters: RosterMap): SwingRow[] {
   return rows;
 }
 
-/** Turns the shared league and roster snapshots into 2026 archive rows. Returns null until a league snapshot is loaded. */
-export function buildLiveSeason(summaries: SummaryMap, rosters: RosterMap = {}): LiveSeason | null {
+/** Turns the shared league and roster snapshots into archive rows for that season. Returns null until a league snapshot is loaded. `roster` names the managers when the saved season should keep the nicknames from the year it was played. */
+export function buildLiveSeason(summaries: SummaryMap, rosters: RosterMap = {}, managers?: readonly ManagerReference[]): LiveSeason | null {
   const loaded = LEAGUES.filter(meta => summaries[meta.slug]);
   if (!loaded.length) return null;
   const season = summaries[loaded[0].slug]!.season;
   const champions = new Map<CupId, string | null>();
   for (const id of CUPS) {
     if (id === 'jffl' ? loaded.length < LEAGUES.length : !summaries[id]) continue;
-    champions.set(id, buildCup(id, summaries).champion?.manager ?? null);
+    champions.set(id, buildCup(id, summaries, managers).champion?.manager ?? null);
   }
   const games: LiveGame[] = [];
   const seasons: LiveSeasonRow[] = [];
@@ -337,12 +339,12 @@ export function buildLiveSeason(summaries: SummaryMap, rosters: RosterMap = {}):
   for (const { slug } of loaded) {
     const summary = summaries[slug]!;
     schedule.push(...leagueSchedule(slug, summary));
-    games.push(...regularGames(slug, summary));
-    seasons.push(...seasonRows(slug, summary, champions));
+    games.push(...regularGames(slug, summary, managers));
+    seasons.push(...seasonRows(slug, summary, champions, managers));
     const roster = rosters[slug];
     if (roster) players.push(...playerWeeks(slug, summary, roster));
   }
-  games.push(...cupGames(summaries, season));
+  games.push(...cupGames(summaries, season, managers));
   schedule.push(...cupSchedule(summaries));
   schedule.sort((a, b) => a.week - b.week || a.type.localeCompare(b.type) || a.league.localeCompare(b.league) || a.team.localeCompare(b.team));
   const stamps = loaded.map(meta => summaries[meta.slug]!.updatedAt).filter(Boolean).sort();

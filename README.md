@@ -39,7 +39,7 @@ Commissioner's pages:
 - `/cups`: all four cups; `/cups/jffl`, `/cups/premier`, `/cups/championship`, `/cups/league-one`: complete interactive brackets, per-week scores, and totals. A round is `/cups/{cup}/round/{round}`, such as `/cups/jffl/round/round-2`. A highlighted manager is `/cups/{cup}/highlight/{manager}`. Each match opens `/cups/{cup}/match/{id}` with the week-by-week scores and both starting lineups, including weeks that have already finished. Older `?manager=` links redirect to the highlight path.
 - `/weekly` and `/weekly/:week`: scoring leaderboard, 100+ club, scoring extremes, margins, and starting-player performances for that week. `/weekly` opens the current week, then the address becomes `/weekly/4` for week 4, so a copied link stays on that week. Copy for email pastes that week into a mail client. Older `?week=` links redirect to the path.
 - `/history` and `/history/cup`: 13 current trophy races, the historical trophy table or the JFFL Cup table, and the league timeline. A league filter is `/history/premier` or `/history/cup/premier`.
-- `/archive`: league history through 2025 from the commissioner workbook. Scoring, the record book (`/archive/records/weekly`, `jffl`, `league`, or `bowl`), titles, a head-to-head series (`/archive/rivals/SeanT/Wayne`), manager careers, draft slot, and a week in history (`/archive/weeks/:week`). Related routes sit under `/archive/`.
+- `/archive`: league history from the commissioner workbook through 2025, plus finished games from the season in progress. Scoring, the record book (`/archive/records/weekly`, `jffl`, `league`, or `bowl`), titles, a head-to-head series (`/archive/rivals/SeanT/Wayne`), manager careers, draft slot, and a week in history (`/archive/weeks/:week`). A finished week joins those lists as soon as both scores are final, and that season stays after the year ends. Related routes sit under `/archive/`.
 - `/archive/ask` and `/archive/ask/share#...`: the AI "Ask the archive" assistant and shared answers (see below). Older `/history/archive` and `/history/ask` links redirect here.
 
 The header's sun/moon button switches light and dark themes. The preference is
@@ -249,8 +249,9 @@ uses connection/read timeouts, and allows at most one retry of selected transien
 errors. Each league refresh runs independently. A validated summary and roster
 are committed together in a Firestore batch:
 
-- `publicLeagues/{slug}`: teams, standings, weekly matchups for every scheduled week (future weeks are `pending` with null scores; playoff slots appear once ESPN assigns teams), completed weeks, scoring, freshness. A matchup projection ESPN sends is kept on later refreshes. A missing projection stays null, and a later refresh does not replace a saved number with null.
+- `publicLeagues/{slug}`: teams, standings, weekly matchups for every scheduled week (future weeks are `pending` with null scores; playoff slots appear once ESPN assigns teams), completed weeks, scoring, freshness. A matchup projection ESPN sends is kept on later refreshes. A missing projection stays null, and a later refresh does not replace a saved number with null. A finished score is kept the same way when a later fetch drops it.
 - `publicRosters/{slug}`: rostered players, slots, weekly and cumulative stats.
+- `publicHistory/{year}`: the season archive. Each successful refresh copies that league's teams and weekly matchups into the document for the season year, with manager nicknames, and never replaces a saved score with null. The client reads it for seasons that are no longer the live snapshot. Visitors can get a year document and cannot list or write the collection.
 - `_sync/lease`: private synchronization state.
 
 Validation checks ownership, duplicate IDs, finite JSON numbers, and a conservative

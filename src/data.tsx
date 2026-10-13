@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { connectFirestoreEmulator, doc, getFirestore, onSnapshot } from 'firebase/firestore';
+import { isSavedHistory, type SavedHistory } from './history/savedSeason.ts';
 import { getFirebaseApp } from './firebaseApp';
 import { LEAGUES, type LeagueRosterSnapshot, type LeagueSlug, type LeagueSummary } from './types';
 
@@ -67,3 +68,23 @@ export function useRosters(slugs: LeagueSlug[]) {
   return states;
 }
 export const localPreview = import.meta.env.DEV && !firebaseApp;
+
+/** Saved seasons in `publicHistory/{year}`. A missing year is left out. The current snapshots stay the source for the season in progress. */
+export function usePublicHistory(seasons: number[]) {
+  const key = [...new Set(seasons)].sort((a, b) => a - b).join(',');
+  const [docs, setDocs] = useState<SavedHistory[]>([]);
+  useEffect(() => {
+    const years = key.split(',').filter(Boolean).map(Number);
+    if (!years.length) { setDocs([]); return; }
+    const found = new Map<number, SavedHistory | null>();
+    const publish = () => setDocs([...found.values()].filter((item): item is SavedHistory => !!item).sort((a, b) => a.season - b.season));
+    if (!db) { setDocs([]); return; }
+    const stops = years.map(season => onSnapshot(doc(db, 'publicHistory', String(season)), snapshot => {
+      const value = snapshot.exists() ? snapshot.data() : null;
+      found.set(season, isSavedHistory(value, season) ? value : null);
+      publish();
+    }, () => { found.set(season, null); publish(); }));
+    return () => stops.forEach(stop => stop());
+  }, [key]);
+  return docs;
+}

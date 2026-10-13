@@ -3,12 +3,14 @@ from types import SimpleNamespace
 
 import pytest
 from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, espn_image_url, normalize_player, validate_snapshot, week_lineups, weekly_matchups
+from history_archive import fold_public_history
 from sync_service import retain_projections, sync_leagues
 
 
 class MemoryStore:
     def __init__(self):
         self.snapshots = {}
+        self.history = {}
 
     def latest(self, slug):
         snapshot = self.snapshots.get(slug)
@@ -16,6 +18,12 @@ class MemoryStore:
 
     def publish(self, slug, summary, roster):
         self.snapshots[slug] = (copy.deepcopy(summary), copy.deepcopy(roster))
+
+    def fold_history(self, summary):
+        season = summary.get("season")
+        folded = fold_public_history(self.history.get(season), summary)
+        if folded:
+            self.history[season] = folded
 
     def mark_failed(self, slug, stamp):
         if slug in self.snapshots:
@@ -276,3 +284,45 @@ def test_retain_projections_leaves_a_first_snapshot_unchanged():
     summary = {"weeklyMatchups": [_matchup(1, "live", None, None)]}
     retain_projections(None, summary)
     assert summary["weeklyMatchups"][0]["homeProjected"] is None
+
+
+def test_a_finished_score_stays_in_the_snapshot_and_the_season_archive():
+    store = MemoryStore()
+    stage = {"rows": [{
+        "id": "5-1", "week": 5, "status": "final",
+        "homeTeamId": "29", "awayTeamId": "12",
+        "homeScore": 158, "awayScore": 110,
+        "homeProjected": 140.5, "awayProjected": 100,
+    }]}
+
+    def fetch(slug):
+        summary = {
+            "season": 2026, "slug": slug, "week": 6, "updatedAt": "later", "completedWeeks": 5,
+            "teams": [{"id": "29", "name": "Club", "wins": 3, "losses": 2, "ties": 0, "pointsFor": 600, "pointsAgainst": 500}],
+            "weeklyMatchups": [dict(row) for row in stage["rows"]],
+        }
+        if slug != "league-one":
+            summary["teams"] = [{"id": "1", "name": "Other", "wins": 0, "losses": 0, "ties": 0, "pointsFor": 0}]
+            summary["weeklyMatchups"] = []
+        return summary, {"players": []}
+
+    sync_leagues(store, fetch)
+    saved = {row["week"]: row for row in store.history[2026]["leagues"]["league-one"]["weeklyMatchups"]}
+    assert saved[5]["homeScore"] == 158 and saved[5]["homeManager"] == "RonniColin"
+    assert saved[5]["awayManager"] == "Joe"
+    assert "homeProjected" not in saved[5]
+
+    stage["rows"] = [{
+        "id": "6-1", "week": 6, "status": "live",
+        "homeTeamId": "29", "awayTeamId": "12",
+        "homeScore": 40, "awayScore": None,
+        "homeProjected": None, "awayProjected": None,
+    }]
+    sync_leagues(store, fetch)
+    rows = {row["week"]: row for row in store.snapshots["league-one"][0]["weeklyMatchups"]}
+    assert rows[5]["homeScore"] == 158 and rows[5]["status"] == "final"
+    assert rows[5]["homeProjected"] == 140.5
+    assert rows[6]["status"] == "live" and rows[6]["awayScore"] is None
+    kept = {row["week"]: row for row in store.history[2026]["leagues"]["league-one"]["weeklyMatchups"]}
+    assert kept[5]["homeScore"] == 158 and kept[5]["homeManager"] == "RonniColin"
+    assert kept[6]["homeScore"] == 40 and kept[6]["awayScore"] is None
