@@ -541,7 +541,8 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
   .match-lineups .injury { display: none; }
   .match-lineups .player-headshot, .match-lineups .nfl-portrait { display: none; }
   .match-lineups .player-name { display: block; font-size: .74rem; line-height: 1.2; }
-  .match-lineups .player-meta { display: none; }
+  .match-lineups .player-meta { display: flex; flex-wrap: wrap; margin-top: 2px; font-size: .58rem; line-height: 1.2; }
+  .match-lineups .player-meta .nfl-logo { width: 12px; height: 12px; flex-basis: 12px; }
   .match-board-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "score score" "left right"; gap: 12px 16px; }
   .match-center-score { grid-area: score; font-size: 2.6rem; gap: 12px; }
   .match-id.left { grid-area: left; }
