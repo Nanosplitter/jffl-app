@@ -104,13 +104,12 @@ svg { flex-shrink: 0; }
 .follow-prompt .button { min-height: 40px; }
 .followed-name { background: color-mix(in srgb, var(--follow) 28%, transparent); border-radius: 2px; box-decoration-break: clone; }
 .followed .followed-name, .followed.followed-name, .highlighted .followed-name, .highlighted.followed-name { background: transparent; }
-.week-face.followed, .week-pair > span.followed, .week-club li.followed > a, .pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .matchup.followed, .result-side.followed, .champion-pill.followed, .team-sheet.followed, .team-sheet-side.followed {
+.week-face.followed, .week-pair > span.followed, .week-club li.followed > a, .pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .result-side.followed, .champion-pill.followed, .team-sheet-side.followed, .team-sheet.followed, .matchup.followed {
   border-radius: 8px;
-  background-image: linear-gradient(color-mix(in srgb, var(--follow) 30%, transparent), color-mix(in srgb, var(--follow) 30%, transparent));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--follow) 82%, transparent);
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--follow) 72%, var(--line));
 }
-.week-face.followed, .week-pair > span.followed, .week-club li.followed > a, .pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .result-side.followed, .team-sheet-side.followed { padding: 6px 8px; }
-tr.followed > td { background-image: linear-gradient(color-mix(in srgb, var(--follow) 22%, transparent), color-mix(in srgb, var(--follow) 22%, transparent)); }
+.week-face.followed, .week-pair > span.followed, .week-club li.followed > a, .pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .result-side.followed, .team-sheet-side.followed { padding: 8px 10px; }
+tr.followed { outline: 1px solid color-mix(in srgb, var(--follow) 70%, var(--line)); outline-offset: -1px; }
 .league-strip { border-bottom: 1px solid var(--line); }
 .league-strip > div { max-width: 1620px; margin: auto; padding: 0 40px; display: flex; gap: 28px; }
 .league-strip a { color: var(--muted); font-size: .72rem; padding: 15px 0 13px; border-bottom: 2px solid transparent; }
@@ -183,6 +182,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .matchup.compact .matchup-logo { width: 46px; height: 46px; flex-basis: 46px; }
 .matchup.compact .matchup-team a, .matchup.compact .matchup-team .matchup-name { font-size: .84rem; }
 .matchup.compact .score { font-size: 1.7rem; }
+.matchup.followed { border-top-color: transparent; border-radius: 10px; padding: 16px 16px 14px; }
 .panel-footer { padding: 20px 0 0; border-top: 1px solid var(--line); display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
 .panel-footer > a { font-size: .68rem; }
 .fresh { display: inline-block; font-size: .66rem; color: var(--muted); line-height: 1.5; }
@@ -563,6 +563,8 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
   border-radius: var(--panel-radius);
   padding: 14px 16px 12px;
 }
+:root[data-theme=dark] .mini-matchups .matchup.followed,
+:root[data-theme=dark] .league-layout .matchup.followed { padding: 16px 18px 14px; }
 :root[data-theme=dark] .surface-heading,
 :root[data-theme=dark] .team-metrics { border-top: 0; }
 :root[data-theme=dark] .team-metrics { border-bottom: 0; }
