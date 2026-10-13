@@ -56,7 +56,8 @@ const CUP_NAMES: Record<string, string> = {
 /** A readable name for a route when the page has not set one yet. */
 export function fallbackBackLabel(pathname: string) {
   if (pathname === '/') return 'Home';
-  if (pathname === '/weekly') return 'Weekly roundup';
+  const weekly = pathname.match(/^\/weekly(?:\/(\d+))?$/);
+  if (weekly) return weekly[1] ? `Week ${weekly[1]}` : 'Weekly roundup';
   if (pathname === '/summary') return 'Standings';
   if (pathname === '/players') return 'Players';
   if (pathname.startsWith('/players/')) return 'Player';
@@ -66,7 +67,8 @@ export function fallbackBackLabel(pathname: string) {
   if (pathname === '/archive/titles') return 'Titles';
   if (pathname === '/archive/rivals') return 'Head-to-head';
   if (pathname === '/archive/draft') return 'Draft';
-  if (pathname === '/archive/weeks') return 'Week in history';
+  const historyWeek = pathname.match(/^\/archive\/weeks(?:\/(\d+))?$/);
+  if (historyWeek) return historyWeek[1] ? `Week ${historyWeek[1]} in history` : 'Week in history';
   if (pathname === '/archive/ask/share') return 'Shared answer';
   if (pathname === '/archive/ask') return 'Ask the archive';
   if (pathname === '/archive/managers') return 'Managers';

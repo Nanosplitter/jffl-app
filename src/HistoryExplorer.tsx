@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { ArchiveNav } from './ArchiveNav';
 import { history } from './history/archive.ts';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart.tsx';
@@ -14,6 +14,7 @@ import {
 import { leagueInk, leagueOfManager, leagueSlug } from './reference';
 import { points } from './ui';
 import { usePageLabel } from './BackLink';
+import { historyWeek } from './weeklyPath';
 
 const dash = '\u2013';
 const managerUrl = (name: string) => `/archive/managers/${encodeURIComponent(name)}`;
@@ -633,8 +634,10 @@ function WeekHighChart({ highs, week }: { highs: ScoreLine[]; week: number }) {
 }
 
 export function WeekHistoryPage() {
-  usePageLabel('Week in history');
-  const [week, setWeek] = useState(5);
+  const { week: weekParam } = useParams();
+  const navigate = useNavigate();
+  const week = historyWeek(weekParam);
+  usePageLabel(weekParam ? `Week ${week} in history` : 'Week in history');
   const board = useMemo(() => weekSlice(history.games, week), [week]);
   const highs = useMemo(() => {
     const byYear = new Map<number, ScoreLine>();
@@ -644,8 +647,9 @@ export function WeekHistoryPage() {
   const high = board.highest[0];
   const low = board.lowest[0];
   const blowout = board.blowouts[0];
+  if (weekParam !== String(week)) return <Navigate to={`/archive/weeks/${week}`} replace />;
   return <Shell eyebrow="REGULAR SEASON / WEEKS 1–14" title={`Week ${week} in history`} copy="The same week number across finished seasons. Early years did not always play all 14 weeks.">
-    <label className="week-picker">Choose week<select aria-label="Choose week" value={week} onChange={event => setWeek(Number(event.target.value))}>{Array.from({ length: 14 }, (_, index) => <option key={index} value={index + 1}>Week {index + 1}</option>)}</select></label>
+    <label className="week-picker">Choose week<select aria-label="Choose week" value={week} onChange={event => navigate(`/archive/weeks/${event.target.value}`)}>{Array.from({ length: 14 }, (_, index) => <option key={index} value={index + 1}>Week {index + 1}</option>)}</select></label>
     <div className="recap-metrics">
       <article><p className="eyebrow">HIGH SCORE</p><strong>{high ? <><InkName name={high.team} /> {points(high.score)}</> : '—'}</strong><span>{high ? `${high.season} ${high.league}` : 'No games'}</span></article>
       <article><p className="eyebrow">LOW SCORE</p><strong>{low ? <><InkName name={low.team} /> {points(low.score)}</> : '—'}</strong><span>{low ? `${low.season} ${low.league}` : 'No games'}</span></article>

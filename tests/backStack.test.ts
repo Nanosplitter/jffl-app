@@ -68,6 +68,8 @@ test('seeing the same page again does not grow the trail', () => {
 test('fallback names follow the route', () => {
   assert.equal(fallbackBackLabel('/'), 'Home');
   assert.equal(fallbackBackLabel('/weekly'), 'Weekly roundup');
+  assert.equal(fallbackBackLabel('/weekly/4'), 'Week 4');
+  assert.equal(fallbackBackLabel('/archive/weeks/4'), 'Week 4 in history');
   assert.equal(fallbackBackLabel('/league/premier'), 'Premier League');
   assert.equal(fallbackBackLabel('/league/premier/match/4-0'), 'Premier League match');
   assert.equal(fallbackBackLabel('/cups/jffl'), 'JFFL Cup');
@@ -77,6 +79,7 @@ test('fallback names follow the route', () => {
 test('a direct visit still has a sensible place to go', () => {
   assert.equal(fallbackBackTarget('/'), null);
   assert.equal(fallbackBackTarget('/weekly'), null);
+  assert.equal(fallbackBackTarget('/weekly/4'), null);
   assert.deepEqual(fallbackBackTarget('/league/premier'), { to: '/', label: 'All leagues' });
   assert.deepEqual(fallbackBackTarget('/league/premier/match/4-0'), { to: '/league/premier', label: 'Premier League' });
   assert.deepEqual(fallbackBackTarget('/archive/managers/Jeff'), { to: '/archive/managers', label: 'All managers' });

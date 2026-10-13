@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, NavLink, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Link, NavLink, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
@@ -18,6 +18,7 @@ import { compareByLineup, historicalStarters, lineupWouldWin, rosterForWeek, typ
 import { usePageLabel } from './BackLink';
 import { copyEmail } from './history/emailCopy';
 import { renderWeeklyEmail, type EmailGame, type EmailSection, type WeeklyEmail } from './weeklyEmail';
+import { weeklyWeek } from './weeklyPath';
 
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
 
@@ -454,20 +455,23 @@ export function SeasonPage() {
   </>;
 }
 
-function WeekNav({ week, count, onChange }: { week: number; count: number; onChange: (week: number) => void }) {
+function WeekNav({ week, count }: { week: number; count: number }) {
   const list = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    list.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
+    list.current?.querySelector<HTMLElement>('[aria-current="page"]')?.scrollIntoView({ inline: 'nearest', block: 'nearest' });
   }, [week]);
   if (count < 1) return null;
-  return <div className="week-nav" role="group" aria-label="Choose week">
-    <button type="button" className="week-nav-step" aria-label="Previous week" disabled={week <= 1} onClick={() => onChange(week - 1)}><ChevronLeft size={18} aria-hidden="true" /></button>
+  const step = (to: string | null, label: string, icon: ReactNode) => to
+    ? <Link className="week-nav-step" aria-label={label} to={to}>{icon}</Link>
+    : <button type="button" className="week-nav-step" aria-label={label} disabled>{icon}</button>;
+  return <nav className="week-nav" aria-label="Choose week">
+    {step(week > 1 ? `/weekly/${week - 1}` : null, 'Previous week', <ChevronLeft size={18} aria-hidden="true" />)}
     <div className="week-nav-weeks" ref={list}>{Array.from({ length: count }, (_, index) => {
       const value = index + 1;
-      return <button type="button" key={value} aria-pressed={value === week} aria-label={`Week ${value}`} onClick={() => onChange(value)}>{value}</button>;
+      return <Link key={value} to={`/weekly/${value}`} aria-current={value === week ? 'page' : undefined} aria-label={`Week ${value}`}>{value}</Link>;
     })}</div>
-    <button type="button" className="week-nav-step" aria-label="Next week" disabled={week >= count} onClick={() => onChange(week + 1)}><ChevronRight size={18} aria-hidden="true" /></button>
-  </div>;
+    {step(week < count ? `/weekly/${week + 1}` : null, 'Next week', <ChevronRight size={18} aria-hidden="true" />)}
+  </nav>;
 }
 
 function groupStandouts(rows: { player: RosteredPlayer; slug: LeagueSlug }[]) {
@@ -690,20 +694,14 @@ function emailSection(section: { title: string; slug: string; games: { upset: bo
 }
 
 export function WeeklyPage() {
-  usePageLabel('Weekly roundup');
+  const { week: weekParam } = useParams();
+  const [params] = useSearchParams();
   const { data } = useCompetitionData();
-  const [params, setParams] = useSearchParams();
-  const [emailNote, setEmailNote] = useState('');
   const currentWeek=Math.max(0,...Object.values(data).map(summary=>summary?.week??0));
-  const requested=Number(params.get('week'));
-  const week=requested>=1&&requested<currentWeek?requested:currentWeek;
-  const showWeek=(value: number)=>{
-    setEmailNote('');
-    const next=new URLSearchParams(params);
-    if(value>=currentWeek||value<1) next.delete('week');
-    else next.set('week', String(value));
-    setParams(next, { replace: true });
-  };
+  const week=weeklyWeek(weekParam ?? params.get('week') ?? undefined, currentWeek);
+  usePageLabel(week ? `Week ${week}` : 'Weekly roundup');
+  const [emailNote, setEmailNote] = useState('');
+  useEffect(() => { setEmailNote(''); }, [week]);
   const states=useRosters(LEAGUES.map(meta=>meta.slug));
   const matchups=LEAGUES.flatMap(meta=>(data[meta.slug]?.weeklyMatchups??[]).filter(item=>item.week===week).map(item=>({...item,slug:meta.slug})));
   const scores=matchups.flatMap(matchup=>[[matchup.homeTeamId,matchup.homeScore,matchup.awayScore],[matchup.awayTeamId,matchup.awayScore,matchup.homeScore]].filter(([id,score])=>id!==null&&score!==null).map(([id,score,opponent])=>({id:String(id),score:Number(score),opponent:opponent as number|null,slug:matchup.slug,final:matchup.status==='final'}))).sort((a,b)=>b.score-a.score);
@@ -729,7 +727,7 @@ export function WeeklyPage() {
     return `${points(matchup.margin)} pts, ${sides.map(side=>`${named(matchup.slug, side.id??'').name} ${points(side.score)}`).join(', ')}`;
   };
   const email: WeeklyEmail={
-    week, live:!allFinal, pageUrl:week>0&&week<currentWeek?`${window.location.origin}/weekly?week=${week}`:`${window.location.origin}/weekly`,
+    week, live:!allFinal, pageUrl:week>0?`${window.location.origin}/weekly/${week}`:`${window.location.origin}/weekly`,
     extremes:[
       {label:'High scorer', text:scores[0]?`${named(scores[0].slug, scores[0].id).name}, ${points(scores[0].score)} (${leagueName(scores[0].slug)})`:'—'},
       {label:allFinal?'Lowest-scoring winner':'Lowest leading score', text:winners[0]?`${named(winners[0].slug, winners[0].id).name}, ${points(winners[0].score)} (${leagueName(winners[0].slug)})`:'—'},
@@ -766,7 +764,10 @@ export function WeeklyPage() {
       setEmailNote(ok?'Copied. Paste it into the email.':'Could not copy. Try again.');
     } catch { setEmailNote('Could not copy. Try again.'); }
   };
-  return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p><div className="email-copy-row"><button type="button" className="email-copy" onClick={() => void copyWeek()} disabled={!week}><Copy size={15} aria-hidden="true" />Copy for email</button>{emailNote && <p className="email-copy-note" role="status">{emailNote}</p>}</div></div><WeekNav week={week} count={currentWeek} onChange={showWeek} /></section><UpdateStrip data={data}/>
+  const canonical = week > 0 ? `/weekly/${week}` : '';
+  const here = weekParam ? `/weekly/${weekParam}` : '/weekly';
+  if (canonical && (here !== canonical || params.toString())) return <Navigate to={canonical} replace />;
+  return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p><div className="email-copy-row"><button type="button" className="email-copy" onClick={() => void copyWeek()} disabled={!week}><Copy size={15} aria-hidden="true" />Copy for email</button>{emailNote && <p className="email-copy-note" role="status">{emailNote}</p>}</div></div><WeekNav week={week} count={currentWeek} /></section><UpdateStrip data={data}/>
     <div className="recap-metrics week-recap">
       <article><p className="eyebrow">High scorer</p>{scores[0] ? <WeekFace data={data} slug={scores[0].slug} id={scores[0].id} score={scores[0].score} /> : <strong>—</strong>}{scores[0] && <span className={`league-label ${scores[0].slug}`}>{leagueName(scores[0].slug)}</span>}</article>
       <article><p className="eyebrow">{email.extremes[1].label}</p>{winners[0] ? <WeekFace data={data} slug={winners[0].slug} id={winners[0].id} score={winners[0].score} /> : <strong>—</strong>}{winners[0] && <span className={`league-label ${winners[0].slug}`}>{leagueName(winners[0].slug)}</span>}</article>

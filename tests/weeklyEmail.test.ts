@@ -5,7 +5,7 @@ import { idleCupPlain, renderWeeklyEmail, type WeeklyEmail } from '../src/weekly
 const email = (patch: Partial<WeeklyEmail> = {}): WeeklyEmail => ({
   week: 4,
   live: false,
-  pageUrl: 'https://jffl-live-colin.web.app/weekly?week=4',
+  pageUrl: 'https://jffl-live-colin.web.app/weekly/4',
   extremes: [
     { label: 'High scorer', text: 'Reggie, 145 (League One)' },
     { label: 'Lowest-scoring winner', text: '—' },
@@ -60,13 +60,13 @@ test('the weekly email keeps league colors, an upset, and escapes names', () => 
   assert.match(html, /Weeks 3 \+ 4/);
   assert.match(html, /No matches this week: .*<span class="ink-championship"/);
   assert.match(html, /Sit Sat Star \(4\) for Bench &amp; Co \(26\)/);
-  assert.match(html, /href="https:\/\/jffl-live-colin\.web\.app\/weekly\?week=4"/);
+  assert.match(html, /href="https:\/\/jffl-live-colin\.web\.app\/weekly\/4"/);
   assert.match(plain, /^JFFL Week 4/);
   assert.match(plain, /Final ESPN scores\./);
   assert.match(plain, /Lowest-scoring winner: —/);
   assert.match(plain, /3 Ryan 115 {4}1 Donna <b> 107 {4}Upset · Donna <b> proj 122/);
   assert.match(plain, /Jason would have scored 120–107 instead of 98–107 against Donna <b>\./);
-  assert.match(plain, /Full roundup: https:\/\/jffl-live-colin\.web\.app\/weekly\?week=4/);
+  assert.match(plain, /Full roundup: https:\/\/jffl-live-colin\.web\.app\/weekly\/4/);
   assert.doesNotMatch(html, /<script>/);
   assert.doesNotMatch(plain, /<span/);
 });
@@ -74,7 +74,7 @@ test('the weekly email keeps league colors, an upset, and escapes names', () => 
 test('a live week says so, and a quiet week does not invent an upset or a hundred', () => {
   const { html, plain } = renderWeeklyEmail(email({
     live: true,
-    pageUrl: 'https://jffl-live-colin.web.app/weekly',
+    pageUrl: 'https://jffl-live-colin.web.app/weekly/4',
     extremes: [{ label: 'Lowest leading score', text: '—' }],
     hundred: [],
     leagues: [{ title: 'Premier League', ink: 'premier', span: null, empty: 'No matchups this week.', games: [] }],
@@ -98,7 +98,7 @@ test('a live week says so, and a quiet week does not invent an upset or a hundre
   assert.match(plain, /Loading lineups…/);
   assert.doesNotMatch(plain, /An upset is/);
   assert.doesNotMatch(html, /An upset is/);
-  assert.match(html, /href="https:\/\/jffl-live-colin\.web\.app\/weekly"/);
+  assert.match(html, /href="https:\/\/jffl-live-colin\.web\.app\/weekly\/4"/);
   assert.doesNotMatch(plain, /\b0\b/);
 });
 
