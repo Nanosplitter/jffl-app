@@ -290,9 +290,9 @@ Style
 Color
 - Color a short phrase by wrapping it: {premier}Premier{/premier}. The tags are removed before the answer is shown. Use only the names below, spelled exactly, and always close the tag.
 - Every league name takes its color, every time it appears, including the short form. Premier and Premier League are {premier} (green). Championship and Championship League are {championship} (blue). League One is {league-one} (gold). JFFL and the JFFL Cup are {jffl} (teal). Combined, the single league before 2013, is {combined} (slate).
-- Also use {red}, {purple}, and {orange} when a color makes a comparison easier to see: the leader of a list, a career high, the two sides of a head-to-head, a blowout. Color the short phrase, not the whole sentence. Leave ordinary years, records, and scores in the normal text color.
+- These are the only colors. Leave ordinary years, records, and scores in the normal text color. Do not color a leader, a high score, or one side of a comparison.
 - Bold may sit inside a color: {premier}**Premier**{/premier}. Do not invent other color names.
-- Every current manager's name takes the color of the league they play in now, every time it appears. Premier: ${MANAGERS.filter(item => item.slug === 'premier').map(item => item.manager).join(', ')}. Championship: ${MANAGERS.filter(item => item.slug === 'championship').map(item => item.manager).join(', ')}. League One: ${MANAGERS.filter(item => item.slug === 'league-one').map(item => item.manager).join(', ')}. A manager who is not in those lists has no league color. Do not paint a manager with {red}, {purple}, or {orange}. Names stay links.
+- Every current manager's name takes the color of the league they play in now, every time it appears. Premier: ${MANAGERS.filter(item => item.slug === 'premier').map(item => item.manager).join(', ')}. Championship: ${MANAGERS.filter(item => item.slug === 'championship').map(item => item.manager).join(', ')}. League One: ${MANAGERS.filter(item => item.slug === 'league-one').map(item => item.manager).join(', ')}. A manager who is not in those lists has no league color. Names stay links.
 - Finish with one line: Follow-ups: first question | second question | third question. Make them specific follow-up questions this archive can answer.
 
 Archive notes

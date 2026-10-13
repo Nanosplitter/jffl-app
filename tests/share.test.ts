@@ -176,15 +176,14 @@ test('color tags become ink runs, and unknown or unclosed tags stay text', () =>
   if (blocks[1].type === 'ul') {
     assert.deepEqual(blocks[1].items[0], [
       { text: 'League One', bold: false, color: 'league-one' },
-      { text: ': ', bold: false },
-      { text: 'low', bold: false, color: 'red' },
+      { text: ': low', bold: false },
     ]);
   }
   assert.deepEqual(blocks[2], { type: 'p', inline: [{ text: '{green}nope{/green} {premier}open', bold: false }] });
 });
 
-test('a current manager left untagged takes their league color, and a chosen color wins', () => {
-  const blocks = parseAnswer('Jason beat Al. {red}Jason{/red} stayed red. Not also.');
+test('a current manager keeps their league color when another color was chosen', () => {
+  const blocks = parseAnswer('Jason beat Al. {orange}SeanH{/orange} and {league-one}Michael{/league-one} stayed put.');
   assert.equal(blocks[0].type, 'p');
   if (blocks[0].type === 'p') {
     assert.deepEqual(blocks[0].inline, [
@@ -192,8 +191,10 @@ test('a current manager left untagged takes their league color, and a chosen col
       { text: ' beat ', bold: false },
       { text: 'Al', bold: false, color: 'league-one' },
       { text: '. ', bold: false },
-      { text: 'Jason', bold: false, color: 'red' },
-      { text: ' stayed red. Not also.', bold: false },
+      { text: 'SeanH', bold: false, color: 'championship' },
+      { text: ' and ', bold: false },
+      { text: 'Michael', bold: false, color: 'championship' },
+      { text: ' stayed put.', bold: false },
     ]);
   }
 });
@@ -213,8 +214,8 @@ test('a place mark becomes a raised number in front of the name, and a bad mark 
   }
 });
 
-test('a league name left untagged still takes its color, and a chosen color wins', () => {
-  const blocks = parseAnswer('2018 Premier and the Premier League. {red}Premier{/red} stayed red. Not championships.');
+test('a league name left untagged still takes its color, and a league tag wins', () => {
+  const blocks = parseAnswer('2018 Premier and the Premier League. {championship}Premier{/championship} stayed blue. Not championships.');
   assert.equal(blocks[0].type, 'p');
   if (blocks[0].type === 'p') {
     assert.deepEqual(blocks[0].inline, [
@@ -223,8 +224,8 @@ test('a league name left untagged still takes its color, and a chosen color wins
       { text: ' and the ', bold: false },
       { text: 'Premier League', bold: false, color: 'premier' },
       { text: '. ', bold: false },
-      { text: 'Premier', bold: false, color: 'red' },
-      { text: ' stayed red. Not championships.', bold: false },
+      { text: 'Premier', bold: false, color: 'championship' },
+      { text: ' stayed blue. Not championships.', bold: false },
     ]);
   }
 });

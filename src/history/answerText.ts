@@ -4,7 +4,7 @@ import { MANAGERS } from '../reference.ts';
  * Turns model text into safe blocks. Paragraphs, simple lists, bold, and a fixed set of color
  * tags are recognized. Every other character, including HTML, stays plain text.
  */
-export const INKS = ['premier', 'championship', 'league-one', 'jffl', 'combined', 'red', 'purple', 'orange'] as const;
+export const INKS = ['premier', 'championship', 'league-one', 'jffl', 'combined'] as const;
 export type Ink = (typeof INKS)[number];
 
 /** Light-background colors, for email paste. Dark mode uses the matching rules in ask-styles.css. */
@@ -14,10 +14,10 @@ export const INK_ON_LIGHT: Record<Ink, string> = {
   'league-one': '#8f5e16',
   jffl: '#0d7377',
   combined: '#5c656b',
-  red: '#a03e36',
-  purple: '#6d4b8a',
-  orange: '#9a5a12',
 };
+
+/** Older answers used these for comparisons. The tags are removed and never shown. */
+const DROPPED_INKS = new Set(['red', 'purple', 'orange']);
 
 const INK_SET = new Set<string>(INKS);
 
@@ -41,10 +41,10 @@ const MANAGER_WORDS: Array<[RegExp, Ink]> = [...MANAGERS]
   .map(item => [new RegExp(`(?<![\\w-])${escapeName(item.manager)}(?![\\w-])`, 'gi'), item.slug]);
 
 /** Colors a phrase the model left plain. A phrase the model already colored is left alone. */
-function paintWords(runs: Inline[], words: Array<[RegExp, Ink]>): Inline[] {
+function paintWords(runs: Inline[], words: Array<[RegExp, Ink]>, replace = false): Inline[] {
   const painted: Inline[] = [];
   for (const run of runs) {
-    if (run.color) { painted.push(run); continue; }
+    if (run.color && !replace) { painted.push(run); continue; }
     const hits: Array<{ start: number; end: number; ink: Ink }> = [];
     for (const [pattern, ink] of words) {
       for (const match of run.text.matchAll(pattern)) {
@@ -58,19 +58,20 @@ function paintWords(runs: Inline[], words: Array<[RegExp, Ink]>): Inline[] {
     }
     hits.sort((a, b) => a.start - b.start);
     let at = 0;
+    const carry = (text: string, color: Ink | undefined): Inline => color ? { text, bold: run.bold, color } : { text, bold: run.bold };
     for (const hit of hits) {
       if (hit.start < at) continue;
-      if (hit.start > at) painted.push({ text: run.text.slice(at, hit.start), bold: run.bold });
-      painted.push({ text: run.text.slice(hit.start, hit.end), bold: run.bold, color: hit.ink });
+      if (hit.start > at) painted.push(carry(run.text.slice(at, hit.start), run.color));
+      painted.push(carry(run.text.slice(hit.start, hit.end), hit.ink));
       at = hit.end;
     }
-    if (at < run.text.length) painted.push({ text: run.text.slice(at), bold: run.bold });
+    if (at < run.text.length) painted.push(carry(run.text.slice(at), run.color));
   }
   return painted;
 }
 
 const paintLeagues = (runs: Inline[]) => paintWords(runs, LEAGUE_WORDS);
-const paintManagers = (runs: Inline[]) => paintWords(runs, MANAGER_WORDS);
+const paintManagers = (runs: Inline[]) => paintWords(runs, MANAGER_WORDS, true);
 
 export interface Inline { text: string; bold: boolean; color?: Ink; mark?: boolean }
 
@@ -126,6 +127,10 @@ function stripInks(text: string): { text: string; spans: Array<{ start: number; 
   for (let index = 0; index < text.length;) {
     const tag = /^\{(\/?)([a-zA-Z][a-zA-Z-]*)\}/.exec(text.slice(index));
     const name = tag?.[2].toLowerCase();
+    if (tag && name && DROPPED_INKS.has(name)) {
+      index += tag[0].length;
+      continue;
+    }
     if (tag && name && isInk(name)) {
       if (tag[1]) {
         if (stack[stack.length - 1]?.ink === name) {
