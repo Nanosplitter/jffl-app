@@ -81,7 +81,7 @@ export interface ToolRun {
 const NOTES: Record<string, string> = {
   query_games: 'Searching games', query_seasons: 'Searching seasons', query_players: 'Searching player scores', resolve_entity: 'Matching names', head_to_head: 'Comparing managers',
   manager_career: 'Reading a career', records: 'Checking the record book', title_years: 'Checking title winners', draft_slot_stats: 'Checking draft slots',
-  week_slice: 'Reading a week in history', schedule: 'Checking the schedule', scoring_settings: 'Reading scoring settings', manager_profiles: 'Reading the trophy room',
+  week_slice: 'Reading a week in history', schedule: 'Checking the schedule', double_duty: 'Finding same-week cup matchups', scoring_settings: 'Reading scoring settings', manager_profiles: 'Reading the trophy room',
   could_have: 'Checking could-have lineups', player_stats: 'Reading player stats', render_chart: 'Drawing a chart', show_card: 'Adding a card',
 };
 

@@ -94,7 +94,7 @@ How it works:
   Future games never enter the results tables, so they cannot affect records or totals.
   Games still being played have `status: live`, and answers and caveats say so with the
   snapshot time. Records, head-to-head, and week-in-history count finished games only. 2026
-  titles stay unknown until decided. The 2026 draft slot is the ESPN draft rank, or the commissioner sheet when ESPN has none. The same snapshots also answer scoring settings, the trophy room through 2025, could-have lineups, player counting stats, and the standings page's rank movement. Past-week
+  titles stay unknown until decided. The 2026 draft slot is the ESPN draft rank, or the commissioner sheet when ESPN has none. The same snapshots also answer scoring settings, the trophy room through 2025, could-have lineups, player counting stats, and the standings page's rank movement. Cup rows carry the scheduled week of that round, and same-week league and cup pairings are a separate query. Past-week
   bench players are not in ESPN's saved lineups, so their slot is unknown. The page shows
   "This season as of ..." and rebuilds the tables when a snapshot updates; charts already on
   screen keep their rows.

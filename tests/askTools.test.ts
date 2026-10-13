@@ -391,6 +391,29 @@ test('streaks are consecutive regular-season results inside one season', () => {
   assert.ok(longest.rows.some(row => row.team === 'Michael' && row.season === 2019));
 });
 
+test('cup rounds carry their scheduled weeks, and same-week doubles line up with the league game', () => {
+  const opener = ctx.tables.team_games.find(row => row.season === 2014 && row.type === 'Cup' && row.league === 'Championship' && row.round === '1' && row.team === 'SeanT');
+  assert.equal(opener?.week, 2);
+  assert.equal(opener?.lastWeek, 2);
+  const jffl = ctx.tables.team_games.find(row => row.season === 2013 && row.type === 'Cup' && row.league === 'JFFL' && row.round === '1');
+  assert.equal(jffl?.week, 3);
+  assert.equal(jffl?.lastWeek, 4);
+  assert.equal(ctx.tables.team_games.find(row => row.type === 'Superbowl')?.week, null);
+  const doubles = runDataTool(ctx, 'double_duty', { cup: 'league', from: 2014, to: 2014, manager: 'SeanT' });
+  assert.equal(doubles.ok, true);
+  if (!doubles.ok || !('rows' in doubles)) return;
+  const sean = doubles.rows.find(row => row.week === 2 && [row.team, row.opponent].sort().join() === 'Al,SeanT');
+  assert.equal(sean?.cup, 'Championship');
+  assert.equal(sean?.leagueScore, sean?.cupScore);
+  assert.equal(sean?.opponentLeagueScore, sean?.opponentCupScore);
+  const cross = runDataTool(ctx, 'double_duty', { cup: 'jffl', from: 2013, to: 2013 });
+  assert.equal(cross.ok, true);
+  if (!cross.ok || !('rows' in cross)) return;
+  const michael = cross.rows.find(row => row.week === 3 && [row.team, row.opponent].sort().join() === 'Al,Michael');
+  assert.ok(michael);
+  assert.notEqual(michael?.cupScore, michael?.leagueScore);
+});
+
 test('scoring, the trophy room, could-have lineups, and player stats come from the same snapshots as the site', () => {
   const scoring = liveRun('scoring_settings', { league: 'Premier', item: 'Rush TD' });
   assert.ok(scoring.rows.some(row => row.league === 'Premier' && row.item === 'Rush TD' && row.points === 6));

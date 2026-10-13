@@ -1,3 +1,4 @@
+import { buildCup, type CupId } from '../competitions.ts';
 import { slotsLabel } from '../lineups.ts';
 import { injuryName } from '../injury.ts';
 import { MANAGERS } from '../reference.ts';
@@ -67,7 +68,8 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     league: { type: 'string', about: 'The competition: Combined, Premier, Championship, League One, or JFFL. Every JFFL Cup game has league JFFL, whichever leagues the managers play in. Use teamLeague for a manager\'s league that season.' },
     type: { type: 'string', about: 'Season (regular season), Cup, or Superbowl' },
     round: { type: 'string', about: 'Week number for Season games. Cup rounds are labels such as 1, 2, 3, 4, or 5-Final.' },
-    week: { type: 'number', about: 'Regular-season week, null for Cup and Superbowl games' },
+    week: { type: 'number', about: 'Scheduled week. For a regular-season game, the calendar week. For a cup tie, the first week of that round: league cup rounds 1, 2, 3, and 4 are weeks 2, 5, 8, and 11, and JFFL Cup rounds 1 through 5 are weeks 3, 6, 9, 12, and 15. Null only for the Superbowl. Filter type Season when a question is about the league game alone.' },
+    lastWeek: { type: 'number', about: 'Last scheduled week of the tie. Same as week for a regular-season game and a league cup. The next week for a JFFL Cup tie, because those scores cover two weeks. Null for the Superbowl.' },
     gameId: { type: 'string', about: 'Same value on both sides of one game. count counts team-rows, so each game is counted twice. Use count_distinct on gameId for the number of matchups.' },
     team: { type: 'string', about: 'Manager nickname for this side of the game' },
     teamLeague: { type: 'string', about: 'League this manager played in that season. Null when that season row is missing. This is the column for "which league was this team in."' },
@@ -145,6 +147,7 @@ export const DATA_NOTES = [
   '2026 titles stay unknown (null) until they are decided. Player-level data (player_weeks) exists only for 2026.',
   '2002 has standings and Superbowl results but almost no weekly game scores.',
   'JFFL Cup games (league JFFL, 2013 onward) use two-week totals. Do not compare those scores with a single week. league on those games is always JFFL; teamLeague and opponentLeague say which league each manager played in, and crossLeague is 1 when those leagues differ.',
+  'Cup rows carry the scheduled week of that round, the same calendar since 2013. League cups: round 1 week 2, round 2 week 5, round 3 week 8, round 4 week 11. JFFL Cup: rounds 1 to 5 are weeks 3–4, 6–7, 9–10, 12–13, and 15–16. A same-week double, two managers meeting in both the league game and the cup, is double_duty. A level replay is the following week and is not a separate row before 2026.',
   'Ties are separate from wins and losses.',
   'Names are manager nicknames. "team" always means the manager.',
   '2026 cups are seeded. jfflSeed is the JFFL Cup seed and leagueCupSeed is the seed in that manager\'s league cup. Both are null before 2026, so those seasons have no cup seeds. A seed is not the current standing.',
@@ -187,6 +190,16 @@ export function streakLengths(results: Array<'W' | 'L' | 'T'>): Array<{ winStrea
   });
 }
 
+/** Scheduled weeks for a cup round. League cups are one week; the JFFL Cup is the two-week window. */
+export function cupWindow(league: string, round: string): number[] | null {
+  if (league === 'JFFL') {
+    const windows: Record<string, number[]> = { '1': [3, 4], '2': [6, 7], '3': [9, 10], '4': [12, 13], '5': [15, 16], '5-Final': [15, 16] };
+    return windows[round] ?? null;
+  }
+  const weeks: Record<string, number[]> = { '1': [2], '2': [5], '3': [8], '4': [11], '4-Final': [11] };
+  return weeks[round] ?? null;
+}
+
 export function prepareTables(archive: Archive): Record<TableName, Row[]> {
   const seasonOf = new Map<string, { league: string; finish: number | null }>();
   for (const row of [...archive.seasons, ...(archive.live?.seasons ?? [])]) seasonOf.set(`${row.season}|${row.team}`, { league: row.league, finish: row.rankSeason });
@@ -218,8 +231,11 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
       const opponentFinish = opponentInfo?.finish ?? null;
       const crossLeague = teamLeague && opponentLeague ? teamLeague === opponentLeague ? 0 : 1 : null;
       const betterFinish = crossLeague === 0 && teamFinish != null && opponentFinish != null && teamFinish !== opponentFinish ? teamFinish < opponentFinish ? 1 : 0 : null;
+      const scheduled = game.type === 'Cup' ? cupWindow(game.league, game.round) : null;
+      const week = game.type === 'Season' ? game.week : scheduled?.[0] ?? null;
+      const lastWeek = game.type === 'Season' ? game.week : scheduled ? scheduled[scheduled.length - 1] : null;
       return {
-        season: game.season, league: game.league, type: game.type, round: game.round, week: game.week, gameId,
+        season: game.season, league: game.league, type: game.type, round: game.round, week, lastWeek, gameId,
         team, teamLeague, opponent, opponentLeague, crossLeague, teamFinish, opponentFinish, betterFinish, score, opponentScore: other,
         diff: known ? score - other : null, margin: known ? Math.abs(score - other) : null,
         result: known ? score > other ? 'W' : score < other ? 'L' : 'T' : null,
@@ -653,7 +669,7 @@ export type ToolOutcome =
   | { ok: false; error: string }
   | { ok: true; entity: ReturnType<typeof resolveEntity> };
 
-export const DATA_TOOL_NAMES = ['query_games', 'query_seasons', 'query_players', 'resolve_entity', 'head_to_head', 'manager_career', 'records', 'title_years', 'draft_slot_stats', 'week_slice', 'schedule', 'scoring_settings', 'manager_profiles', 'could_have', 'player_stats'] as const;
+export const DATA_TOOL_NAMES = ['query_games', 'query_seasons', 'query_players', 'resolve_entity', 'head_to_head', 'manager_career', 'records', 'title_years', 'draft_slot_stats', 'week_slice', 'schedule', 'double_duty', 'scoring_settings', 'manager_profiles', 'could_have', 'player_stats'] as const;
 export type DataToolName = (typeof DATA_TOOL_NAMES)[number];
 export const isDataTool = (name: string): name is DataToolName => (DATA_TOOL_NAMES as readonly string[]).includes(name);
 
@@ -712,6 +728,60 @@ function trophyRoom(manager: string) {
     week2Rank: person.week2Rank,
     draftRank: person.draftRank,
   };
+}
+
+function sameWeekDoubles(archive: Archive): Row[] {
+  const meetings = new Map<string, { team: string; opponent: string; leagueScore: number; opponentLeagueScore: number; status: string }>();
+  const addSeason = (season: number, week: number | null, teamA: string, teamB: string, scoreA: number | null, scoreB: number | null, status: string) => {
+    if (week == null || scoreA == null || scoreB == null) return;
+    const [team, opponent] = [teamA, teamB].sort((a, b) => a.localeCompare(b));
+    meetings.set(`${season}|${week}|${team}|${opponent}`, {
+      team, opponent, status,
+      leagueScore: team === teamA ? scoreA : scoreB,
+      opponentLeagueScore: team === teamA ? scoreB : scoreA,
+    });
+  };
+  for (const game of archive.games) if (game.type === 'Season') addSeason(game.season, game.week, game.teamA, game.teamB, game.scoreA, game.scoreB, 'final');
+  for (const game of archive.live?.games ?? []) if (game.type === 'Season') addSeason(game.season, game.week, game.teamA, game.teamB, game.scoreA, game.scoreB, game.status);
+  const rows: Row[] = [];
+  const seen = new Set<string>();
+  const emit = (season: number, week: number, cup: string, round: string, teamA: string, teamB: string, cupA: number | null, cupB: number | null, cupStatus: string) => {
+    const [team, opponent] = [teamA, teamB].sort((a, b) => a.localeCompare(b));
+    const meeting = meetings.get(`${season}|${week}|${team}|${opponent}`);
+    if (!meeting || cupA == null || cupB == null) return;
+    const key = `${season}|${week}|${cup}|${team}|${opponent}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    rows.push({
+      season, week, cup, round, team, opponent, status: meeting.status === 'live' || cupStatus === 'live' ? 'live' : 'final',
+      leagueScore: meeting.leagueScore, opponentLeagueScore: meeting.opponentLeagueScore,
+      cupScore: team === teamA ? cupA : cupB, opponentCupScore: team === teamA ? cupB : cupA,
+    });
+  };
+  for (const game of archive.games) {
+    if (game.type !== 'Cup') continue;
+    for (const week of cupWindow(game.league, game.round) ?? []) emit(game.season, week, game.league, game.round, game.teamA, game.teamB, game.scoreA, game.scoreB, 'final');
+  }
+  const live = archive.live;
+  const summaries = live?.summaries;
+  if (live && summaries) {
+    const ids: CupId[] = ['jffl', 'premier', 'championship', 'league-one'];
+    for (const id of ids) {
+      if (id === 'jffl' ? !summaries.premier || !summaries.championship || !summaries['league-one'] : !summaries[id]) continue;
+      const cup = buildCup(id, summaries);
+      const cupName = id === 'jffl' ? 'JFFL' : id === 'premier' ? 'Premier' : id === 'championship' ? 'Championship' : 'League One';
+      cup.rounds.forEach((round, index) => {
+        const label = index === cup.rounds.length - 1 ? `${index + 1}-Final` : String(index + 1);
+        for (const match of round.matches) {
+          const a = match.a.participant;
+          const b = match.b.participant;
+          if (!a || !b || match.a.total == null || match.b.total == null || !['final', 'tied', 'live'].includes(match.status)) continue;
+          for (const week of match.weeks) emit(live.season, week, cupName, label, a.manager, b.manager, match.a.total, match.b.total, match.status === 'live' ? 'live' : 'final');
+        }
+      });
+    }
+  }
+  return rows.sort((a, b) => (a.season as number) - (b.season as number) || (a.week as number) - (b.week as number) || String(a.cup).localeCompare(String(b.cup)) || String(a.team).localeCompare(String(b.team)));
 }
 
 function namedManagers(name: string | null) {
@@ -901,6 +971,34 @@ export function runDataTool(ctx: ToolContext, name: DataToolName, args: Record<s
         ok: true, title: `Week ${week} high score by season`, columns: inferColumns(['season', 'league', 'team', 'score', 'opponent', 'opponentScore'], rows), rows, matched: board.games, truncated: false,
         caveats: [...(board.games ? [] : [`No regular-season games were played in week ${week}.`]), ...liveNote],
         summary: { games: board.games, highest: high ? { team: high.team, score: high.score, season: high.season } : null, lowest: low ? { team: low.team, score: low.score, season: low.season } : null },
+      };
+    }
+    case 'double_duty': {
+      const which = String(args.cup ?? 'all');
+      if (!['all', 'league', 'jffl'].includes(which)) return fail('cup must be all, league, or jffl.');
+      const manager = args.manager == null || args.manager === '' ? null : exactManager(archive, args.manager);
+      if (args.manager != null && args.manager !== '' && !manager) return fail(managerError(archive, String(args.manager)));
+      const last = lastSeason(archive);
+      const from = args.from == null || args.from === '' ? 2013 : clamp(args.from, 2013, 2002, last);
+      const to = args.to == null || args.to === '' ? last : clamp(args.to, last, 2002, last);
+      const rows = sameWeekDoubles(archive).filter(row => {
+        const season = row.season as number;
+        if (season < from || season > to) return false;
+        if (which === 'jffl' && row.cup !== 'JFFL') return false;
+        if (which === 'league' && row.cup === 'JFFL') return false;
+        if (manager && row.team !== manager && row.opponent !== manager) return false;
+        return true;
+      });
+      return {
+        ok: true, title: 'Same-week league and cup matchups', columns: inferColumns(['season', 'week', 'cup', 'round', 'team', 'opponent', 'leagueScore', 'opponentLeagueScore', 'cupScore', 'opponentCupScore', 'status'], rows), rows,
+        matched: rows.length, truncated: false,
+        caveats: [
+          'Each row is two managers who played each other in a regular-season game and a cup tie in the same scheduled week. League cup rounds are weeks 2, 5, 8, and 11. JFFL Cup rounds are weeks 3–4, 6–7, 9–10, 12–13, and 15–16.',
+          'A league-cup score is that same week\'s points. A JFFL Cup score is the two-week total, so it will not equal the one league game. A level replay is the next week. Before 2026 the workbook does not mark replays, so a double that happened only on a replay week is not listed.',
+          ...(rows.some(row => row.status === 'live') ? ['Rows marked live are still being played.'] : []),
+          ...(rows.length ? [] : ['No same-week doubles matched.']),
+        ],
+        summary: { matchups: rows.length },
       };
     }
     case 'scoring_settings': {
