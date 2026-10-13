@@ -151,7 +151,7 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
   const highTo = top[0]?.to ?? '/weekly';
   return <nav className="week-pulse" aria-label="This week">
     <div className="pulse-cell">
-      <Link className="pulse-head" to={highTo}><p className="eyebrow">HIGH SCORER</p><strong className={`${leagueInk(high?.slug)} ${high && isFollowedTeam(followed, high.slug, high.id) ? 'followed-name' : ''}`}>{high ? managerName(high.slug, high.id) : '—'}<FollowedNote on={!!high && isFollowedTeam(followed, high.slug, high.id)} /></strong></Link>
+      <Link className={`pulse-head${high && isFollowedTeam(followed, high.slug, high.id) ? ' followed' : ''}`} to={highTo}><p className="eyebrow">HIGH SCORER</p><strong className={`${leagueInk(high?.slug)} ${high && isFollowedTeam(followed, high.slug, high.id) ? 'followed-name' : ''}`}>{high ? managerName(high.slug, high.id) : '—'}<FollowedNote on={!!high && isFollowedTeam(followed, high.slug, high.id)} /></strong></Link>
       {top.length ? <ul className="pulse-rows">{top.map(({ row, to, opponentId, opponentScore }) => <PulseMatch key={`${row.slug}-${row.id}`} to={to} slug={row.slug} leftId={row.id} leftScore={row.score} leftRank={standing(loaded, row.slug, row.id)} rightId={opponentId} rightScore={opponentScore} rightRank={standing(loaded, row.slug, opponentId)} emphasize="left" />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">

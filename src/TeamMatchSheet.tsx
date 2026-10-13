@@ -27,7 +27,7 @@ export function TeamMatchSheet({ label, status, to, sides, bar, note }: {
     <div className="team-sheet-face">
       {sides.map((side, index) => {
         const on = isFollowedName(followed, side.name);
-        return <div className={`team-sheet-side ${index === 1 ? 'home' : 'away'} ${side.winner ? 'winner' : ''}`} key={side.key}>
+        return <div className={`team-sheet-side ${index === 1 ? 'home' : 'away'} ${side.winner ? 'winner' : ''} ${on ? 'followed' : ''}`} key={side.key}>
         {side.logoUrl ? <img className="team-sheet-logo" src={side.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="team-sheet-logo" aria-hidden="true" />}
         <div className="team-sheet-copy">
           {side.teamHref ? <Link className={`team-sheet-name ${leagueInk(side.league)} ${on ? 'followed-name' : ''}`} to={side.teamHref} title={side.name}><RankMark value={side.mark} />{side.name}<FollowedNote on={on} /></Link> : <span className={`team-sheet-name ${leagueInk(side.league)} ${on ? 'followed-name' : ''}`} title={side.name}><RankMark value={side.mark} />{side.name}{side.winner && <span className="sr-only">, advances</span>}<FollowedNote on={on} /></span>}

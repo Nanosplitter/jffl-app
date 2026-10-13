@@ -190,7 +190,7 @@ export function FollowPrompt() {
   };
   return <div className="follow-prompt" role="dialog" aria-label="Follow a manager">
     <p className="eyebrow">Follow a manager</p>
-    <p>Underline their name across the site. Pick yourself if that’s you.</p>
+    <p>Highlight them across the site. Pick yourself if that’s you.</p>
     <div className="follow-prompt-actions">
       <label>Manager
         <select value={choice} onChange={event => setChoice(event.target.value)}>

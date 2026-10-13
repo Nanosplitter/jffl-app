@@ -66,7 +66,7 @@ function TeamCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 'te
   if (!team) return <Gone />;
   const manager = managerFor(spec.league, team.id)?.manager ?? team.name;
   const on = isFollowedTeam(followed, spec.league, team.id);
-  return <Link className="team-sheet ask-team-card" to={teamUrl(spec.league, team.id)}>
+  return <Link className={`team-sheet ask-team-card${on ? ' followed' : ''}`} to={teamUrl(spec.league, team.id)}>
     <header><span>{shortLeague(spec.league)} · Team</span><span>#{team.rank ?? '—'}</span></header>
     <div className="team-sheet-side">
       {team.logoUrl ? <img className="team-sheet-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="team-sheet-logo" aria-hidden="true" />}
