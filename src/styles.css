@@ -237,6 +237,7 @@ a.team-sheet:hover .team-sheet-name { text-decoration: underline; text-underline
 .player-table small, .directory-table small { display: inline-block; font-size: .68rem; margin-top: 4px; }
 .injury { font-size: .6rem; font-weight: 500; color: var(--warning); }
 .slot { font-size: .68rem; color: var(--muted); white-space: nowrap; }
+.bye-now { color: var(--accent-ink); font-weight: 650; }
 .stat-toggle { background: none; border: 0; padding: 4px; color: var(--muted); font-size: .7rem; white-space: nowrap; cursor: pointer; }
 .stat-toggle:hover, .stat-toggle[aria-expanded="true"] { color: var(--accent-ink); text-decoration: underline; }
 .player-table tr.stat-row > td { width: auto; min-width: 0; padding: 2px 0 12px; background: color-mix(in srgb, var(--surface-muted) 55%, transparent); }
@@ -476,9 +477,9 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
   .directory-rosters .team-identity > span { overflow: visible; text-overflow: unset; white-space: normal; }
   .directory-table th:nth-child(n+3), .directory-table td:nth-child(n+3),
   .player-table th:nth-child(n+3), .player-table td:nth-child(n+3) { padding-left: 4px; padding-right: 2px; font-size: .72rem; }
-  .player-table > thead > tr > th:nth-child(2), .player-table > tbody > tr > td:nth-child(2),
-  .player-table > thead > tr > th:nth-child(5), .player-table > tbody > tr > td:nth-child(5),
-  .player-table > thead > tr > th:nth-child(6), .player-table > tbody > tr > td:nth-child(6),
+  .player-table > thead > tr > th.col-slot, .player-table > tbody > tr > td.col-slot,
+  .player-table > thead > tr > th.col-season, .player-table > tbody > tr > td.col-season,
+  .player-table > thead > tr > th.col-avg, .player-table > tbody > tr > td.col-avg,
   .directory-table th:nth-child(5), .directory-table td:nth-child(5),
   .directory-table th:nth-child(6), .directory-table td:nth-child(6) { display: none; }
   .player-table .stat-panel th, .player-table .stat-panel td { display: table-cell; width: auto; }

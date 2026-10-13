@@ -24,6 +24,7 @@ import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
 import { pointShare, TeamMatchSheet } from './TeamMatchSheet';
 import { PlayerIdentity, injuryLabel, injuryName } from './PlayerIdentity';
+import { byeWeek } from './byeWeeks';
 import { canStillSwing, closestListed, closestOpen, compareByLineup, pointsStillToPlay, slotLabel, slotsLabel } from './lineups';
 import { BackTrail, SiteBack, usePageLabel } from './BackLink';
 
@@ -198,15 +199,17 @@ function statKeys(player: RosteredPlayer) {
   return [...new Set([...Object.keys(player.weekStats), ...Object.keys(player.seasonStats)])].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
-function PlayerTable({ players, slug, teams, showSlot = true }: { players: RosteredPlayer[]; slug: LeagueSlug; teams?: Team[]; showSlot?: boolean }) {
+function PlayerTable({ players, slug, teams, showSlot = true, week }: { players: RosteredPlayer[]; slug: LeagueSlug; teams?: Team[]; showSlot?: boolean; week?: number }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const columns = 6 + (teams ? 1 : 0) + (showSlot ? 1 : 0);
-  return <div className="table-scroll"><table className="player-table"><caption className="sr-only">Rostered players and fantasy statistics</caption><thead><tr><th scope="col">Player</th>{teams && <th scope="col">Fantasy team</th>}{showSlot && <th scope="col">Slot</th>}<th scope="col">Week pts</th><th scope="col">Proj</th><th scope="col">Season</th><th scope="col">Avg</th><th scope="col"><span className="sr-only">Statistics</span></th></tr></thead><tbody>{players.flatMap(player => {
+  const columns = 7 + (teams ? 1 : 0) + (showSlot ? 1 : 0);
+  return <div className="table-scroll"><table className="player-table"><caption className="sr-only">Rostered players and fantasy statistics</caption><thead><tr><th scope="col">Player</th>{teams && <th scope="col">Fantasy team</th>}{showSlot && <th className="col-slot" scope="col">Slot</th>}<th scope="col">Bye</th><th scope="col">Week pts</th><th scope="col">Proj</th><th className="col-season" scope="col">Season</th><th className="col-avg" scope="col">Avg</th><th scope="col"><span className="sr-only">Statistics</span></th></tr></thead><tbody>{players.flatMap(player => {
     const id = `${player.teamId}-${player.id}`;
     const open = openId === id;
     const keys = statKeys(player);
     const showWeek = keys.some(key => player.weekStats[key] != null);
-    return [<tr key={id}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td>{teams && <td><Link className={leagueInk(slug)} to={teamLink(slug, player.teamId)}>{teams.find(team => team.id === player.teamId) ? <TeamIdentity team={teams.find(team => team.id === player.teamId)!} /> : '—'}</Link></td>}{showSlot && <td><span className="slot">{slotLabel(player.slot)}</span></td>}<td className="numeric emphasis">{points(player.weekPoints)}</td><td className="numeric muted">{points(player.projectedPoints)}</td><td className="numeric">{points(player.seasonPoints)}</td><td className="numeric">{points(player.averagePoints)}</td><td><button type="button" className="stat-toggle" aria-expanded={open} aria-label={`Statistics for ${player.name}`} onClick={() => setOpenId(open ? null : id)}>Stats</button></td></tr>,
+    const bye = byeWeek(player.proTeam);
+    const onBye = bye != null && bye === week;
+    return [<tr key={id}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td>{teams && <td><Link className={leagueInk(slug)} to={teamLink(slug, player.teamId)}>{teams.find(team => team.id === player.teamId) ? <TeamIdentity team={teams.find(team => team.id === player.teamId)!} /> : '—'}</Link></td>}{showSlot && <td className="col-slot"><span className="slot">{slotLabel(player.slot)}</span></td>}<td className={`numeric${onBye ? ' bye-now' : ''}`}>{bye ?? '—'}{onBye ? <span className="sr-only">, this week</span> : null}</td><td className="numeric emphasis">{points(player.weekPoints)}</td><td className="numeric muted">{points(player.projectedPoints)}</td><td className="numeric col-season">{points(player.seasonPoints)}</td><td className="numeric col-avg">{points(player.averagePoints)}</td><td><button type="button" className="stat-toggle" aria-expanded={open} aria-label={`Statistics for ${player.name}`} onClick={() => setOpenId(open ? null : id)}>Stats</button></td></tr>,
       open ? <tr key={`${id}-stats`} className="stat-row"><td colSpan={columns}>{keys.length ? <table className="stat-panel"><thead><tr><th>Statistic</th>{showWeek && <th>Week</th>}<th>Season</th></tr></thead><tbody>{keys.map(key => <tr key={key}><th>{key}</th>{showWeek && <td>{points(player.weekStats[key])}</td>}<td>{points(player.seasonStats[key])}</td></tr>)}</tbody></table> : <p className="empty-inline">Stats are not available yet.</p>}</td></tr> : null];
   })}</tbody></table></div>;
 }
@@ -311,7 +314,7 @@ function TeamPage() {
             const entries = players.filter(player => player.group === group).sort(compareByLineup);
             return <section className="surface roster-section" key={group}>
               <div className="surface-heading"><h3>{group === 'starter' ? 'Starters' : group === 'bench' ? 'Bench' : 'Injured reserve'}</h3></div>
-              {entries.length ? <PlayerTable players={entries} slug={meta.slug} /> : <p className="empty-inline">No players in this section.</p>}
+              {entries.length ? <PlayerTable players={entries} slug={meta.slug} week={data.week} /> : <p className="empty-inline">No players in this section.</p>}
             </section>;
           })}
         </> : <Waiting error={roster?.error} />}
