@@ -188,18 +188,23 @@ export function FollowPrompt() {
     writeStorage(typeof localStorage === 'undefined' ? undefined : localStorage, `${SKIP_PREFIX}${user.uid}`, '1');
     setOpen(false);
   };
-  return <div className="notice follow-prompt" role="dialog" aria-label="Follow a manager">
-    <p>Which manager should we highlight? This is usually you. It does not check that the Google account belongs to them.</p>
-    <label>Manager
-      <select value={choice} onChange={event => setChoice(event.target.value)}>
-        <option value="">Choose a manager</option>
-        {(['premier', 'championship', 'league-one'] as const).map(slug => <optgroup key={slug} label={slug === 'league-one' ? 'League One' : slug === 'premier' ? 'Premier' : 'Championship'}>
-          {MANAGERS.filter(item => item.slug === slug).map(item => <option key={item.key} value={item.key}>{item.manager}</option>)}
-        </optgroup>)}
-      </select>
-    </label>
-    <button type="button" className="button" disabled={!choice} onClick={save}>Follow</button>
-    <button type="button" onClick={skip}>Skip</button>
+  return <div className="follow-prompt" role="dialog" aria-label="Follow a manager">
+    <p className="eyebrow">Follow a manager</p>
+    <p>Underline their name across the site. Pick yourself if that’s you.</p>
+    <div className="follow-prompt-actions">
+      <label>Manager
+        <select value={choice} onChange={event => setChoice(event.target.value)}>
+          <option value="">Choose a manager</option>
+          {(['premier', 'championship', 'league-one'] as const).map(slug => <optgroup key={slug} label={slug === 'league-one' ? 'League One' : slug === 'premier' ? 'Premier' : 'Championship'}>
+            {MANAGERS.filter(item => item.slug === slug).map(item => <option key={item.key} value={item.key}>{item.manager}</option>)}
+          </optgroup>)}
+        </select>
+      </label>
+      <div className="follow-prompt-buttons">
+        <button type="button" className="button" disabled={!choice} onClick={save}>Follow</button>
+        <button type="button" className="button secondary" onClick={skip}>Skip</button>
+      </div>
+    </div>
   </div>;
 }
 
