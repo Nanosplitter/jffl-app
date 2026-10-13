@@ -74,6 +74,11 @@ test('fallback names follow the route', () => {
   assert.equal(fallbackBackLabel('/league/premier/match/4-0'), 'Premier League match');
   assert.equal(fallbackBackLabel('/cups/jffl'), 'JFFL Cup');
   assert.equal(fallbackBackLabel('/archive/records'), 'Record book');
+  assert.equal(fallbackBackLabel('/archive/records/jffl'), 'Record book');
+  assert.equal(fallbackBackLabel('/archive/rivals/SeanT/Wayne'), 'SeanT vs Wayne');
+  assert.equal(fallbackBackLabel('/history/cup'), 'JFFL Cup history');
+  assert.equal(fallbackBackLabel('/players/premier'), 'Players');
+  assert.equal(fallbackBackLabel('/cups/jffl/round/round-2'), 'JFFL Cup round');
 });
 
 test('a direct visit still has a sensible place to go', () => {

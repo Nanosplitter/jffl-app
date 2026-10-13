@@ -1,5 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search, Shield, Sun, Moon } from 'lucide-react';
 import { localPreview, useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
@@ -188,7 +188,7 @@ function LeaguePage() {
   const summaries = useSummaries();
   if (!meta) return <NotFound />;
   const state = summaries[meta.slug];
-  return <><section className="page-intro league-intro"><div className="league-title"><LeagueMark slug={slug} size="large" /><div><p className="eyebrow">JFFL <span>/</span> 2026 SEASON</p><h1>{meta.name}</h1></div></div><a className="button secondary" href={`https://fantasy.espn.com/football/league?leagueId=${meta.espnId}`} target="_blank" rel="noreferrer">View on ESPN<ExternalLink size={14} /></a></section>{state.data ? <div className="league-layout" data-matchups={state.data.matchups.length}><div className="section-heading"><div><h2>Week {state.data.week} scoreboard</h2></div><Fresh data={state.data} error={state.error} /></div>{(() => { const matchups = state.data!.matchups; const card = (matchup: Matchup, className = '') => <MatchupCard key={matchup.id} className={className} matchup={matchup} data={state.data!} to={`/league/${meta.slug}/match/${matchup.id}`} />; const standings = <section className="surface standings-panel"><div className="surface-heading"><h2>Standings</h2><Link to={`/players?league=${slug}`}>Browse players</Link></div><Standings data={state.data!} /></section>; const scoring = <section className="surface scoring"><div className="surface-heading"><h2>Scoring</h2></div>{state.data!.scoring.length ? <dl>{state.data!.scoring.map((item, index) => <div key={index}><dt>{scoringLabel(item.name)}</dt><dd>{points(item.points)}</dd></div>)}</dl> : <p className="muted">Scoring details are not supplied.</p>}</section>; return matchups.length === 5 ? <><div className="board-main">{card(matchups[0])}{card(matchups[1])}{card(matchups[3], 'slot-3')}{card(matchups[4], 'slot-4')}{standings}</div><div className="board-side">{card(matchups[2], 'slot-2')}{scoring}</div></> : <>{matchups.map(matchup => card(matchup))}{standings}{scoring}</>; })()}</div> : <Waiting error={state.error} />}</>;
+  return <><section className="page-intro league-intro"><div className="league-title"><LeagueMark slug={slug} size="large" /><div><p className="eyebrow">JFFL <span>/</span> 2026 SEASON</p><h1>{meta.name}</h1></div></div><a className="button secondary" href={`https://fantasy.espn.com/football/league?leagueId=${meta.espnId}`} target="_blank" rel="noreferrer">View on ESPN<ExternalLink size={14} /></a></section>{state.data ? <div className="league-layout" data-matchups={state.data.matchups.length}><div className="section-heading"><div><h2>Week {state.data.week} scoreboard</h2></div><Fresh data={state.data} error={state.error} /></div>{(() => { const matchups = state.data!.matchups; const card = (matchup: Matchup, className = '') => <MatchupCard key={matchup.id} className={className} matchup={matchup} data={state.data!} to={`/league/${meta.slug}/match/${matchup.id}`} />; const standings = <section className="surface standings-panel"><div className="surface-heading"><h2>Standings</h2><Link to={`/players/${slug}`}>Browse players</Link></div><Standings data={state.data!} /></section>; const scoring = <section className="surface scoring"><div className="surface-heading"><h2>Scoring</h2></div>{state.data!.scoring.length ? <dl>{state.data!.scoring.map((item, index) => <div key={index}><dt>{scoringLabel(item.name)}</dt><dd>{points(item.points)}</dd></div>)}</dl> : <p className="muted">Scoring details are not supplied.</p>}</section>; return matchups.length === 5 ? <><div className="board-main">{card(matchups[0])}{card(matchups[1])}{card(matchups[3], 'slot-3')}{card(matchups[4], 'slot-4')}{standings}</div><div className="board-side">{card(matchups[2], 'slot-2')}{scoring}</div></> : <>{matchups.map(matchup => card(matchup))}{standings}{scoring}</>; })()}</div> : <Waiting error={state.error} />}</>;
 }
 
 const STAT_ORDER = ['Pass attempts', 'Completions', 'Pass yards', 'Pass TD', 'Interceptions', 'Rush attempts', 'Rush yards', 'Rush TD', 'Receptions', 'Rec yards', 'Rec TD', 'Targets', 'Fumbles', 'Fumbles lost', 'Field goals', 'Extra points', 'Defensive TD', 'Defensive INT', 'Fumble recoveries', 'Safeties', 'Sacks', 'Points allowed', 'Yards allowed'];
@@ -244,8 +244,8 @@ function TeamPage() {
       {profile && <div className="manager-profile">
         <strong>Manager: <span className={leagueInk(meta.slug)}>{profile.manager}</span></strong>
         <span>{profile.seasons} {profile.seasons === 1 ? 'season' : 'seasons'} · {profile.trophies} historical trophies</span>
-        <Link to={`/cups/jffl?manager=${encodeURIComponent(profile.key)}`}>JFFL Cup · seed {profile.jfflSeed}<ArrowUpRight size={14}/></Link>
-        <Link to={`/cups/${meta.slug}?manager=${encodeURIComponent(profile.key)}`}>League Cup · seed {profile.leagueSeed}<ArrowUpRight size={14}/></Link>
+        <Link to={`/cups/jffl/highlight/${encodeURIComponent(profile.manager)}`}>JFFL Cup · seed {profile.jfflSeed}<ArrowUpRight size={14}/></Link>
+        <Link to={`/cups/${meta.slug}/highlight/${encodeURIComponent(profile.manager)}`}>League Cup · seed {profile.leagueSeed}<ArrowUpRight size={14}/></Link>
       </div>}
       <div className="team-metrics">
         <Metric label="Record" value={record(team)} />
@@ -388,19 +388,22 @@ function PlayerPage() {
   </>;
 }
 
+function RosterRoute() {
+  const { playerId = '' } = useParams();
+  return leagueMeta(playerId) ? <PlayersPage /> : <PlayerPage />;
+}
+
 function PlayersPage() {
-  usePageLabel('Players');
+  const { playerId } = useParams();
   const location = useLocation();
-  const initial = new URLSearchParams(location.search).get('league');
-  const [league, setLeague] = useState<string>(initial && leagueMeta(initial) ? initial : 'all');
+  const navigate = useNavigate();
+  const league = leagueMeta(playerId ?? '') ? playerId! : 'all';
+  usePageLabel(league === 'all' ? 'Players' : leagueMeta(league)?.name ?? 'Players');
   const [position, setPosition] = useState('all');
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
-  useEffect(() => {
-    const requested = new URLSearchParams(location.search).get('league');
-    setLeague(requested && leagueMeta(requested) ? requested : 'all');
-    setPage(0);
-  }, [location.search]);
+  useEffect(() => { setPage(0); }, [league]);
+  const queryLeague = new URLSearchParams(location.search).get('league');
   const selected = LEAGUES.filter(meta => league === 'all' || meta.slug === league);
   const states = useRosters(selected.map(meta => meta.slug));
   const summaries = useSummaries();
@@ -417,10 +420,30 @@ function PlayersPage() {
   const visible = filtered.slice(safePage * 30, (safePage + 1) * 30);
   const loading = selected.some(meta => !states[meta.slug] || states[meta.slug]?.loading);
   const positions = [...new Set(rows.map(({ player }) => player.position))].sort();
-  return <><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> ROSTERED PLAYERS</p><h1>Players</h1><p className="intro-copy">Fantasy points follow each league’s scoring rules.</p></div></section><section className="surface player-browser"><div className="filters"><label className="search-field"><Search size={18} /><span className="sr-only">Search players</span><input aria-label="Search players" placeholder="Search players" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></label><label><span className="sr-only">League</span><select aria-label="League" value={league} onChange={event => { setLeague(event.target.value); setPage(0); }}><option value="all">All leagues</option>{LEAGUES.map(meta => <option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select></label><label><span className="sr-only">Position</span><select aria-label="Position" value={position} onChange={event => { setPosition(event.target.value); setPage(0); }}><option value="all">All positions</option>{positions.map(pos => <option key={pos}>{pos}</option>)}</select></label></div><div className="player-freshness">{selected.map(meta => <span key={meta.slug}><b>{meta.name}</b>{states[meta.slug]?.data ? <Fresh data={states[meta.slug]!.data!} error={states[meta.slug]?.error} /> : <span className="muted">{states[meta.slug]?.error ? 'Unavailable' : 'Loading…'}</span>}</span>)}</div>{loading && !rows.length ? <Waiting /> : filtered.length ? <><div className="table-scroll"><table className="directory-table"><caption className="sr-only">Rostered players across JFFL</caption><thead><tr><th>Player</th><th>Teams</th><th>Week pts</th><th>Proj</th><th>Season</th><th>Avg</th></tr></thead><tbody>{visible.map(({ player, spots }) => <tr key={player.id}><td><Link className="directory-player" to={`/players/${encodeURIComponent(player.id)}`}><PlayerIdentity player={player} injury={player.injuryStatus} detail={spots.length === 1 ? slotLabel(spots[0].player.slot) : undefined} /></Link></td><td><div className="directory-rosters">{spots.map(spot => { const team = summaries[spot.slug].data?.teams.find(item => item.id === spot.player.teamId); const code = spot.slug === 'premier' ? 'PL' : spot.slug === 'championship' ? 'CL' : 'LO'; return <span className="directory-roster" key={`${spot.slug}-${spot.player.teamId}`}>{league === 'all' && <small className={`league-label ${spot.slug}`} title={leagueMeta(spot.slug)?.name}>{code}</small>}<Link className={`directory-team ${leagueInk(spot.slug)}`} to={teamLink(spot.slug, spot.player.teamId)}>{team ? <TeamIdentity team={team} /> : 'Team'}</Link></span>; })}</div></td><td className="numeric emphasis">{points(player.weekPoints)}</td><td className="numeric muted">{points(player.projectedPoints)}</td><td className="numeric">{points(player.seasonPoints)}</td><td className="numeric">{points(player.averagePoints)}</td></tr>)}</tbody></table></div><div className="pagination"><span>{safePage * 30 + 1}–{Math.min((safePage + 1) * 30, filtered.length)} of {filtered.length}</span><div><button disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label="Previous page"><ChevronLeft size={17} /></button><span>Page {safePage + 1} of {pages}</span><button disabled={safePage + 1 >= pages} onClick={() => setPage(safePage + 1)} aria-label="Next page"><ChevronRight size={17} /></button></div></div></> : <div className="waiting"><Search size={24} /><strong>{rows.length ? 'No players match your filters' : 'Player data is unavailable'}</strong><span>{rows.length ? 'Try a different name or position.' : 'The next scheduled update will try again.'}</span></div>}</section></>;
+  if (queryLeague) return <Navigate to={leagueMeta(queryLeague) ? `/players/${queryLeague}` : '/players'} replace />;
+  return <><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> ROSTERED PLAYERS</p><h1>Players</h1><p className="intro-copy">Fantasy points follow each league’s scoring rules.</p></div></section><section className="surface player-browser"><div className="filters"><label className="search-field"><Search size={18} /><span className="sr-only">Search players</span><input aria-label="Search players" placeholder="Search players" value={search} onChange={event => { setSearch(event.target.value); setPage(0); }} /></label><label><span className="sr-only">League</span><select aria-label="League" value={league} onChange={event => navigate(event.target.value === 'all' ? '/players' : `/players/${event.target.value}`)}><option value="all">All leagues</option>{LEAGUES.map(meta => <option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select></label><label><span className="sr-only">Position</span><select aria-label="Position" value={position} onChange={event => { setPosition(event.target.value); setPage(0); }}><option value="all">All positions</option>{positions.map(pos => <option key={pos}>{pos}</option>)}</select></label></div><div className="player-freshness">{selected.map(meta => <span key={meta.slug}><b>{meta.name}</b>{states[meta.slug]?.data ? <Fresh data={states[meta.slug]!.data!} error={states[meta.slug]?.error} /> : <span className="muted">{states[meta.slug]?.error ? 'Unavailable' : 'Loading…'}</span>}</span>)}</div>{loading && !rows.length ? <Waiting /> : filtered.length ? <><div className="table-scroll"><table className="directory-table"><caption className="sr-only">Rostered players across JFFL</caption><thead><tr><th>Player</th><th>Teams</th><th>Week pts</th><th>Proj</th><th>Season</th><th>Avg</th></tr></thead><tbody>{visible.map(({ player, spots }) => <tr key={player.id}><td><Link className="directory-player" to={`/players/${encodeURIComponent(player.id)}`}><PlayerIdentity player={player} injury={player.injuryStatus} detail={spots.length === 1 ? slotLabel(spots[0].player.slot) : undefined} /></Link></td><td><div className="directory-rosters">{spots.map(spot => { const team = summaries[spot.slug].data?.teams.find(item => item.id === spot.player.teamId); const code = spot.slug === 'premier' ? 'PL' : spot.slug === 'championship' ? 'CL' : 'LO'; return <span className="directory-roster" key={`${spot.slug}-${spot.player.teamId}`}>{league === 'all' && <small className={`league-label ${spot.slug}`} title={leagueMeta(spot.slug)?.name}>{code}</small>}<Link className={`directory-team ${leagueInk(spot.slug)}`} to={teamLink(spot.slug, spot.player.teamId)}>{team ? <TeamIdentity team={team} /> : 'Team'}</Link></span>; })}</div></td><td className="numeric emphasis">{points(player.weekPoints)}</td><td className="numeric muted">{points(player.projectedPoints)}</td><td className="numeric">{points(player.seasonPoints)}</td><td className="numeric">{points(player.averagePoints)}</td></tr>)}</tbody></table></div><div className="pagination"><span>{safePage * 30 + 1}–{Math.min((safePage + 1) * 30, filtered.length)} of {filtered.length}</span><div><button disabled={safePage === 0} onClick={() => setPage(safePage - 1)} aria-label="Previous page"><ChevronLeft size={17} /></button><span>Page {safePage + 1} of {pages}</span><button disabled={safePage + 1 >= pages} onClick={() => setPage(safePage + 1)} aria-label="Next page"><ChevronRight size={17} /></button></div></div></> : <div className="waiting"><Search size={24} /><strong>{rows.length ? 'No players match your filters' : 'Player data is unavailable'}</strong><span>{rows.length ? 'Try a different name or position.' : 'The next scheduled update will try again.'}</span></div>}</section></>;
 }
 
 function NotFound() { return <div className="waiting"><Shield size={30} /><h1>Page not found</h1><Link className="button" to="/">Back to the leagues</Link></div>; }
+
+function documentTitle(pathname: string) {
+  if (pathname.startsWith('/cups')) return 'Cups';
+  if (pathname === '/summary' || pathname.startsWith('/summary/')) return 'Standings';
+  const weekly = pathname.match(/^\/weekly\/(\d+)$/);
+  if (weekly) return `Week ${weekly[1]}`;
+  if (pathname === '/weekly') return 'Weekly roundup';
+  const historyWeek = pathname.match(/^\/archive\/weeks\/(\d+)$/);
+  if (historyWeek) return `Week ${historyWeek[1]} in history`;
+  const rivals = pathname.match(/^\/archive\/rivals\/([^/]+)\/([^/]+)$/);
+  if (rivals) return `${decodeURIComponent(rivals[1])} vs ${decodeURIComponent(rivals[2])}`;
+  if (pathname.startsWith('/archive/records')) return 'Record book';
+  if (pathname.startsWith('/archive/ask')) return 'Ask the archive';
+  if (pathname.startsWith('/archive')) return 'Archive';
+  if (pathname.startsWith('/history/cup')) return 'JFFL Cup history';
+  if (pathname === '/history' || pathname.startsWith('/history/')) return 'History';
+  if (pathname === '/players' || (pathname.startsWith('/players/') && leagueMeta(pathname.split('/')[2] ?? ''))) return 'Players';
+  return 'Leagues';
+}
 
 function RedirectPath({ to }: { to: string }) {
   const { search, hash } = useLocation();
@@ -442,17 +465,15 @@ export default function App() {
   }, [dark]);
   useEffect(() => {
     window.scrollTo(0, 0);
-    if (/^\/players\/.+/.test(location.pathname)) return;
-    const weeklyWeek = location.pathname.match(/^\/weekly\/(\d+)$/);
-    const historyWeekMatch = location.pathname.match(/^\/archive\/weeks\/(\d+)$/);
-    const title = location.pathname.startsWith('/cups') ? 'Cups' : location.pathname === '/summary' ? 'Standings' : weeklyWeek ? `Week ${weeklyWeek[1]}` : location.pathname === '/weekly' ? 'Weekly roundup' : historyWeekMatch ? `Week ${historyWeekMatch[1]} in history` : location.pathname.startsWith('/archive/ask') ? 'Ask the archive' : location.pathname.startsWith('/archive') ? 'Archive' : location.pathname.startsWith('/history') ? 'History' : location.pathname === '/players' ? 'Players' : 'Leagues';
-    document.title = `${title} · JFFL`;
+    const playerSegment = location.pathname.split('/')[2] ?? '';
+    if (/^\/players\/.+/.test(location.pathname) && !leagueMeta(playerSegment)) return;
+    document.title = `${documentTitle(location.pathname)} · JFFL`;
   }, [location.pathname]);
   return <>
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header"><div className="header-inner">
       <Link to="/" className="brand" aria-label="JFFL home">JFFL</Link>
-      <nav aria-label="Main navigation"><NavLink to="/" end>Leagues</NavLink><NavLink to="/summary" className={location.pathname === '/weekly' || location.pathname.startsWith('/weekly/') || location.pathname === '/history' ? 'active' : undefined}>Standings</NavLink><NavLink to="/cups">Cups</NavLink><NavLink to="/players">Players</NavLink><NavLink to="/archive">Archive</NavLink></nav>
+      <nav aria-label="Main navigation"><NavLink to="/" end>Leagues</NavLink><NavLink to="/summary" className={location.pathname === '/weekly' || location.pathname.startsWith('/weekly/') || location.pathname === '/history' || location.pathname.startsWith('/history/cup') || /^\/history\/(premier|championship|league-one)(\/|$)/.test(location.pathname) ? 'active' : undefined}>Standings</NavLink><NavLink to="/cups">Cups</NavLink><NavLink to="/players">Players</NavLink><NavLink to="/archive">Archive</NavLink></nav>
       <button className="theme-toggle" aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={dark} title={dark ? 'Light mode' : 'Dark mode'} onClick={() => setDark(value => !value)}>{dark ? <Sun size={19}/> : <Moon size={19}/>}</button>
       <span className="header-season">2026 <span>SEASON</span></span>
     </div></header>
@@ -461,7 +482,7 @@ export default function App() {
     <main id="main" tabIndex={-1}>
       {localPreview && <p className="notice preview-notice">Local preview · real ESPN snapshot.</p>}
       <SiteBack />
-      <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<PlayerPage/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly/:week" element={<WeeklyPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks/:week" element={<WeekHistoryPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
+      <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<RosterRoute/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary/:league" element={<SeasonPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly/:week" element={<WeeklyPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history/cup/:league" element={<HistoryPage/>}/><Route path="/history/cup" element={<HistoryPage/>}/><Route path="/history/:league" element={<HistoryPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records/:book" element={<RecordsPage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals/:left/:right" element={<RivalsPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks/:week" element={<WeekHistoryPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId/round/:round/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId/round/:round" element={<CupPage/>}/><Route path="/cups/:cupId/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
     </main>
     <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores</span><span>Refreshes every 3 minutes · ESPN updates may be delayed</span></footer>
   </>;

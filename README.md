@@ -26,7 +26,7 @@ controls are configured in Firebase and Google Cloud consoles, not in this repo.
 | Championship | 50597 | `/league/championship` |
 | League One | 2035286513 | `/league/league-one` |
 
-Overview `/`; team `/league/:slug/team/:teamId`; league match `/league/:slug/match/:matchId`; rostered players `/players`; player `/players/:playerId`.
+Overview `/`; team `/league/:slug/team/:teamId`; league match `/league/:slug/match/:matchId`; rostered players `/players` and `/players/:league`; player `/players/:playerId`.
 Player fantasy totals and projections are scoped to the corresponding league's
 scoring. The player page keeps each played week's counting stats; a week with
 no captured line stays blank. Missing numbers display as a dash. Starters,
@@ -35,11 +35,11 @@ strings, including negative IDs.
 
 Commissioner's pages:
 
-- `/summary`: searchable standings, points for/against, win percentage, previous-week/start/draft rank movement, league scoring averages, and provisional promotion/relegation bands.
-- `/cups`: all four cups; `/cups/jffl`, `/cups/premier`, `/cups/championship`, `/cups/league-one`: complete interactive brackets, per-week scores, totals, manager highlights, and round selection. Each match opens `/cups/{cup}/match/{id}` with the week-by-week scores and both starting lineups, including weeks that have already finished.
+- `/summary` and `/summary/:league`: searchable standings, points for/against, win percentage, previous-week/start/draft rank movement, league scoring averages, and provisional promotion/relegation bands. Choosing a league puts it in the path.
+- `/cups`: all four cups; `/cups/jffl`, `/cups/premier`, `/cups/championship`, `/cups/league-one`: complete interactive brackets, per-week scores, and totals. A round is `/cups/{cup}/round/{round}`, such as `/cups/jffl/round/round-2`. A highlighted manager is `/cups/{cup}/highlight/{manager}`. Each match opens `/cups/{cup}/match/{id}` with the week-by-week scores and both starting lineups, including weeks that have already finished. Older `?manager=` links redirect to the highlight path.
 - `/weekly` and `/weekly/:week`: scoring leaderboard, 100+ club, scoring extremes, margins, and starting-player performances for that week. `/weekly` opens the current week, then the address becomes `/weekly/4` for week 4, so a copied link stays on that week. Copy for email pastes that week into a mail client. Older `?week=` links redirect to the path.
-- `/history`: 13 current trophy races, historical trophy and JFFL Cup tables, and league timeline.
-- `/archive`: league history through 2025 from the commissioner workbook. Scoring, the record book, titles, head-to-head series, manager careers, draft slot, and a week in history. A week in history is `/archive/weeks/:week`. Related routes sit under `/archive/`.
+- `/history` and `/history/cup`: 13 current trophy races, the historical trophy table or the JFFL Cup table, and the league timeline. A league filter is `/history/premier` or `/history/cup/premier`.
+- `/archive`: league history through 2025 from the commissioner workbook. Scoring, the record book (`/archive/records/weekly`, `jffl`, `league`, or `bowl`), titles, a head-to-head series (`/archive/rivals/SeanT/Wayne`), manager careers, draft slot, and a week in history (`/archive/weeks/:week`). Related routes sit under `/archive/`.
 - `/archive/ask` and `/archive/ask/share#...`: the AI "Ask the archive" assistant and shared answers (see below). Older `/history/archive` and `/history/ask` links redirect here.
 
 The header's sun/moon button switches light and dark themes. The preference is

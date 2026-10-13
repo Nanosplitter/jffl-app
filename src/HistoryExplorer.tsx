@@ -14,6 +14,7 @@ import {
 import { leagueInk, leagueOfManager, leagueSlug } from './reference';
 import { points } from './ui';
 import { usePageLabel } from './BackLink';
+import { recordBookId, rivalPath } from './sharePaths';
 import { historyWeek } from './weeklyPath';
 
 const dash = '\u2013';
@@ -241,13 +242,15 @@ const BOOKS = [
 ] as const;
 
 export function RecordsPage() {
-  usePageLabel('Record book');
-  const [bookId, setBookId] = useState<(typeof BOOKS)[number]['id']>('weekly');
+  const { book: bookParam } = useParams();
+  const bookId = recordBookId(bookParam);
   const book = BOOKS.find(item => item.id === bookId) ?? BOOKS[0];
+  usePageLabel('Record book');
   const board = useMemo(() => recordBook(history.games, book.pick), [book]);
   const typicalScore = median(board.highest.map(row => row.score));
+  if (bookParam !== book.id) return <Navigate to={`/archive/records/${book.id}`} replace />;
   return <Shell eyebrow="THROUGH 2025 / SCORES" title="Record book" copy={book.note}>
-    <div className="history-tabs" role="group" aria-label="Record book">{BOOKS.map(item => <button key={item.id} type="button" className={item.id === book.id ? 'active' : ''} aria-pressed={item.id === book.id} onClick={() => setBookId(item.id)}>{item.label}</button>)}</div>
+    <div className="history-tabs" role="navigation" aria-label="Record book">{BOOKS.map(item => <Link key={item.id} to={`/archive/records/${item.id}`} aria-current={item.id === book.id ? 'page' : undefined}>{item.label}</Link>)}</div>
     <p className="archive-count">{board.games.toLocaleString('en-US')} games · {board.ties.length} ties · {board.closest.length} decided by one point</p>
     <ScoreChart key={`${book.id}-high`} rows={board.highest} caption="Highest scores" />
     <ScoreChart key={`${book.id}-low`} rows={board.lowest} caption="Lowest scores" />
@@ -368,24 +371,29 @@ export function TitlesPage() {
 }
 
 export function RivalsPage() {
-  usePageLabel('Head-to-head');
-  const [left, setLeft] = useState('SeanT');
-  const [right, setRight] = useState('Wayne');
+  const params = useParams();
+  const navigate = useNavigate();
+  const requestedLeft = params.left ? decodeURIComponent(params.left) : '';
+  const requestedRight = params.right ? decodeURIComponent(params.right) : '';
+  const left = names.includes(requestedLeft) ? requestedLeft : 'SeanT';
+  const right = names.includes(requestedRight) ? requestedRight : 'Wayne';
+  usePageLabel(params.left && params.right ? `${left} vs ${right}` : 'Head-to-head');
   const lopsided = useMemo(() => [...series].filter(item => item.meetings >= 10 && item.winsA + item.winsB > 0)
     .sort((a, b) => Math.max(b.winsA, b.winsB) / (b.winsA + b.winsB) - Math.max(a.winsA, a.winsB) / (a.winsA + a.winsB) || b.meetings - a.meetings)
     .slice(0, 8), []);
   const choosePair = (pair: [string, string]) => {
-    setLeft(pair[0]);
-    setRight(pair[1]);
+    navigate(rivalPath(pair[0], pair[1]));
     document.querySelector('h1')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
+  const canonical = rivalPath(left, right);
   const match = headToHead(left, right);
   const marginGames = match.played.filter(game => !isJfflCup(game));
   const notes = pairNotes(marginGames, match.played, left, right);
+  if (`/archive/rivals/${params.left ?? ''}/${params.right ?? ''}` !== canonical) return <Navigate to={canonical} replace />;
   return <Shell eyebrow="EVERY MATCH / THROUGH 2025" title="Head-to-head" copy="Every match counts in the series, including playoffs and cups. JFFL Cup scores cover two weeks, so they are in the points and out of the margins.">
     <div className="filters">
-      <label>First manager<select aria-label="First manager" value={left} onChange={event => setLeft(event.target.value)}>{names.map(name => <option key={name}>{name}</option>)}</select></label>
-      <label>Second manager<select aria-label="Second manager" value={right} onChange={event => setRight(event.target.value)}>{names.map(name => <option key={name}>{name}</option>)}</select></label>
+      <label>First manager<select aria-label="First manager" value={left} onChange={event => navigate(rivalPath(event.target.value, right))}>{names.map(name => <option key={name}>{name}</option>)}</select></label>
+      <label>Second manager<select aria-label="Second manager" value={right} onChange={event => navigate(rivalPath(left, event.target.value))}>{names.map(name => <option key={name}>{name}</option>)}</select></label>
     </div>
     {left === right ? <p className="empty-inline">Choose two different managers.</p> : <>
       <div className="recap-metrics">

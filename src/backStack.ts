@@ -58,12 +58,15 @@ export function fallbackBackLabel(pathname: string) {
   if (pathname === '/') return 'Home';
   const weekly = pathname.match(/^\/weekly(?:\/(\d+))?$/);
   if (weekly) return weekly[1] ? `Week ${weekly[1]}` : 'Weekly roundup';
-  if (pathname === '/summary') return 'Standings';
-  if (pathname === '/players') return 'Players';
+  if (pathname === '/summary' || pathname.startsWith('/summary/')) return 'Standings';
+  if (pathname === '/players' || (pathname.startsWith('/players/') && LEAGUE_NAMES[pathname.split('/')[2] ?? ''])) return 'Players';
   if (pathname.startsWith('/players/')) return 'Player';
   if (pathname === '/cups') return 'Cups';
-  if (pathname === '/history') return 'Trophies & history';
-  if (pathname === '/archive/records') return 'Record book';
+  if (pathname.startsWith('/history/cup')) return 'JFFL Cup history';
+  if (pathname === '/history' || pathname.startsWith('/history/')) return 'Trophies & history';
+  if (pathname.startsWith('/archive/records')) return 'Record book';
+  const rivals = pathname.match(/^\/archive\/rivals\/([^/]+)\/([^/]+)$/);
+  if (rivals) return `${decodeURIComponent(rivals[1])} vs ${decodeURIComponent(rivals[2])}`;
   if (pathname === '/archive/titles') return 'Titles';
   if (pathname === '/archive/rivals') return 'Head-to-head';
   if (pathname === '/archive/draft') return 'Draft';
@@ -83,6 +86,8 @@ export function fallbackBackLabel(pathname: string) {
   const cup = pathname.match(/^\/cups\/([^/]+)/);
   if (cup) {
     const name = CUP_NAMES[cup[1]] ?? 'Cup';
+    if (pathname.includes('/round/')) return `${name} round`;
+    if (pathname.includes('/highlight/')) return name;
     return pathname.includes('/match/') ? `${name} match` : name;
   }
   return 'Back';
@@ -97,6 +102,8 @@ export function fallbackBackTarget(pathname: string): { to: string; label: strin
     if (!league[2]) return { to: '/', label: 'All leagues' };
     return { to: `/league/${league[1]}`, label: name };
   }
+  if (/^\/summary\/[^/]+$/.test(pathname)) return { to: '/summary', label: 'Standings' };
+  if (pathname.startsWith('/history/')) return { to: '/history', label: 'Trophies & history' };
   if (pathname.startsWith('/players/')) return { to: '/players', label: 'Players' };
   const cup = pathname.match(/^\/cups\/([^/]+)(\/.*)?$/);
   if (cup) {

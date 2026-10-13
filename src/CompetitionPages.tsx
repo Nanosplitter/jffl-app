@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Link, NavLink, Navigate, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Link, NavLink, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { useRosters, useSummaries } from './data';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
@@ -18,6 +18,7 @@ import { compareByLineup, historicalStarters, lineupWouldWin, rosterForWeek, typ
 import { usePageLabel } from './BackLink';
 import { copyEmail } from './history/emailCopy';
 import { renderWeeklyEmail, type EmailGame, type EmailSection, type WeeklyEmail } from './weeklyEmail';
+import { roundSlug } from './sharePaths';
 import { weeklyWeek } from './weeklyPath';
 
 const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${matchId}`;
@@ -34,7 +35,7 @@ function useCompetitionData() {
 }
 
 export function SectionNav() {
-  return <nav className="section-nav" aria-label="Season pages"><NavLink to="/summary">Standings</NavLink><NavLink to="/weekly">Weekly roundup</NavLink><NavLink to="/history" end>Trophies & history</NavLink></nav>;
+  return <nav className="section-nav" aria-label="Season pages"><NavLink to="/summary">Standings</NavLink><NavLink to="/weekly">Weekly roundup</NavLink><NavLink to="/history">Trophies & history</NavLink></nav>;
 }
 
 function UpdateStrip({ data }: { data: SummaryMap }) {
@@ -171,33 +172,37 @@ function ManagerHighlight({ participants, highlighted, onChange }: { participant
 }
 
 export function CupPage() {
-  const { cupId = 'jffl' } = useParams();
-  const location = useLocation();
+  const { cupId = 'jffl', round: roundParam, manager: managerParam } = useParams();
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
   const { data } = useCompetitionData();
-  const [highlighted, setHighlighted] = useState('');
-  const [selectedRound, setSelectedRound] = useState('all');
-  useEffect(() => {
-    const requested = new URLSearchParams(location.search).get('manager') ?? '';
-    setHighlighted(MANAGERS.some(item => item.key === requested && (cupId === 'jffl' || item.slug === cupId)) ? requested : '');
-  }, [cupId, location.search]);
-  useEffect(() => { setSelectedRound('all'); }, [cupId]);
+  const managerName = managerParam ? decodeURIComponent(managerParam) : '';
+  const highlighted = MANAGERS.find(item => item.manager === managerName && (cupId === 'jffl' || item.slug === cupId))?.key ?? '';
   const cup = CUP_IDS.includes(cupId as CupId) ? buildCup(cupId as CupId, data) : null;
   const rosterSlugs = cupRosterSlugs(cupId);
   const rosters = useRosters(rosterSlugs);
   const players = rosterPlayers(rosterSlugs, rosters);
   const rostersReady = rosterSlugs.every(slug => rosters[slug]?.data || rosters[slug]?.error);
-  usePageLabel(cup?.name ?? null);
+  const roundName = cup?.rounds.find(round => roundSlug(round.name) === roundParam)?.name;
+  usePageLabel(cup ? roundName ? `${cup.name}, ${roundName}` : highlighted ? `${cup.name}, ${managerName}` : cup.name : null);
+  const queryManager = params.get('manager');
+  const queryPerson = queryManager ? MANAGERS.find(item => item.key === queryManager && (cupId === 'jffl' || item.slug === cupId)) : undefined;
+  if (queryPerson) return <Navigate to={`/cups/${cupId}/highlight/${encodeURIComponent(queryPerson.manager)}`} replace />;
   if (!cup) return <p className="notice">Cup not found. <Link to="/cups">View all cups</Link></p>;
+  if (managerParam && !highlighted) return <Navigate to={`/cups/${cupId}`} replace />;
+  const roundIndex = roundParam ? cup.rounds.findIndex(round => roundSlug(round.name) === roundParam) : -1;
+  if (roundParam && roundIndex < 0) return <Navigate to={`/cups/${cupId}`} replace />;
+  const selectedRound = roundIndex >= 0 ? String(roundIndex) : 'all';
   const participants = MANAGERS.filter(item => cupId === 'jffl' || item.slug === cupId);
   const leagueCup = cupId !== 'jffl';
   const balanced = cup.rounds.every((round, index) => index === 0 || round.matches.length * 2 === cup.rounds[index - 1].matches.length);
   const tree = selectedRound === 'all' && (balanced || leagueCup);
   return <><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. A tie plays a third week.' : 'One-week scores. A tie plays the next week. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className={`champion-pill ${leagueInk(cup.champion.slug)}`}><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
-    <div className="bracket-controls"><ManagerHighlight participants={participants} highlighted={highlighted} onChange={setHighlighted} />{selectedRound !== 'all' && <button type="button" className="round-back" onClick={() => setSelectedRound('all')}>Full bracket</button>}</div>
+    <div className="bracket-controls"><ManagerHighlight participants={participants} highlighted={highlighted} onChange={key => { const person = MANAGERS.find(item => item.key === key); const base = roundParam ? `/cups/${cupId}/round/${roundParam}` : `/cups/${cupId}`; navigate(person ? `${base}/highlight/${encodeURIComponent(person.manager)}` : base); }} />{selectedRound !== 'all' && <Link className="round-back" to={highlighted ? `/cups/${cupId}/highlight/${encodeURIComponent(managerName)}` : `/cups/${cupId}`}>Full bracket</Link>}</div>
     <div className={`bracket-scroll ${selectedRound !== 'all' ? 'single-round' : tree ? 'bracket-tree' : 'bracket-flow'}${leagueCup && tree ? ' league-bracket' : ''}`} tabIndex={0} role="region" aria-label={selectedRound === 'all' ? `${cup.name} full bracket. Scroll horizontally to see later rounds.` : `${cup.name} selected round`}><div className="bracket-columns">{cup.rounds.map((round, roundIndex) => {
       if (selectedRound !== 'all' && String(roundIndex) !== selectedRound) return null;
       const average = roundScoreAverage(round);
-      return <section className="bracket-round" key={round.name}><header className="round-heading"><div><p className="eyebrow">{round.weeks.length>1?'WEEKS':'WEEK'} {round.weeks.join(' + ')}</p><h2>{selectedRound === 'all' ? <button type="button" className="round-jump" onClick={() => setSelectedRound(String(roundIndex))} aria-label={`Open ${round.name}`}>{round.name}<ArrowUpRight size={16} aria-hidden="true" /></button> : round.name}</h2></div><span>{average == null ? '— avg' : `${points(average)} avg`}</span></header><div className="round-matches">{(leagueCup && tree && roundIndex === 0 ? [round.matches[0] ?? null, null, null, round.matches[1] ?? null] : round.matches).map((match, index) => {
+      return <section className="bracket-round" key={round.name}><header className="round-heading"><div><p className="eyebrow">{round.weeks.length>1?'WEEKS':'WEEK'} {round.weeks.join(' + ')}</p><h2>{selectedRound === 'all' ? <Link className="round-jump" to={`/cups/${cupId}/round/${roundSlug(round.name)}${highlighted ? `/highlight/${encodeURIComponent(managerName)}` : ''}`} aria-label={`Open ${round.name}`}>{round.name}<ArrowUpRight size={16} aria-hidden="true" /></Link> : round.name}</h2></div><span>{average == null ? '— avg' : `${points(average)} avg`}</span></header><div className="round-matches">{(leagueCup && tree && roundIndex === 0 ? [round.matches[0] ?? null, null, null, round.matches[1] ?? null] : round.matches).map((match, index) => {
         if (!match) return <div className="bracket-slot bracket-spacer" key={`spacer-${index}`} aria-hidden="true" />;
         const matchIndex = leagueCup && roundIndex === 0 ? (index === 0 ? 0 : 1) : index;
         const board = selectedRound !== 'all' && match.status !== 'waiting';
@@ -438,13 +443,16 @@ export function LeagueStandingsCard({ meta, teams, updated, error = false }: { m
 }
 
 export function SeasonPage() {
+  const { league: leagueParam } = useParams();
+  const navigate = useNavigate();
+  const league = LEAGUES.some(meta => meta.slug === leagueParam) ? leagueParam! : 'all';
   usePageLabel('Standings');
   const { data } = useCompetitionData();
-  const [league, setLeague] = useState('all');
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<'rank'|'points'|'manager'>('rank');
+  if (leagueParam && league === 'all') return <Navigate to="/summary" replace />;
   return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> COMMISSIONER’S SUMMARY</p><h1>Standings</h1><p className="intro-copy">Records, scoring, rank movement, and the promotion race.</p></div></section><UpdateStrip data={data}/>
-    <div className="summary-controls"><label className="search-field"><Search size={17}/><input aria-label="Find a manager or team" placeholder="Find a manager or team" value={search} onChange={event=>setSearch(event.target.value)}/></label><label className="sr-only" htmlFor="summary-league">League</label><select id="summary-league" value={league} onChange={event=>setLeague(event.target.value)}><option value="all">All leagues</option>{LEAGUES.map(meta=><option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select><label className="sr-only" htmlFor="summary-sort">Sort standings</label><select id="summary-sort" value={sort} onChange={event=>setSort(event.target.value as typeof sort)}><option value="rank">Sort by rank</option><option value="points">Sort by points</option><option value="manager">Sort by manager</option></select></div>
+    <div className="summary-controls"><label className="search-field"><Search size={17}/><input aria-label="Find a manager or team" placeholder="Find a manager or team" value={search} onChange={event=>setSearch(event.target.value)}/></label><label className="sr-only" htmlFor="summary-league">League</label><select id="summary-league" value={league} onChange={event=>navigate(event.target.value === 'all' ? '/summary' : `/summary/${event.target.value}`)}><option value="all">All leagues</option>{LEAGUES.map(meta=><option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select><label className="sr-only" htmlFor="summary-sort">Sort standings</label><select id="summary-sort" value={sort} onChange={event=>setSort(event.target.value as typeof sort)}><option value="rank">Sort by rank</option><option value="points">Sort by points</option><option value="manager">Sort by manager</option></select></div>
     {LEAGUES.filter(meta=>league==='all'||league===meta.slug).map(meta=>{
       const summary=data[meta.slug];
       if(!summary) return <section className="surface waiting" key={meta.slug}>{meta.name} data is loading or unavailable.</section>;
@@ -942,18 +950,26 @@ function SeasonRaces({ data }: { data: SummaryMap }) {
 }
 
 export function HistoryPage() {
-  usePageLabel('Trophies & history');
+  const { pathname } = useLocation();
+  const { league: leagueParam } = useParams();
+  const navigate = useNavigate();
+  const view = pathname.includes('/history/cup') ? 'cup' : 'trophies';
+  const league = LEAGUES.some(meta => meta.slug === leagueParam) ? leagueParam! : 'all';
+  usePageLabel(view === 'cup' ? 'JFFL Cup history' : 'Trophies & history');
   const { data }=useCompetitionData();
-  const [view,setView]=useState<'trophies'|'cup'>('trophies');
   const [search,setSearch]=useState('');
-  const [league,setLeague]=useState('all');
   const [sort,setSort]=useState<'default'|'manager'>('default');
+  if (leagueParam && league === 'all') return <Navigate to={view === 'cup' ? '/history/cup' : '/history'} replace />;
+  const historyPath = (nextView: 'trophies' | 'cup', nextLeague: string) => {
+    const base = nextView === 'cup' ? '/history/cup' : '/history';
+    return nextLeague === 'all' ? base : `${base}/${nextLeague}`;
+  };
   const rows=MANAGERS.filter(item=>(league==='all'||item.slug===league)&&item.manager.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>sort==='manager'?a.manager.localeCompare(b.manager):view==='trophies'?b.trophies-a.trophies:(a.cupRank||99)-(b.cupRank||99));
   const trophies=MANAGERS.reduce((sum,item)=>sum+item.trophies,0);
   const finals=MANAGERS.reduce((sum,item)=>sum+item.finals,0);
   return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">25 SEASONS <span>/</span> JFFL’S TROPHY ROOM</p><h1>Trophies & history</h1><p className="intro-copy">Who is leading this season, then the trophy history underneath.</p></div></section><UpdateStrip data={data}/>
     <SeasonRaces data={data} />
-    <div className="section-heading"><h2>Historical leaderboard</h2><Link to="/archive">Archive</Link></div><div className="archive-stats"><span><strong>{trophies}</strong> total trophies</span><span><strong>{finals}</strong> finals appearances</span><span><strong>30</strong> current managers</span></div><section className="surface"><div className="history-tabs" role="group" aria-label="Historical table"><button className={view==='trophies'?'active':''} aria-pressed={view==='trophies'} onClick={()=>setView('trophies')}>Trophy history</button><button className={view==='cup'?'active':''} aria-pressed={view==='cup'} onClick={()=>setView('cup')}>JFFL Cup history</button></div><div className="filters"><label className="search-field"><Search size={17}/><input aria-label="Search historical managers" placeholder="Search managers" value={search} onChange={event=>setSearch(event.target.value)}/></label><select aria-label="Historical league" value={league} onChange={event=>setLeague(event.target.value)}><option value="all">All leagues</option>{LEAGUES.map(meta=><option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select><button className="sort-button" aria-label="Toggle historical sort" onClick={()=>setSort(sort==='default'?'manager':'default')}><ArrowUpDown size={16}/>{sort==='manager'?'Name':'Rank'}</button></div><HistoryBoard rows={rows} view={view} />{!rows.length&&<p className="empty-inline">No managers match your filters.</p>}</section>
+    <div className="section-heading"><h2>Historical leaderboard</h2><Link to="/archive">Archive</Link></div><div className="archive-stats"><span><strong>{trophies}</strong> total trophies</span><span><strong>{finals}</strong> finals appearances</span><span><strong>30</strong> current managers</span></div><section className="surface"><div className="history-tabs" role="navigation" aria-label="Historical table"><Link to={historyPath('trophies', league)} aria-current={view==='trophies'?'page':undefined}>Trophy history</Link><Link to={historyPath('cup', league)} aria-current={view==='cup'?'page':undefined}>JFFL Cup history</Link></div><div className="filters"><label className="search-field"><Search size={17}/><input aria-label="Search historical managers" placeholder="Search managers" value={search} onChange={event=>setSearch(event.target.value)}/></label><select aria-label="Historical league" value={league} onChange={event=>navigate(historyPath(view, event.target.value))}><option value="all">All leagues</option>{LEAGUES.map(meta=><option key={meta.slug} value={meta.slug}>{meta.name}</option>)}</select><button className="sort-button" aria-label="Toggle historical sort" onClick={()=>setSort(sort==='default'?'manager':'default')}><ArrowUpDown size={16}/>{sort==='manager'?'Name':'Rank'}</button></div><HistoryBoard rows={rows} view={view} />{!rows.length&&<p className="empty-inline">No managers match your filters.</p>}</section>
     <p className="source-note">Trophy counts, finals, and cup records run through 2025. This season’s cup results are in the live brackets. Trophy rate excludes the current unfinished season.</p>
     <div className="section-heading"><h2>From the first draft to season 25</h2></div><ol className="history-timeline">{TIMELINE.map(event=><li key={event.year}><span>{event.year}</span><div><h3>{event.title}</h3><p>{event.detail}</p></div></li>)}</ol>
   </>;

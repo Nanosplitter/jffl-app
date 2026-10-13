@@ -176,8 +176,8 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .manager-suggestions button { display: block; width: 100%; text-align: left; background: none; border: 0; padding: 8px 12px; font-size: .8rem; }
 .manager-suggestions button:hover, .manager-suggestions button.active { background: var(--surface-muted); color: var(--accent-ink); }
 .manager-suggestions .empty-inline { padding: 8px 12px; }
-  .round-back { background: none; border: 1px solid var(--line); padding: 8px 12px; min-height: 44px; font-size: .74rem; color: var(--text); }
-.round-back:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .round-back { display: inline-flex; align-items: center; background: none; border: 1px solid var(--line); padding: 8px 12px; min-height: 44px; font-size: .74rem; color: var(--text); text-decoration: none; }
+.round-back:hover { border-color: var(--accent); color: var(--accent-ink); text-decoration: none; }
 .round-jump { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 5px; }
 .bracket-scroll { position: relative; overflow-x: auto; padding: 0 2px 20px; overscroll-behavior-inline: contain; max-width: 100%; }
 .bracket-columns { display: flex; gap: 24px; align-items: flex-start; width: max-content; }
@@ -405,8 +405,9 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .archive-stats > span { font-size: .7rem; color: var(--muted); display: flex; align-items: center; gap: 9px; }
 .archive-stats strong { font-family: 'Barlow Condensed',sans-serif; font-size: 2.1rem; color: var(--text); }
 .history-tabs { display: flex; gap: 24px; border-top: 1px solid var(--line); padding-top: 8px; }
-.history-tabs button { background: none; border: 0; border-bottom: 2px solid transparent; padding: 12px 0; font-size: .74rem; color: var(--muted); }
-.history-tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+.history-tabs button, .history-tabs a { background: none; border: 0; border-bottom: 2px solid transparent; padding: 12px 0; font-size: .74rem; color: var(--muted); text-decoration: none; }
+.history-tabs button.active, .history-tabs a[aria-current="page"] { color: var(--text); border-bottom-color: var(--accent); }
+.history-tabs a:hover { text-decoration: none; color: var(--text); }
 .history-tabs + .filters { border-top: 0; }
 .sort-button { background: none; border: 1px solid var(--line); border-radius: 2px; padding: 11px 14px; font-size: .74rem; color: var(--muted); display: flex; align-items: center; gap: 7px; }
 .history-table td, .history-table th { font-size: .74rem; padding: 14px 15px; white-space: nowrap; }
@@ -587,7 +588,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
   .archive-stats > span { font-size: .63rem; }
   .archive-stats strong { font-size: 1.7rem; }
   .history-tabs { gap: 20px; }
-  .history-tabs button { font-size: .69rem; }
+  .history-tabs button, .history-tabs a { font-size: .69rem; }
   .history-timeline li { gap: 18px; }
   .history-timeline li > span { min-width: 65px; font-size: 1.3rem; }
 }
