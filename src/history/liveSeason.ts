@@ -26,6 +26,10 @@ export interface LiveGame {
 /** A 2026 manager season. Title ranks stay null until that title is decided; standing is the current position. */
 export interface LiveSeasonRow extends HistorySeason {
   standing: number | null;
+  /** JFFL Cup seed, 1 is the top seed. Fixed for 2026. */
+  jfflSeed: number | null;
+  /** Seed in this manager's own league cup, 1 is the top seed. Fixed for 2026. */
+  leagueCupSeed: number | null;
 }
 
 export interface PlayerWeek {
@@ -136,6 +140,7 @@ function seasonRows(slug: LeagueSlug, summary: LeagueSummary, champions: Map<Cup
     const manager = managerName(slug, team.id, summary) ?? team.name;
     const played = team.wins === null || team.losses === null ? null : team.wins + team.losses + (team.ties ?? 0);
     const index = byPoints.findIndex(item => item.id === team.id);
+    const person = managerFor(slug, team.id);
     return {
       season: summary.season, team: manager, league: LEAGUE_OF[slug],
       rankSeason: regularDone ? team.regularSeasonRank ?? team.rank : null,
@@ -148,6 +153,8 @@ function seasonRows(slug: LeagueSlug, summary: LeagueSummary, champions: Map<Cup
       draft: null,
       pointsRank: index === -1 ? null : index + 1,
       standing: team.rank,
+      jfflSeed: person?.jfflSeed ?? null,
+      leagueCupSeed: person?.leagueSeed ?? null,
     };
   });
 }

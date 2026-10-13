@@ -72,7 +72,30 @@ function paintWords(runs: Inline[], words: Array<[RegExp, Ink]>): Inline[] {
 const paintLeagues = (runs: Inline[]) => paintWords(runs, LEAGUE_WORDS);
 const paintManagers = (runs: Inline[]) => paintWords(runs, MANAGER_WORDS);
 
-export interface Inline { text: string; bold: boolean; color?: Ink }
+export interface Inline { text: string; bold: boolean; color?: Ink; mark?: boolean }
+
+/** A raised place number, 1 through 40. Anything else stays ordinary text. */
+const MARK = /\{#(\d{1,2})\}/g;
+
+function splitMarks(runs: Inline[]): Inline[] {
+  const out: Inline[] = [];
+  for (const run of runs) {
+    let at = 0;
+    let hit = false;
+    for (const match of run.text.matchAll(MARK)) {
+      const n = Number(match[1]);
+      const start = match.index ?? 0;
+      if (n < 1 || n > 40) continue;
+      hit = true;
+      if (start > at) out.push({ ...run, text: run.text.slice(at, start) });
+      out.push({ text: String(n), bold: false, mark: true });
+      at = start + match[0].length;
+    }
+    if (!hit) out.push(run);
+    else if (at < run.text.length) out.push({ ...run, text: run.text.slice(at) });
+  }
+  return out.filter(run => run.mark || run.text);
+}
 export type Block = { type: 'p'; inline: Inline[] } | { type: 'ul'; items: Inline[][] };
 
 const isInk = (name: string): name is Ink => INK_SET.has(name);
@@ -158,7 +181,7 @@ export function inlineOf(text: string): Inline[] {
     buf += source[index];
   }
   flush();
-  return paintManagers(paintLeagues(runs));
+  return splitMarks(paintManagers(paintLeagues(runs)));
 }
 
 export function parseAnswer(text: string): Block[] {

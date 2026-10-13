@@ -31,6 +31,13 @@ test('an email copy keeps the question, formatting, chart picture, and table', (
   assert.doesNotMatch(plain, /<b>/);
 });
 
+test('a place mark becomes a raised number in the email and a superscript in the plain text', () => {
+  const { html, plain } = renderEmail({ answer: '{#12}Jason is the seed.', pieces: [] });
+  assert.match(html, /<sup class="rank-mark">12<\/sup>/);
+  assert.match(plain, /¹²Jason is the seed\./);
+  assert.doesNotMatch(plain, /\{#12\}/);
+});
+
 test('a colored league name becomes a span in the email and plain text loses the tags', () => {
   const { html, plain } = renderEmail({ answer: 'SeanH won it in {premier}Premier{/premier}, not {green}<b>html</b>{/green}.', pieces: [] });
   assert.match(html, /<span class="ink-premier" style="color:#4f7a22;-webkit-text-fill-color:#4f7a22;">Premier<\/span>/);

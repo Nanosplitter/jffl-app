@@ -30,11 +30,14 @@ const colored = (text: string, color?: Ink) => {
 };
 /** Color sits on the bold tag. Mail apps give bare `<b>` a grey of their own and ignore the paragraph color. */
 const boldHtml = (inner: string, color = BOLD) => `<b style="font-weight:bold;${fill(color)}">${inner}</b>`;
+const SUPERSCRIPT = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+const raised = (value: string) => [...value].map(digit => SUPERSCRIPT[Number(digit)] ?? digit).join('');
 const inlineHtml = (parts: Inline[]) => parts.map(part => {
+  if (part.mark) return `<sup class="rank-mark">${esc(part.text)}</sup>`;
   const body = colored(part.text, part.color);
   return part.bold ? boldHtml(body, part.color ? INK_ON_LIGHT[part.color] : BOLD) : body;
 }).join('');
-const inlinePlain = (parts: Inline[]) => parts.map(part => part.text).join('');
+const inlinePlain = (parts: Inline[]) => parts.map(part => part.mark ? raised(part.text) : part.text).join('');
 
 const paragraphStyle = `margin:0 0 12px;font-family:Calibri,Arial,sans-serif;font-size:16px;line-height:1.45;${fill(TEXT)}background-color:transparent;`;
 const mutedStyle = 'margin:0 0 12px;font-family:Calibri,Arial,sans-serif;font-size:14px;line-height:1.45;color:#62686d;background-color:transparent;';
@@ -132,7 +135,7 @@ export async function copyEmail(html: string, plain: string): Promise<boolean> {
   const paint = document.createElement('style');
   const importantFill = (color: string) => `color:${color} !important;-webkit-text-fill-color:${color} !important;`;
   const keepInk = (Object.keys(INK_ON_LIGHT) as Ink[]).map(name => `#email-copy-host .ink-${name} { ${importantFill(INK_ON_LIGHT[name])} }`).join(' ');
-  paint.textContent = `#email-copy-host, #email-copy-host * { background: none !important; background-color: transparent !important; background-image: none !important; box-shadow: none !important; ${importantFill(TEXT)} } #email-copy-host b { font-weight:bold !important; ${importantFill(BOLD)} } ${keepInk}`;
+  paint.textContent = `#email-copy-host, #email-copy-host * { background: none !important; background-color: transparent !important; background-image: none !important; box-shadow: none !important; ${importantFill(TEXT)} } #email-copy-host b { font-weight:bold !important; ${importantFill(BOLD)} } #email-copy-host sup.rank-mark { font-size:.62em !important; font-weight:650 !important; line-height:0 !important; vertical-align:super !important; ${importantFill('#62686d')} } ${keepInk}`;
   document.head.appendChild(paint);
   document.body.appendChild(host);
   const pending = [...host.querySelectorAll('img')].filter(img => !img.complete);

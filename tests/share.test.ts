@@ -198,6 +198,21 @@ test('a current manager left untagged takes their league color, and a chosen col
   }
 });
 
+test('a place mark becomes a raised number in front of the name, and a bad mark stays text', () => {
+  const blocks = parseAnswer('{#2}Jason leads. {premier}{#7}Jeff{/premier} is the other bye. {#0}Nope {#41}Nope');
+  assert.equal(blocks[0].type, 'p');
+  if (blocks[0].type === 'p') {
+    assert.deepEqual(blocks[0].inline, [
+      { text: '2', bold: false, mark: true },
+      { text: 'Jason', bold: false, color: 'premier' },
+      { text: ' leads. ', bold: false },
+      { text: '7', bold: false, mark: true },
+      { text: 'Jeff', bold: false, color: 'premier' },
+      { text: ' is the other bye. {#0}Nope {#41}Nope', bold: false },
+    ]);
+  }
+});
+
 test('a league name left untagged still takes its color, and a chosen color wins', () => {
   const blocks = parseAnswer('2018 Premier and the Premier League. {red}Premier{/red} stayed red. Not championships.');
   assert.equal(blocks[0].type, 'p');

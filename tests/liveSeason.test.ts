@@ -89,6 +89,8 @@ test('season rows hold current positions and keep undecided titles unknown', () 
   const jason = live.seasons.find(row => row.team === 'Jason')!;
   assert.equal(jason.league, 'Premier');
   assert.equal(jason.standing, 1);
+  assert.equal(jason.jfflSeed, 2);
+  assert.equal(jason.leagueCupSeed, 1);
   assert.equal(jason.rankSeason, null);
   assert.equal(jason.rankFinal, null);
   assert.equal(jason.jfflRank, null);

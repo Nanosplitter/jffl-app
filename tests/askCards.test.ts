@@ -26,7 +26,7 @@ test('a matchup card defaults to the current week and links to the scoreboard ma
   const card = resolved({ kind: 'matchup', manager: 'jason' });
   assert.deepEqual(card.spec, { kind: 'matchup', league: 'premier', week: 3, teamId: '16' });
   assert.equal(card.text.url, '/league/premier/match/3-1');
-  assert.match(card.text.facts, /Jason 79, Donna 112 \(in progress/);
+  assert.match(card.text.facts, /Jason standing 1 79, Donna standing 2 112 \(in progress/);
 });
 
 test('an earlier week uses the weekly result and the opponent is checked', () => {

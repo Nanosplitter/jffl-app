@@ -265,6 +265,11 @@ test('archive rows are final and live 2026 rows carry their status', () => {
   assert.equal(played?.teamLeague, sample.league);
   assert.ok(seasons.every(row => row.status === 'live' && row.seasonChamp === null && row.topThree === null));
   assert.equal(liveCtx.tables.seasons.find(row => row.season === 2025)?.standing, liveCtx.tables.seasons.find(row => row.season === 2025)?.rankSeason);
+  const jason = seasons.find(row => row.team === 'Jason');
+  assert.equal(jason?.jfflSeed, 2);
+  assert.equal(jason?.leagueCupSeed, 1);
+  assert.equal(liveCtx.tables.seasons.find(row => row.season === 2025)?.jfflSeed, null);
+  assert.equal(liveCtx.tables.seasons.find(row => row.season === 2025)?.leagueCupSeed, null);
 });
 
 test('a query spanning 2025 and 2026 returns both seasons and the live caveat', () => {

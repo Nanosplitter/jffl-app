@@ -46,6 +46,7 @@ function Answer({ text, links }: { text: string; links?: Map<string, string> }) 
   const matcher = useMemo(() => (links ? nameMatcher(links.keys()) : null), [links]);
   const seen = new Set<string>();
   const inline = (parts: Inline[]) => parts.map((part, position) => {
+    if (part.mark) return <sup key={position} className="rank-mark">{part.text}</sup>;
     const pieces = splitNames(part.text, matcher, seen).map((piece, spot) => {
       const href = piece.name ? links?.get(piece.name) : undefined;
       const body = href ? <Link to={href}>{piece.text}</Link> : piece.text;

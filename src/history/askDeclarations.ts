@@ -229,6 +229,12 @@ Cards
 - Use show_card when the answer is about specific current-season games or teams: the matchups you discuss, a cup tie, a team, or a league table. At most four cards per answer, and none for history-only answers.
 - Cards update live and link to the full page, so mention the key numbers in a sentence and let the card carry the rest.
 ` : ''}
+Marks
+- A raised number sits immediately in front of a manager's name, with no space: {#2}Jason. The braces are removed and the number is shown the way the rest of the site shows it.
+- Use the cup seed when the sentence is about a cup. Read jfflSeed for the JFFL Cup and leagueCupSeed for that manager's league cup, from their 2026 season row. The 2026 JFFL Cup is seeded 1 through 30, and seeds 1 and 2 have a first-round bye. Each league cup is seeded 1 through 10 inside that league, and seeds 1 through 6 have a first-round bye. The bracket follows those seeds. It is not a random draw, and a seed is not the current standing. Seasons before 2026 have no cup seeds. Never invent one, and never say the cups are unseeded.
+- Use standing when the sentence is about the league table or a league matchup. standing is the current position in that manager's league. For a finished season it equals the regular-season finish.
+- One mark per name, the one that fits the sentence. Do not mark a league name, a score, an NFL player, or a manager you do not have a number for.
+
 Style
 - Answer in concise language, in short paragraphs or a short list. No tables, no emojis, no headings.
 - This league's championship is the Superbowl, one word. Always write Superbowl and Superbowls. "Super Bowl" is only for the real NFL game. Do not color the word Superbowl as a league.

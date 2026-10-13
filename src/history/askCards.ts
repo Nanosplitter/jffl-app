@@ -139,11 +139,15 @@ export function describeCard(summaries: SummaryMap, spec: CardSpec): CardText | 
     const { summary, matchup } = view;
     const away = managerOf(spec.league, matchup.awayTeamId, summary);
     const home = managerOf(spec.league, matchup.homeTeamId, summary);
+    const place = (id: string | null, name: string) => {
+      const rank = id ? summary.teams.find(team => team.id === id)?.rank : null;
+      return rank == null ? name : `${name} standing ${rank}`;
+    };
     const state = view.status === 'final' ? 'final' : view.status === 'live' ? 'in progress' : 'not started';
     const projected = projectionFact(matchup.awayProjected, matchup.homeProjected);
     return {
       title: `${away} vs ${home}, week ${spec.week}`,
-      facts: `${leagueName(spec.league)} week ${spec.week}: ${away} ${score(matchup.awayScore)}, ${home} ${score(matchup.homeScore)} (${state}${projected})`,
+      facts: `${leagueName(spec.league)} week ${spec.week}: ${place(matchup.awayTeamId, away)} ${score(matchup.awayScore)}, ${place(matchup.homeTeamId, home)} ${score(matchup.homeScore)} (${state}${projected})`,
       url: view.url,
     };
   }
@@ -151,8 +155,15 @@ export function describeCard(summaries: SummaryMap, spec: CardSpec): CardText | 
     const view = cupMatchView(summaries, spec);
     if (!view) return null;
     const { match } = view;
-    const a = match.a.participant?.manager ?? (match.a.label || 'TBD');
-    const b = match.b.participant?.manager ?? (match.b.label || 'TBD');
+    const named = (side: typeof match.a) => side.participant?.manager ?? (side.label || 'TBD');
+    const seeded = (side: typeof match.a) => {
+      const person = side.participant;
+      const name = named(side);
+      const seed = person ? (view.cup.id === 'jffl' ? person.jfflSeed : person.leagueSeed) : null;
+      return seed == null ? name : `seed ${seed} ${name}`;
+    };
+    const a = named(match.a);
+    const b = named(match.b);
     const weeks = match.weeks.length > 1 ? `weeks ${match.weeks[0]}-${match.weeks.at(-1)}` : `week ${match.weeks[0]}`;
     const state = match.status === 'bye' ? `${a} has a bye` : match.status === 'waiting' ? 'not started'
       : match.status === 'tied' ? 'tied, decided by an old fashioned duel' : match.status === 'unavailable' ? 'scores pending'
@@ -163,7 +174,7 @@ export function describeCard(summaries: SummaryMap, spec: CardSpec): CardText | 
     );
     return {
       title: `${a} vs ${b}, ${view.cup.name} ${view.roundName}`,
-      facts: `${view.cup.name} ${view.roundName} (${weeks}): ${a} ${score(match.a.total)}, ${b} ${score(match.b.total)} (${state}${projected})`,
+      facts: `${view.cup.name} ${view.roundName} (${weeks}): ${seeded(match.a)} ${score(match.a.total)}, ${seeded(match.b)} ${score(match.b.total)} (${state}${projected})`,
       url: view.url,
     };
   }
@@ -175,7 +186,7 @@ export function describeCard(summaries: SummaryMap, spec: CardSpec): CardText | 
     const manager = managerOf(spec.league, team.id, summary);
     return {
       title: `${manager} (${team.name})`,
-      facts: `${manager}, ${team.name}, ${leagueName(spec.league)}: ${recordOf(team)}, rank ${team.rank ?? 'unknown'}, ${score(team.pointsFor)} points for`,
+      facts: `${manager}, ${team.name}, ${leagueName(spec.league)}: ${recordOf(team)}, rank ${team.rank ?? 'unknown'}, JFFL Cup seed ${managerFor(spec.league, team.id)?.jfflSeed ?? 'unknown'}, league cup seed ${managerFor(spec.league, team.id)?.leagueSeed ?? 'unknown'}, ${score(team.pointsFor)} points for`,
       url: teamUrl(spec.league, team.id),
     };
   }

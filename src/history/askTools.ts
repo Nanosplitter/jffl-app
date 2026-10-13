@@ -90,10 +90,12 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     team: { type: 'string', about: 'Manager nickname' },
     league: { type: 'string', about: 'League that manager played in that year' },
     rankSeason: { type: 'number', about: 'Regular-season finish in the league, 1 is best. Null for 2026 until week 14 is final' },
-    standing: { type: 'number', about: 'Current league position. Equals rankSeason for finished seasons' },
+    standing: { type: 'number', about: 'Current league position, 1 is first. Equals rankSeason for finished seasons. This is the number to put in front of a name when the sentence is about the league table or a league matchup.' },
     rankFinal: { type: 'number', about: 'Superbowl finish, 1 is champion' },
     jfflRank: { type: 'number', about: 'JFFL Cup finish, 1 is champion (2013 onward)' },
     cupRank: { type: 'number', about: 'League cup finish, 1 is champion' },
+    jfflSeed: { type: 'number', about: '2026 JFFL Cup seed, 1 is the top seed. Seeds 1 and 2 have a first-round bye. Null in every season before 2026. Not the current league standing, and not a random draw.' },
+    leagueCupSeed: { type: 'number', about: '2026 seed in that manager\'s own league cup, 1 is the top seed. Seeds 1 through 6 have a first-round bye. Null before 2026. Not the JFFL Cup seed and not the current league standing.' },
     points: { type: 'number', about: 'Total regular-season points scored (2026: so far). This is the official total; do not rebuild it by summing games.' },
     pointsAgainst: { type: 'number', about: 'Points allowed in regular-season games. Null when the weekly log does not match the season record, including every 2002 season. Never treat that null as zero.' },
     pointsPerWeek: { type: 'number', about: 'Average points per week' },
@@ -132,6 +134,7 @@ export const DATA_NOTES = [
   'JFFL Cup games (league JFFL, 2013 onward) use two-week totals. Do not compare those scores with a single week. league on those games is always JFFL; teamLeague and opponentLeague say which league each manager played in, and crossLeague is 1 when those leagues differ.',
   'Ties are separate from wins and losses.',
   'Names are manager nicknames. "team" always means the manager.',
+  '2026 cups are seeded. jfflSeed is the JFFL Cup seed and leagueCupSeed is the seed in that manager\'s league cup. Both are null before 2026, so those seasons have no cup seeds. A seed is not the current standing.',
   'Wins, losses, ties, and points on a season row are the official regular-season totals. teamFinish is the final regular-season rank that year, not the rank at the time of a game, and it only compares with another finish inside the same league. pointsAgainst is null when the weekly log does not match the season record. winStreak and lossStreak count consecutive regular-season results inside one season; a tie resets both, and they do not cross seasons or include cup games.',
 ];
 
@@ -231,10 +234,11 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
     list.forEach((row, index) => Object.assign(row, streaks[index]));
   }
   const flag = (rank: number | null, test: (value: number) => boolean) => rank == null ? null : test(rank) ? 1 : 0;
-  const seasonRow = (row: HistorySeason & { standing?: number | null }, status: string): Row => ({
+  const seasonRow = (row: HistorySeason & { standing?: number | null; jfflSeed?: number | null; leagueCupSeed?: number | null }, status: string): Row => ({
     season: row.season, team: row.team, league: row.league,
     rankSeason: row.rankSeason, standing: row.standing === undefined ? row.rankSeason : row.standing,
     rankFinal: row.rankFinal, jfflRank: row.jfflRank, cupRank: row.cupRank,
+    jfflSeed: row.jfflSeed ?? null, leagueCupSeed: row.leagueCupSeed ?? null,
     points: row.points, pointsPerWeek: row.pointsPerWeek, pointsAgainst: pointsAllowed(scored.get(`${row.season}|${row.team}`), row), wins: row.wins, losses: row.losses, ties: row.ties,
     draft: row.draft, pointsRank: row.pointsRank,
     seasonChamp: flag(row.rankSeason, value => value === 1),
