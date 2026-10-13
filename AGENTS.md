@@ -47,8 +47,12 @@ and are static source data, not ESPN history.
   good data and must not block the other leagues.
 - Published documents are `publicLeagues/{slug}`, `publicRosters/{slug}`,
   and `publicHistory/{year}`. Internal lease/status data stays private.
-- Firestore allows public reads only for published documents. Do not add client
-  writes, collection listing, or public access to internal synchronization data.
+- Firestore allows public reads only for published documents, plus get (not list)
+  of a frozen Ask share at `shares/{id}` and its messages. A signed-in visitor
+  may read and write only `users/{their uid}` (profile, threads, and transcript).
+  Do not add other client writes, collection listing, or public access to
+  internal synchronization data. Google sign-in and these rules are not live
+  until an explicit auth and rules deploy.
 - Preserve missing values as `null`/absent; never turn an unknown score,
   projection, or stat into zero. Preserve D/ST identifiers as strings.
 - Strip account identifiers, owner IDs, email addresses, cookies, credentials,

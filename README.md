@@ -40,7 +40,7 @@ Commissioner's pages:
 - `/weekly` and `/weekly/:week`: scoring leaderboard, 100+ club, scoring extremes, margins, and starting-player performances for that week. `/weekly` opens the current week, then the address becomes `/weekly/4` for week 4, so a copied link stays on that week. Copy for email pastes that week into a mail client. Older `?week=` links redirect to the path.
 - `/history` and `/history/cup`: 13 current trophy races, the historical trophy table or the JFFL Cup table, and the league timeline. A league filter is `/history/premier` or `/history/cup/premier`.
 - `/archive`: league history from the commissioner workbook through 2025, plus finished games from the season in progress. Scoring, the record book (`/archive/records/weekly`, `jffl`, `league`, or `bowl`), titles, a head-to-head series (`/archive/rivals/SeanT/Wayne`), manager careers, draft slot, and a week in history (`/archive/weeks/:week`). A finished week joins those lists as soon as both scores are final, and that season stays after the year ends. Related routes sit under `/archive/`.
-- `/archive/ask` and `/archive/ask/share#...`: the AI "Ask the archive" assistant and shared answers (see below). Older `/history/archive` and `/history/ask` links redirect here.
+- `/archive/ask`, `/archive/ask/t/:threadId`, `/archive/ask/s/:shareId`, and `/archive/ask/share#...`: the AI "Ask the archive" assistant, a saved chat, a frozen share, and older fragment shares (see below). Older `/history/archive` and `/history/ask` links redirect here.
 
 The header's sun/moon button switches light and dark themes. The preference is
 saved locally; the initial default follows the visitor's system preference.
@@ -66,7 +66,11 @@ contact information, and mail metadata are not published.
 
 `/archive/ask` lets visitors ask questions about the 2002 to 2025 archive and the
 2026 season in progress in plain language, and get answers with interactive charts.
-`/archive/ask/share#...` opens a shared answer. Archive is a header section; Ask the
+Sign in with Google to save chats and reopen them at `/archive/ask/t/:threadId`.
+Sharing a saved answer or chat writes a frozen copy at `/archive/ask/s/:shareId`.
+Older `/archive/ask/share#...` links still open. Signing in can also follow one
+manager, highlighted across the site. That choice is a preference, not a check
+that the Google account belongs to them. Archive is a header section; Ask the
 archive is one of its pages.
 
 How it works:

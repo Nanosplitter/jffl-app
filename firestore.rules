@@ -1,9 +1,35 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
     function publishedLeague(slug) {
       return slug in ['premier', 'championship', 'league-one'];
     }
+    function followedKeyOk(key) {
+      return key is string && key.matches('^(premier|championship|league-one):[0-9]+$');
+    }
+    function shortText(value, max) {
+      return value is string && value.size() > 0 && value.size() <= max;
+    }
+    function shareMessageOk() {
+      return request.resource.data.keys().hasOnly(['role', 'text', 'charts', 'cards', 'order'])
+        && request.resource.data.role in ['user', 'assistant']
+        && request.resource.data.text is string
+        && request.resource.data.text.size() <= 400000
+        && request.resource.data.charts is list
+        && request.resource.data.charts.size() <= 8
+        && request.resource.data.order is int
+        && request.resource.data.order >= 0
+        && request.resource.data.order < 200
+        && (!('cards' in request.resource.data) || (request.resource.data.cards is list && request.resource.data.cards.size() <= 4))
+        && request.resource.size() < 900000;
+    }
+
     match /publicLeagues/{slug} {
       allow get: if publishedLeague(slug);
       allow list, write: if false;
@@ -16,6 +42,85 @@ service cloud.firestore {
       allow get: if season.matches('^20[2-9][0-9]$');
       allow list, write: if false;
     }
+
+    match /users/{uid} {
+      allow get: if isOwner(uid);
+      allow list: if false;
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['followedKey', 'followedName'])
+        && followedKeyOk(request.resource.data.followedKey)
+        && shortText(request.resource.data.followedName, 40);
+      allow delete: if isOwner(uid);
+
+      match /threads/{threadId} {
+        allow get, list: if isOwner(uid);
+        allow create, update: if isOwner(uid)
+          && request.resource.data.keys().hasOnly(['title', 'preview', 'updatedAt'])
+          && shortText(request.resource.data.title, 200)
+          && request.resource.data.preview is string
+          && request.resource.data.preview.size() <= 180
+          && shortText(request.resource.data.updatedAt, 40);
+        allow delete: if isOwner(uid);
+
+        match /messages/{messageId} {
+          allow get, list: if isOwner(uid);
+          allow create, update: if isOwner(uid)
+            && request.resource.data.keys().hasOnly(['role', 'text', 'charts', 'cards', 'followUps', 'error', 'order'])
+            && request.resource.data.role in ['user', 'assistant']
+            && request.resource.data.text is string
+            && request.resource.data.text.size() <= 400000
+            && request.resource.data.charts is list
+            && request.resource.data.charts.size() <= 8
+            && request.resource.data.followUps is list
+            && request.resource.data.followUps.size() <= 6
+            && request.resource.data.order is int
+            && request.resource.data.order >= 0
+            && request.resource.data.order < 500
+            && (!('cards' in request.resource.data) || (request.resource.data.cards is list && request.resource.data.cards.size() <= 4))
+            && (!('error' in request.resource.data) || (request.resource.data.error is string && request.resource.data.error.size() <= 500))
+            && request.resource.size() < 900000;
+          allow delete: if isOwner(uid);
+        }
+
+        match /state/{docId} {
+          allow get: if isOwner(uid) && docId == 'transcript';
+          allow list: if false;
+          allow create, update: if isOwner(uid)
+            && docId == 'transcript'
+            && request.resource.data.keys().hasOnly(['contents', 'sources'])
+            && request.resource.data.contents is list
+            && request.resource.data.sources is list
+            && request.resource.size() < 900000;
+          allow delete: if isOwner(uid) && docId == 'transcript';
+        }
+      }
+    }
+
+    match /shares/{shareId} {
+      allow get: if true;
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['owner', 'kind', 'title', 'createdAt', 'archive', 'liveAsOf'])
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.kind in ['thread', 'message']
+        && shortText(request.resource.data.title, 200)
+        && shortText(request.resource.data.createdAt, 40)
+        && shortText(request.resource.data.archive, 40)
+        && (!('liveAsOf' in request.resource.data) || shortText(request.resource.data.liveAsOf, 40));
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
+
+      match /messages/{messageId} {
+        allow get, list: if exists(/databases/$(database)/documents/shares/$(shareId));
+        allow create: if signedIn()
+          && get(/databases/$(database)/documents/shares/$(shareId)).data.owner == request.auth.uid
+          && shareMessageOk();
+        allow update: if false;
+        allow delete: if signedIn()
+          && get(/databases/$(database)/documents/shares/$(shareId)).data.owner == request.auth.uid;
+      }
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

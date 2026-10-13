@@ -83,6 +83,20 @@ svg { flex-shrink: 0; }
 .header-season span { font-size: .6rem; margin-left: 3px; }
 .theme-toggle { width: 36px; height: 36px; display: grid; place-items: center; background: transparent; color: var(--muted); border: 0; border-radius: 2px; }
 .theme-toggle:hover { color: var(--text); background: var(--surface-muted); }
+.header-tools { display: flex; align-items: center; gap: 8px; }
+.account-menu { position: relative; }
+.account-button { min-height: 36px; padding: 0 10px; background: transparent; color: var(--muted); border: 1px solid var(--line); border-radius: 2px; font-size: .75rem; font-weight: 650; }
+.account-button:hover { color: var(--text); background: var(--surface-muted); }
+.account-panel { position: absolute; top: calc(100% + 8px); right: 0; z-index: 8; width: 240px; padding: 14px; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 12px; }
+.account-panel label { display: grid; gap: 6px; font-size: .72rem; color: var(--muted); }
+.account-panel select, .follow-prompt select { width: 100%; min-height: 36px; background: var(--canvas); color: var(--text); border: 1px solid var(--line); }
+.account-panel a, .account-panel button { text-align: left; background: none; border: 0; padding: 0; color: var(--text); font-size: .82rem; }
+.account-error { color: var(--negative, #a03e36); font-size: .75rem; margin: 0; }
+.follow-prompt { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 24px; }
+.follow-prompt p { flex: 1 1 240px; margin: 0; }
+.follow-prompt label { display: grid; gap: 4px; font-size: .72rem; }
+.followed-name { box-shadow: inset 0 -2px 0 var(--accent); }
+tr.followed, li.followed, .matchup.followed, .week-face.followed { box-shadow: inset 3px 0 0 var(--accent); }
 .league-strip { border-bottom: 1px solid var(--line); }
 .league-strip > div { max-width: 1620px; margin: auto; padding: 0 40px; display: flex; gap: 28px; }
 .league-strip a { color: var(--muted); font-size: .72rem; padding: 15px 0 13px; border-bottom: 2px solid transparent; }
@@ -417,7 +431,9 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
   .player-page-name .player-headshot, .player-page-name .nfl-portrait { width: 48px; height: 48px; flex-basis: 48px; }
   .header-inner { flex-wrap: wrap; padding: 19px 18px 0; min-height: 0; gap: 16px; }
   .brand { font-size: 2.7rem; border-bottom-width: 4px; }
-  .theme-toggle { margin-left: auto; width: 44px; height: 44px; }
+  .header-tools { margin-left: auto; }
+  .theme-toggle { width: 44px; height: 44px; }
+  .account-button { min-height: 44px; }
   .header-inner nav { order: 3; flex-basis: 100%; margin: 0; justify-content: space-between; gap: 4px; }
   .header-inner nav a { font-size: .75rem; padding: 14px 8px 13px; }
   .league-strip > div { padding: 0 14px; justify-content: space-between; gap: 4px; }

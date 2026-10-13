@@ -169,3 +169,24 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 @media (max-width: 580px) {
   .ask-composer { padding-left: 18px; padding-right: 18px; }
 }
+
+.ask-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: start; }
+.ask-threads { border: 1px solid var(--line); background: var(--surface); }
+.ask-threads-head, .ask-thread-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ask-threads-head { padding: 12px; border-bottom: 1px solid var(--line); }
+.ask-threads h2 { margin: 0; font-size: .82rem; }
+.ask-threads-head button, .ask-thread-row button, .ask-keep button { background: none; border: 0; padding: 0; color: var(--muted); font-size: .72rem; text-decoration: underline; text-underline-offset: 3px; }
+.ask-threads ul { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; }
+.ask-thread-row { padding: 8px 12px; border-bottom: 1px solid var(--line); }
+.ask-thread-row a { color: var(--text); font-size: .78rem; text-decoration: none; }
+.ask-thread-row a[aria-current="page"] { color: var(--accent-ink); }
+.ask-threads-open { display: none; }
+.ask-actions { display: flex; gap: 16px; align-items: center; }
+.ask-keep { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.ask-keep p { margin: 0; }
+@media (max-width: 720px) {
+  .ask-shell { display: block; }
+  .ask-threads { display: none; }
+  .ask-threads.open { display: block; position: fixed; z-index: 7; inset: 0 18% 0 0; overflow: auto; }
+  .ask-threads-open { display: inline-flex; margin-bottom: 12px; }
+}

@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useAccount, useFollowed } from './account';
 import { Check, Copy, RotateCcw, Send, Square } from 'lucide-react';
 import { ArchiveNav } from './ArchiveNav';
 import { usePageLabel } from './BackLink';
@@ -13,12 +14,14 @@ import { describeCard, managerLinks, nameMatcher, splitNames, type CardItem } fr
 import type { LivePromptInfo } from './history/askDeclarations.ts';
 import { checkLimits, DAILY_KEY, friendlyError, MAX_INPUT_CHARS, readDaily } from './history/askGuards.ts';
 import { createSession, refreshSession, restoreSources, validationEnv, type Session } from './history/askRuntime.ts';
-import { deserialize, serialize, STORE_KEY, type ChartItem, type ChatMessage } from './history/askStore.ts';
+import { deserialize, serialize, STORE_KEY, type ChartItem, type ChatMessage, type Stored } from './history/askStore.ts';
 import type { Assistant } from './history/askModel.ts';
 import { DARK_THEME, LIGHT_THEME, createColorMap } from './history/chartKit.ts';
 import { validateSpec } from './history/chartSpec.ts';
 import { copyEmail, renderEmail, type EmailPiece } from './history/emailCopy.ts';
+import { freezeMessage, freezeMessages, type FrozenShare } from './history/frozenShare.ts';
 import { archiveStamp, buildShare, decodeShare, encodeShare, packChart, shareUrl, usesLiveData, type BuiltShare, type SharePayload } from './history/share.ts';
+import { continueShare, deleteShare, deleteThread, loadShare, loadThread, publishShare, saveThread, watchThreads, type ThreadSummary } from './history/threads.ts';
 import { asOfLabel, type Archive, type Controls } from './history/askTools.ts';
 import { useLiveArchive } from './useLiveArchive';
 
@@ -43,27 +46,31 @@ function useColorMap(dark: boolean) {
 }
 
 function Answer({ text, links }: { text: string; links?: Map<string, string> }) {
+  const followedName = useFollowed()?.name;
+  const blocks = useMemo(() => parseAnswer(text, followedName), [text, followedName]);
   const matcher = useMemo(() => (links ? nameMatcher(links.keys()) : null), [links]);
   const seen = new Set<string>();
   const inline = (parts: Inline[]) => parts.map((part, position) => {
     if (part.mark) return <sup key={position} className="rank-mark">{part.text}</sup>;
+    const className = [part.color ? `ink ink-${part.color}` : '', part.followed ? 'followed-name' : ''].filter(Boolean).join(' ');
     const pieces = splitNames(part.text, matcher, seen).map((piece, spot) => {
       const href = piece.name ? links?.get(piece.name) : undefined;
       const body = href ? <Link to={href}>{piece.text}</Link> : piece.text;
-      return part.color ? <span key={spot} className={`ink ink-${part.color}`}>{body}</span> : <Fragment key={spot}>{body}</Fragment>;
+      return className ? <span key={spot} className={className}>{body}</span> : <Fragment key={spot}>{body}</Fragment>;
     });
-    return part.bold ? <strong key={position}>{pieces}</strong> : <Fragment key={position}>{pieces}</Fragment>;
+    const note = part.followed ? <span className="sr-only">, followed manager</span> : null;
+    return part.bold ? <strong key={position}>{pieces}{note}</strong> : <Fragment key={position}>{pieces}{note}</Fragment>;
   });
-  return <div className="ask-answer">{parseAnswer(text).map((block, index) => block.type === 'p'
+  return <div className="ask-answer">{blocks.map((block, index) => block.type === 'p'
     ? <p key={index}>{inline(block.inline)}</p>
     : <ul key={index}>{block.items.map((item, position) => <li key={position}>{inline(item)}</li>)}</ul>)}</div>;
 }
 
-function ShareBox({ url, onCopy }: { url: string; onCopy: () => void }) {
+function ShareBox({ url, frozen, onCopy }: { url: string; frozen?: boolean; onCopy: () => void }) {
   return <div className="ask-sharebox">
     <label>Link to this answer<input readOnly value={url} onFocus={event => event.currentTarget.select()} /></label>
     <button type="button" onClick={onCopy}><Copy size={15} aria-hidden="true" />Copy</button>
-    <p>The link holds the chart recipe, not your chat. Anyone with it sees the same charts, rebuilt from the archive.</p>
+    <p>{frozen ? 'Anyone with this link sees this answer as it was when you shared it. Later replies stay in your chat.' : 'The link holds the chart recipe, not your chat. Anyone with it sees the same charts, rebuilt from the archive.'}</p>
   </div>;
 }
 
@@ -103,6 +110,8 @@ const promptKey = (info: LivePromptInfo | null) => info ? `${info.season}:${info
 
 export function AskPage() {
   usePageLabel('Ask the archive');
+  const { threadId } = useParams();
+  const account = useAccount();
   const dark = useDarkMode();
   const color = useColorMap(dark);
   const navigate = useNavigate();
@@ -122,8 +131,15 @@ export function AskPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [mock, setMock] = useState(false);
-  const [shareLink, setShareLink] = useState<{ id: string; url: string } | null>(null);
+  const [shareLink, setShareLink] = useState<{ id: string; url: string; frozen?: boolean } | null>(null);
+  const [importOffer, setImportOffer] = useState<'ask' | 'no' | null>(null);
+  const [threadsOpen, setThreadsOpen] = useState(false);
+  const [missingThread, setMissingThread] = useState(false);
+  const [loadKey, setLoadKey] = useState(0);
   const contents = useRef<ModelContent[]>([]);
+  const cloudId = useRef<string | null>(null);
+  const skipSave = useRef(false);
+  const routeThread = useRef<string | undefined | null>(null);
   const assistant = useRef<Assistant | null>(null);
   const assistantKey = useRef('');
   const busyRef = useRef(false);
@@ -166,25 +182,61 @@ export function AskPage() {
     };
   }, []);
 
-  // Restore this tab's chat once the live snapshots are in, so charts built on this season can be rebuilt.
+  // Opening a different saved chat replaces the one on screen. Navigating to a chat this page just created does not.
+  useEffect(() => {
+    if (!account.ready) return;
+    if (routeThread.current === null) { routeThread.current = threadId; return; }
+    if (routeThread.current === threadId || (cloudId.current && cloudId.current === threadId)) { routeThread.current = threadId; return; }
+    routeThread.current = threadId;
+    abort.current?.abort();
+    contents.current = [];
+    cloudId.current = null;
+    restored.current = false;
+    setMessages([]);
+    setMissingThread(false);
+    setImportOffer(null);
+    setShareLink(null);
+    setLoadKey(key => key + 1);
+  }, [threadId, account.ready]);
+
+  // Restore a saved chat, or this tab's chat, once the live snapshots are in.
   // Charts are validated again, so stored data can never bypass the checks.
   useEffect(() => {
-    if (restored.current || !ready) return;
-    const saved = deserialize(read(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY));
-    if (saved && !wantRosters && saved.sources.some(entry => entry.source.tool === 'query_players')) { setWantRosters(true); return; }
-    restored.current = true;
-    if (!saved) return;
-    const next = createSession(archiveRef.current);
-    restoreSources(next, saved.sources);
-    const env = validationEnv(next);
-    const cleaned = saved.messages.map(message => ({
-      ...message,
-      charts: message.charts.flatMap((chart): ChartItem[] => { const result = validateSpec(chart.spec, env); return result.ok ? [{ ...chart, spec: result.spec, warnings: result.warnings }] : []; }),
-    }));
-    contents.current = saved.contents;
-    setSession(next);
-    setMessages(cleaned);
-  }, [ready, wantRosters]);
+    if (!ready || !account.ready || restored.current) return undefined;
+    let cancel = false;
+    const apply = (saved: Stored) => {
+      if (!wantRosters && saved.sources.some(entry => entry.source.tool === 'query_players')) { setWantRosters(true); return; }
+      restored.current = true;
+      skipSave.current = true;
+      const next = createSession(archiveRef.current);
+      restoreSources(next, saved.sources);
+      const env = validationEnv(next);
+      const cleaned = saved.messages.map(message => ({
+        ...message,
+        charts: message.charts.flatMap((chart): ChartItem[] => { const result = validateSpec(chart.spec, env); return result.ok ? [{ ...chart, spec: result.spec, warnings: result.warnings }] : []; }),
+      }));
+      contents.current = saved.contents;
+      setSession(next);
+      setMessages(cleaned);
+      setMissingThread(false);
+    };
+    const run = async () => {
+      if (account.user && threadId) {
+        const loaded = await loadThread(account.user.uid, threadId);
+        if (cancel) return;
+        if (!loaded) { restored.current = true; setMissingThread(true); setMessages([]); return; }
+        apply({ v: 1, ...loaded });
+        return;
+      }
+      const saved = deserialize(read(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY));
+      if (cancel) return;
+      if (!saved) { restored.current = true; return; }
+      if (account.user) setImportOffer('ask');
+      apply(saved);
+    };
+    void run();
+    return () => { cancel = true; };
+  }, [ready, wantRosters, account.ready, account.user, threadId, loadKey]);
 
   // Newer snapshots replace the tables for new questions; charts already shown keep their rows.
   useEffect(() => {
@@ -200,10 +252,26 @@ export function AskPage() {
   }, []);
 
   useEffect(() => {
-    if (busy || !restored.current) return;
-    const text = serialize({ messages, contents: contents.current, sources: [...session.sources].map(([id, source]) => ({ id, source })) });
-    write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY, messages.length ? text : null);
-  }, [messages, busy, session]);
+    if (busy || !restored.current) return undefined;
+    if (skipSave.current) { skipSave.current = false; return undefined; }
+    const sources = [...session.sources].map(([id, source]) => ({ id, source }));
+    const text = serialize({ messages, contents: contents.current, sources });
+    const storage = typeof sessionStorage === 'undefined' ? undefined : sessionStorage;
+    if (!account.user || importOffer === 'ask') {
+      write(storage, STORE_KEY, messages.length ? text : null);
+      return undefined;
+    }
+    write(storage, STORE_KEY, null);
+    const id = threadId ?? cloudId.current;
+    if (!account.user || !messages.length || !id) return undefined;
+    const uid = account.user.uid;
+    const handle = window.setTimeout(() => {
+      void saveThread(uid, id, messages, contents.current, sources, session).then(() => {
+        if (!threadId) navigate(`/archive/ask/t/${id}`, { replace: true });
+      }).catch(() => setToast('Could not save this chat.'));
+    }, 400);
+    return () => clearTimeout(handle);
+  }, [messages, busy, session, account.user, threadId, importOffer, navigate]);
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -230,6 +298,10 @@ export function AskPage() {
     setNotice(null);
     setShareLink(null);
     restored.current = true;
+    if (account.user && !threadId && !cloudId.current) {
+      cloudId.current = uid();
+      setImportOffer(null);
+    }
     lastSent.current = now;
     busyRef.current = true;
     setBusy(true);
@@ -273,7 +345,7 @@ export function AskPage() {
       setBusy(false);
       setNote('');
     }
-  }, [session, patch, loadRosters]);
+  }, [session, patch, loadRosters, account.user, threadId]);
 
   // A chart in a shared link can hand a question over to this page.
   useEffect(() => {
@@ -287,16 +359,55 @@ export function AskPage() {
   const reset = () => {
     abort.current?.abort();
     contents.current = [];
+    cloudId.current = null;
     setSession(createSession(archiveRef.current));
     setMessages([]);
     setNotice(null);
     setShareLink(null);
+    setMissingThread(false);
+    setImportOffer('no');
+    restored.current = true;
     write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY, null);
+    if (threadId) navigate('/archive/ask');
     input.current?.focus();
+  };
+
+  const keepChat = async () => {
+    if (!account.user || !messages.length) return;
+    const id = uid();
+    cloudId.current = id;
+    setImportOffer(null);
+    try {
+      await saveThread(account.user.uid, id, messages, contents.current, [...session.sources].map(([sourceId, source]) => ({ id: sourceId, source })), session);
+      write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY, null);
+      navigate(`/archive/ask/t/${id}`, { replace: true });
+    } catch {
+      setToast('Could not save this chat.');
+    }
+  };
+
+  const discardChat = () => {
+    write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY, null);
+    contents.current = [];
+    setMessages([]);
+    setImportOffer('no');
+    setSession(createSession(archiveRef.current));
+  };
+
+  const copyLink = async (url: string) => {
+    try { await navigator.clipboard.writeText(url); setToast('Link copied'); } catch { setToast('Link ready. Copy it below.'); }
   };
 
   const shareMessage = useCallback(async (message: ChatMessage, question: string, chartId: string, controls: Controls) => {
     try {
+      if (account.user) {
+        const withControls = { ...message, charts: message.charts.map(chart => chart.id === chartId ? { ...chart, controls } : chart) };
+        const id = await publishShare(account.user.uid, freezeMessage(question, withControls, session));
+        const url = `${window.location.origin}/archive/ask/s/${id}`;
+        setShareLink({ id: message.id, url, frozen: true });
+        await copyLink(url);
+        return;
+      }
       const charts = message.charts.map(chart => packChart(session, chart.spec, chart.id === chartId ? controls : chart.controls));
       const asOf = session.ctx.archive.live?.asOf;
       const cards = (message.cards ?? []).map(card => card.spec);
@@ -304,11 +415,39 @@ export function AskPage() {
       const encoded = await encodeShare({ v: 1, a: archiveStamp(session.ctx.archive), ...live, q: question.slice(0, 300), t: message.text.slice(0, 1200), c: charts, ...(cards.length ? { k: cards } : {}) });
       const url = shareUrl(window.location.origin, encoded);
       setShareLink({ id: message.id, url });
-      try { await navigator.clipboard.writeText(url); setToast('Link copied'); } catch { setToast('Link ready. Copy it below.'); }
+      await copyLink(url);
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Could not make a link.');
     }
-  }, [session]);
+  }, [session, account.user]);
+
+  const shareTurn = async (message: ChatMessage, question: string) => {
+    if (!account.user) {
+      if (!message.charts.length) { setToast('Sign in to share an answer.'); return; }
+      await shareMessage(message, question, message.charts[0].id, message.charts[0].controls ?? {});
+      return;
+    }
+    try {
+      const id = await publishShare(account.user.uid, freezeMessage(question, message, session));
+      const url = `${window.location.origin}/archive/ask/s/${id}`;
+      setShareLink({ id: message.id, url, frozen: true });
+      await copyLink(url);
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Could not make a link.');
+    }
+  };
+
+  const shareThread = async () => {
+    if (!account.user || !messages.length) return;
+    try {
+      const id = await publishShare(account.user.uid, freezeMessages(messages, session, 'thread'));
+      const url = `${window.location.origin}/archive/ask/s/${id}`;
+      await copyLink(url);
+      setToast('Link copied');
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : 'Could not make a link.');
+    }
+  };
 
   const onKey = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) { event.preventDefault(); void send(draft); }
@@ -324,6 +463,13 @@ export function AskPage() {
 
     {unavailable && <p className="notice" role="status">The assistant is not switched on for this site yet. The archive pages and any shared links still work.</p>}
     {mock && <p className="notice" role="status">Local test assistant: canned wording, real archive numbers. It is only available in development.</p>}
+    {account.user && <button type="button" className="ask-threads-open" onClick={() => setThreadsOpen(true)}>Your chats</button>}
+
+    <div className={account.user ? 'ask-shell' : undefined}>
+    {account.user && <ThreadDrawer open={threadsOpen} onClose={() => setThreadsOpen(false)} onNew={reset} />}
+    <div className="ask-column">
+    {importOffer === 'ask' && <div className="notice ask-keep"><p>Save this chat to your account so you can come back to it?</p><button type="button" className="button" onClick={() => void keepChat()}>Save</button><button type="button" onClick={discardChat}>Not now</button></div>}
+    {missingThread && <p className="ask-error" role="alert">This chat isn&apos;t available.</p>}
 
     <div className="ask-thread">
       {messages.length === 0 && <div className="ask-empty-state">
@@ -351,14 +497,16 @@ export function AskPage() {
             key={chart.id} ref={handle => { if (handle) chartHandles.current.set(chart.id, handle); else chartHandles.current.delete(chart.id); }}
             spec={chart.spec} session={session} color={color} dark={dark} initialControls={chart.controls}
             onAsk={busy ? undefined : text => void send(text)} onShare={controls => void shareMessage(message, question, chart.id, controls)} />)}</div>}
-          {shareLink?.id === message.id && <ShareBox url={shareLink.url} onCopy={() => { void navigator.clipboard?.writeText(shareLink.url).then(() => setToast('Link copied'), () => setToast('Copy it from the box.')); }} />}
+          {shareLink?.id === message.id && <ShareBox url={shareLink.url} frozen={shareLink.frozen} onCopy={() => { void navigator.clipboard?.writeText(shareLink.url).then(() => setToast('Link copied'), () => setToast('Copy it from the box.')); }} />}
           {message.error && <p className="ask-error" role="alert">{message.error}</p>}
           {!streaming && message.id === lastAssistant?.id && message.followUps.length > 0 && <div className="ask-chips" aria-label="Suggested follow-up questions">
             {message.followUps.map(item => <button key={item} type="button" disabled={busy} onClick={() => void send(item)}>{item}</button>)}
           </div>}
-          {!streaming && (message.text || message.charts.length > 0) && <CopyForEmail question={question} text={message.text} chartIds={message.charts.map(chart => chart.id)} cards={message.cards ?? []} summaries={summaries} handles={chartHandles.current} onDone={setToast} />}
+          {!streaming && (message.text || message.charts.length > 0) && <div className="ask-actions"><button type="button" className="ask-email-copy" onClick={() => void shareTurn(message, question)}><Copy size={15} aria-hidden="true" />Share</button><CopyForEmail question={question} text={message.text} chartIds={message.charts.map(chart => chart.id)} cards={message.cards ?? []} summaries={summaries} handles={chartHandles.current} onDone={setToast} /></div>}
         </div>;
       })}
+    </div>
+    </div>
     </div>
 
     <p className="sr-only" role="status">{busy ? `${note || 'Working'}` : messages.length ? 'Answer ready' : ''}</p>
@@ -377,6 +525,7 @@ export function AskPage() {
       </form>
       <div className="ask-composer-meta">
         <span>Enter to send, Shift+Enter for a new line.</span>
+        {messages.length > 0 && account.user && <button type="button" onClick={() => void shareThread()}>Share chat</button>}
         {messages.length > 0 && <button type="button" onClick={reset}><RotateCcw size={12} aria-hidden="true" /> New chat</button>}
       </div>
     </div>
@@ -436,6 +585,108 @@ export function AskSharePage() {
       <div className="ask-charts">{built.charts.map(chart => <ChartView key={chart.id} spec={chart.spec} session={built.session} color={color} dark={dark} initialControls={chart.controls}
         onAsk={prompt => navigate('/archive/ask', { state: { prompt } })} />)}</div>
       <div className="ask-share-bar"><Link className="button" to="/archive/ask"><Check size={15} aria-hidden="true" />Ask your own question</Link></div>
+    </div>}
+  </div>;
+}
+
+function ThreadDrawer({ open, onClose, onNew }: { open: boolean; onClose: () => void; onNew: () => void }) {
+  const { user } = useAccount();
+  const { threadId } = useParams();
+  const navigate = useNavigate();
+  const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  useEffect(() => {
+    if (!user) return undefined;
+    return watchThreads(user.uid, setThreads);
+  }, [user]);
+  if (!user) return null;
+  return <aside className={`ask-threads ${open ? 'open' : ''}`} aria-label="Your chats">
+    <div className="ask-threads-head"><h2>Your chats</h2><button type="button" onClick={() => { onNew(); onClose(); }}>New chat</button></div>
+    {threads.length ? <ul>{threads.map(thread => <li key={thread.id} className="ask-thread-row">
+      <Link to={`/archive/ask/t/${thread.id}`} aria-current={thread.id === threadId ? 'page' : undefined} onClick={onClose}>{thread.title}</Link>
+      <button type="button" aria-label={`Delete ${thread.title}`} onClick={() => { void deleteThread(user.uid, thread.id).then(() => { if (thread.id === threadId) navigate('/archive/ask'); }); }}>Delete</button>
+    </li>)}</ul> : <p className="empty-inline">No saved chats yet.</p>}
+  </aside>;
+}
+
+export function AskSavedSharePage() {
+  usePageLabel('Shared chat');
+  const { shareId = '' } = useParams();
+  const account = useAccount();
+  const navigate = useNavigate();
+  const dark = useDarkMode();
+  const color = useColorMap(dark);
+  const [frozen, setFrozen] = useState<(FrozenShare & { owner: string }) | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const needsRosters = !!frozen?.messages.some(message => message.charts.some(chart => chart.sources.some(entry => entry.source.tool === 'query_players')));
+  const { archive, ready } = useLiveArchive(needsRosters);
+  useEffect(() => {
+    let cancel = false;
+    setLoading(true);
+    setError(null);
+    setFrozen(null);
+    void loadShare(shareId).then(result => {
+      if (cancel) return;
+      setLoading(false);
+      if (!result?.messages.length) setError('This link has no chat in it.');
+      else setFrozen(result);
+    }).catch(() => { if (!cancel) { setLoading(false); setError('This link could not be opened.'); } });
+    return () => { cancel = true; };
+  }, [shareId]);
+  const built = useMemo(() => {
+    if (!frozen || !ready) return [];
+    return frozen.messages.map(message => {
+      if (!message.charts.length) return { message, charts: [] as BuiltShare['charts'], session: null as Session | null, skipped: 0, stale: false, liveAsOf: undefined as string | undefined };
+      const result = buildShare(archive, {
+        v: 1, a: frozen.archive,
+        c: message.charts.map(chart => ({ spec: chart.spec, sources: chart.sources, ...(chart.controls ? { controls: chart.controls } : {}) })),
+        ...(frozen.liveAsOf ? { l: frozen.liveAsOf } : {}),
+      });
+      return { message, charts: result.charts, session: result.session, skipped: result.skipped, stale: result.stale, liveAsOf: result.liveAsOf };
+    });
+  }, [frozen, ready, archive]);
+  const links = useMemo(() => managerLinks(ready ? createSession(archive).managers : []), [ready, archive]);
+  const summaries = archive.live?.summaries ?? NO_SUMMARIES;
+  const currentAsOf = archive.live?.asOf;
+  const keep = async () => {
+    if (!account.user || !frozen) { navigate('/archive/ask'); return; }
+    try {
+      const id = await continueShare(account.user.uid, frozen);
+      navigate(`/archive/ask/t/${id}`);
+    } catch {
+      setError('Could not save this chat.');
+    }
+  };
+  const remove = async () => {
+    if (!account.user || !frozen) return;
+    await deleteShare(account.user.uid, shareId);
+    navigate('/archive/ask');
+  };
+  return <div className="ask-page">
+    <ArchiveNav />
+    <section className="page-intro"><div>
+      <p className="eyebrow">Shared from Ask the archive</p>
+      <h1>{frozen?.title || 'Shared chat'}</h1>
+      <p className="intro-copy">This is a copy from the moment it was shared. Nothing was sent to the assistant to show this page.</p>
+    </div></section>
+    {loading && <div className="waiting" role="status">Opening shared chat…</div>}
+    {error && <div className="ask-thread"><p className="ask-error" role="alert">{error}</p><div className="ask-share-bar"><Link className="button" to="/archive/ask">Ask your own question</Link></div></div>}
+    {frozen && ready && <div className="ask-thread">
+      {built.some(item => item.stale) && <p className="notice">This link was made from an earlier version of the archive, so numbers may differ slightly.</p>}
+      {frozen.liveAsOf && frozen.liveAsOf !== currentAsOf && <p className="notice">This link used this season’s numbers as of {asOfLabel(frozen.liveAsOf)}. Charts show {currentAsOf ? `the numbers as of ${asOfLabel(currentAsOf)}` : 'only what is available now'}.</p>}
+      {built.map(({ message, charts, session, skipped }) => <div key={message.id} className={`ask-msg ${message.role}`}>
+        {message.role === 'user' ? <div className="ask-bubble-user"><span className="sr-only">Asked: </span>{message.text}</div> : <>
+          {message.text && <Answer text={message.text} links={links} />}
+          {!!skipped && <p className="notice">{skipped} chart{skipped === 1 ? '' : 's'} could not be rebuilt.</p>}
+          {message.cards.length > 0 && <AskCardList cards={message.cards.map((spec, index) => ({ id: `${message.id}-card-${index}`, spec }))} summaries={summaries} />}
+          {session && charts.length > 0 && <div className="ask-charts">{charts.map(chart => <ChartView key={chart.id} spec={chart.spec} session={session} color={color} dark={dark} initialControls={chart.controls} onAsk={prompt => navigate('/archive/ask', { state: { prompt } })} />)}</div>}
+        </>}
+      </div>)}
+      <div className="ask-share-bar">
+        {account.user && <button type="button" className="button" onClick={() => void keep()}><Check size={15} aria-hidden="true" />Continue in my chats</button>}
+        {account.user?.uid === frozen.owner && <button type="button" onClick={() => void remove()}>Delete link</button>}
+        <Link className="button" to="/archive/ask">Ask your own question</Link>
+      </div>
     </div>}
   </div>;
 }

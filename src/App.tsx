@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search, Shield, Sun, Moon } from 'lucide-react';
+import { AccountButton, FollowedNote, FollowPrompt, useFollowed } from './account';
 import { localPreview, useRosters, useSummaries } from './data';
+import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, LeagueStandingsCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
@@ -13,6 +15,7 @@ const ManagersPage = lazy(() => import('./HistoryExplorer').then(module => ({ de
 const ManagerArchivePage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.ManagerArchivePage })));
 const AskPage = lazy(() => import('./AskHistory').then(module => ({ default: module.AskPage })));
 const AskSharePage = lazy(() => import('./AskHistory').then(module => ({ default: module.AskSharePage })));
+const AskSavedSharePage = lazy(() => import('./AskHistory').then(module => ({ default: module.AskSavedSharePage })));
 const DraftPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.DraftPage })));
 const WeekHistoryPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.WeekHistoryPage })));
 import { leagueInk, managerFor } from './reference';
@@ -41,7 +44,11 @@ function Waiting({ error = false }: { error?: boolean }) {
 }
 
 function Standings({ data, compact = false }: { data: LeagueSummary; compact?: boolean }) {
-  return <div className="table-scroll" tabIndex={0} role="region" aria-label={`${data.leagueName} standings`}><table className={`standings ${compact ? 'compact' : ''}`}><caption className="sr-only">{data.leagueName} standings</caption><thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col">W–L</th><th scope="col">Points</th>{!compact && <th scope="col">P. Against</th>}</tr></thead><tbody>{data.teams.map(team => <tr key={team.id}><td className={team.rank === 1 ? 'rank first' : 'rank'}>{team.rank ?? '—'}</td><td><Link to={teamLink(data.slug, team.id)}><TeamIdentity className={leagueInk(data.slug)} team={team} /></Link></td><td className="numeric">{record(team)}</td><td className="numeric">{points(team.pointsFor)}</td>{!compact && <td className="numeric muted">{points(team.pointsAgainst)}</td>}</tr>)}</tbody></table></div>;
+  const followed = useFollowed();
+  return <div className="table-scroll" tabIndex={0} role="region" aria-label={`${data.leagueName} standings`}><table className={`standings ${compact ? 'compact' : ''}`}><caption className="sr-only">{data.leagueName} standings</caption><thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col">W–L</th><th scope="col">Points</th>{!compact && <th scope="col">P. Against</th>}</tr></thead><tbody>{data.teams.map(team => {
+    const on = isFollowedTeam(followed, data.slug, team.id);
+    return <tr key={team.id} className={on ? 'followed' : undefined}><td className={team.rank === 1 ? 'rank first' : 'rank'}>{team.rank ?? '—'}</td><td><Link to={teamLink(data.slug, team.id)}><TeamIdentity className={leagueInk(data.slug)} team={team} /><FollowedNote on={on} /></Link></td><td className="numeric">{record(team)}</td><td className="numeric">{points(team.pointsFor)}</td>{!compact && <td className="numeric muted">{points(team.pointsAgainst)}</td>}</tr>;
+  })}</tbody></table></div>;
 }
 
 function starterList(players: RosteredPlayer[], teamId: string) {
@@ -49,9 +56,11 @@ function starterList(players: RosteredPlayer[], teamId: string) {
 }
 
 function Lineup({ slug, teamId, players }: { slug: string; teamId: string | null; players: RosteredPlayer[] }) {
+  const followed = useFollowed();
   if (!teamId) return null;
   const starters = starterList(players, teamId);
-  return <div><p className={`lineup-heading ${leagueInk(slug)}`}>{managerFor(slug, teamId)?.manager ?? 'Team'}</p>{starters.length ? <ul className="lineup">{starters.map(player => {
+  const on = isFollowedTeam(followed, slug, teamId);
+  return <div><p className={`lineup-heading ${leagueInk(slug)} ${on ? 'followed-name' : ''}`}>{managerFor(slug, teamId)?.manager ?? 'Team'}<FollowedNote on={on} /></p>{starters.length ? <ul className="lineup">{starters.map(player => {
     const yet = player.weekPoints == null && player.projectedPoints != null;
     return <li key={player.id} className={yet ? 'yet-to-play' : ''}><PlayerIdentity player={player} injury={player.injuryStatus} /><span className="lineup-points"><strong>{points(player.weekPoints)}</strong><small>{yet ? `Yet to play · proj ${points(player.projectedPoints)}` : player.projectedPoints != null ? `Proj ${points(player.projectedPoints)}` : ''}</small></span></li>;
   })}</ul> : <p className="empty-inline">No starters in this snapshot.</p>}</div>;
@@ -61,6 +70,7 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
   matchup: Matchup; data: LeagueSummary; compact?: boolean; board?: boolean; expanded?: boolean; onToggle?: () => void;
   lineup?: { players: RosteredPlayer[] | null; loading: boolean; error: boolean }; className?: string; to?: string;
 }) {
+  const followed = useFollowed();
   const home = data.teams.find(team => team.id === matchup.homeTeamId);
   const away = data.teams.find(team => team.id === matchup.awayTeamId);
   const status = data.weeklyMatchups?.find(item => item.week === data.week && item.homeTeamId === matchup.homeTeamId && item.awayTeamId === matchup.awayTeamId)?.status;
@@ -75,9 +85,10 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
   const sideRow = (team: Team | undefined, score: number | null, projected: number | null, opponent: number | null, pct: number | null, index: number) => {
     const result = decided && score != null && opponent != null ? score > opponent ? 'Won' : score < opponent ? 'Lost' : 'Tie' : null;
     const manager = team ? managerFor(data.slug, team.id)?.manager ?? team.name : 'Bye';
+    const on = team ? isFollowedTeam(followed, data.slug, team.id) : false;
     return <div className={`matchup-side ${index === 1 ? 'home' : 'away'}`} key={index}>
       {board && team?.logoUrl && <img className="matchup-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
-      <div className="matchup-team">{team ? (to ? <span className="matchup-name">{board ? <><span className={`board-manager ${leagueInk(data.slug)}`}><RankMark value={team.rank} />{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity className={leagueInk(data.slug)} team={team} mark={team.rank} />}</span> : <Link to={teamLink(data.slug, team.id)}>{board ? <><span className={`board-manager ${leagueInk(data.slug)}`}><RankMark value={team.rank} />{manager}</span><small className="matchup-club">{team.name}</small></> : <TeamIdentity className={leagueInk(data.slug)} team={team} mark={team.rank} />}</Link>) : <span>Bye</span>}<strong className="score">{team ? points(score) : '—'}</strong>{team && !board && <small>{record(team)}</small>}{team && !decided && projected != null && <small className="proj-line">{board ? 'Proj' : 'Projected'} {points(projected)}{pct != null ? ` · ${pct}%` : ''}</small>}{team && result && <small className="proj-line">{result}</small>}</div>
+      <div className="matchup-team">{team ? (to ? <span className="matchup-name">{board ? <><span className={`board-manager ${leagueInk(data.slug)} ${on ? 'followed-name' : ''}`}><RankMark value={team.rank} />{manager}<FollowedNote on={on} /></span><small className="matchup-club">{team.name}</small></> : <><TeamIdentity className={leagueInk(data.slug)} team={team} mark={team.rank} /><FollowedNote on={on} /></>}</span> : <Link to={teamLink(data.slug, team.id)}>{board ? <><span className={`board-manager ${leagueInk(data.slug)} ${on ? 'followed-name' : ''}`}><RankMark value={team.rank} />{manager}<FollowedNote on={on} /></span><small className="matchup-club">{team.name}</small></> : <><TeamIdentity className={leagueInk(data.slug)} team={team} mark={team.rank} /><FollowedNote on={on} /></>}</Link>) : <span>Bye</span>}<strong className="score">{team ? points(score) : '—'}</strong>{team && !board && <small>{record(team)}</small>}{team && !decided && projected != null && <small className="proj-line">{board ? 'Proj' : 'Projected'} {points(projected)}{pct != null ? ` · ${pct}%` : ''}</small>}{team && result && <small className="proj-line">{result}</small>}</div>
     </div>;
   };
   const face = <>
@@ -87,7 +98,8 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
     </div>
     {chance && <div className="win-bar" role="img" aria-label={`From ESPN projected totals. ${sideName(away, matchup.awayTeamId)} ${chance.away} percent. ${sideName(home, matchup.homeTeamId)} ${chance.home} percent.`}><span className={chance.away > chance.home ? 'favored' : ''} style={{ width: `${chance.away}%` }} /><span className={chance.home > chance.away ? 'favored' : ''} style={{ width: `${chance.home}%` }} /></div>}
   </>;
-  return <article className={`matchup ${compact ? 'compact' : ''} ${expanded ? 'open' : ''} ${className}`}>
+  const mine = isFollowedTeam(followed, data.slug, matchup.homeTeamId) || isFollowedTeam(followed, data.slug, matchup.awayTeamId);
+  return <article className={`matchup ${compact ? 'compact' : ''} ${expanded ? 'open' : ''} ${mine ? 'followed' : ''} ${className}`}>
     {to ? <Link className="matchup-link" to={to}>{face}</Link> : face}
     {onToggle && <button className="matchup-toggle" aria-expanded={expanded} aria-controls={panelId} onClick={onToggle}>{expanded ? 'Hide starters' : 'Show starters'}<span className="sr-only"> for {sideName(away, matchup.awayTeamId)} versus {sideName(home, matchup.homeTeamId)}</span></button>}
     {expanded && <div id={panelId} className="matchup-lineup">{!lineup || (lineup.loading && !lineup.players) ? <p className="empty-inline">Loading starters…</p> : lineup.error && !lineup.players ? <p className="empty-inline">Starters are temporarily unavailable.</p> : <div className="lineup-sides"><Lineup slug={data.slug} teamId={matchup.awayTeamId} players={lineup.players ?? []} /><Lineup slug={data.slug} teamId={matchup.homeTeamId} players={lineup.players ?? []} /></div>}</div>}
@@ -104,10 +116,14 @@ function standing(loaded: LeagueSummary[], slug: LeagueSlug, id: string | null) 
 }
 
 function PulseMatch({ to, slug, leftId, leftScore, leftRank, rightId, rightScore, rightRank, margin, emphasize }: { to: string; slug: LeagueSlug; leftId: string | null; leftScore: number | null; leftRank?: number | null; rightId: string | null; rightScore: number | null; rightRank?: number | null; margin?: number; emphasize?: 'left' | 'margin' }) {
-  return <li><Link className="pulse-match" to={to}><span className={`pulse-match-name ${leagueInk(slug)}`}><RankMark value={leftRank} />{managerName(slug, leftId)}</span><span className={`pulse-match-score${emphasize === 'left' ? ' pulse-key' : ''}`}>{points(leftScore)}</span><span className="pulse-match-dot" aria-hidden="true">·</span><span className={`pulse-match-name ${leagueInk(slug)}`}><RankMark value={rightRank} />{managerName(slug, rightId)}</span><span className="pulse-match-score">{points(rightScore)}</span>{margin != null && <span className="pulse-match-gap" aria-label={`margin ${points(margin)}`}><span className="pulse-plusminus" aria-hidden="true">±</span><span className={emphasize === 'margin' ? 'pulse-key' : ''}>{points(margin)}</span></span>}</Link></li>;
+  const followed = useFollowed();
+  const leftOn = isFollowedTeam(followed, slug, leftId);
+  const rightOn = isFollowedTeam(followed, slug, rightId);
+  return <li className={leftOn || rightOn ? 'followed' : undefined}><Link className="pulse-match" to={to}><span className={`pulse-match-name ${leagueInk(slug)} ${leftOn ? 'followed-name' : ''}`}><RankMark value={leftRank} />{managerName(slug, leftId)}<FollowedNote on={leftOn} /></span><span className={`pulse-match-score${emphasize === 'left' ? ' pulse-key' : ''}`}>{points(leftScore)}</span><span className="pulse-match-dot" aria-hidden="true">·</span><span className={`pulse-match-name ${leagueInk(slug)} ${rightOn ? 'followed-name' : ''}`}><RankMark value={rightRank} />{managerName(slug, rightId)}<FollowedNote on={rightOn} /></span><span className="pulse-match-score">{points(rightScore)}</span>{margin != null && <span className="pulse-match-gap" aria-label={`margin ${points(margin)}`}><span className="pulse-plusminus" aria-hidden="true">±</span><span className={emphasize === 'margin' ? 'pulse-key' : ''}>{points(margin)}</span></span>}</Link></li>;
 }
 
 function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
+  const followed = useFollowed();
   const week = Math.max(0, ...loaded.map(data => data.week));
   const matchups = loaded.flatMap(data => (data.weeklyMatchups ?? []).filter(item => item.week === week).map(item => ({ ...item, slug: data.slug })));
   const scores = matchups.flatMap(matchup => [
@@ -135,7 +151,7 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
   const highTo = top[0]?.to ?? '/weekly';
   return <nav className="week-pulse" aria-label="This week">
     <div className="pulse-cell">
-      <Link className="pulse-head" to={highTo}><p className="eyebrow">HIGH SCORER</p><strong className={leagueInk(high?.slug)}>{high ? managerName(high.slug, high.id) : '—'}</strong></Link>
+      <Link className="pulse-head" to={highTo}><p className="eyebrow">HIGH SCORER</p><strong className={`${leagueInk(high?.slug)} ${high && isFollowedTeam(followed, high.slug, high.id) ? 'followed-name' : ''}`}>{high ? managerName(high.slug, high.id) : '—'}<FollowedNote on={!!high && isFollowedTeam(followed, high.slug, high.id)} /></strong></Link>
       {top.length ? <ul className="pulse-rows">{top.map(({ row, to, opponentId, opponentScore }) => <PulseMatch key={`${row.slug}-${row.id}`} to={to} slug={row.slug} leftId={row.id} leftScore={row.score} leftRank={standing(loaded, row.slug, row.id)} rightId={opponentId} rightScore={opponentScore} rightRank={standing(loaded, row.slug, opponentId)} emphasize="left" />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">
@@ -143,12 +159,13 @@ function WeekPulse({ loaded, players }: { loaded: LeagueSummary[]; players: Part
       {closeRows.length ? <ul className="pulse-rows pulse-margins">{closeRows.map(matchup => <PulseMatch key={`${matchup.slug}-${matchup.id}`} to={`/league/${matchup.slug}/match/${matchup.id}`} slug={matchup.slug} leftId={matchup.homeTeamId} leftScore={matchup.homeScore} leftRank={standing(loaded, matchup.slug, matchup.homeTeamId)} rightId={matchup.awayTeamId} rightScore={matchup.awayScore} rightRank={standing(loaded, matchup.slug, matchup.awayTeamId)} margin={matchup.margin} emphasize="margin" />)}</ul> : <span>Awaiting scores</span>}
     </div>
     <div className="pulse-cell">
-      <Link className="pulse-head" to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <ul className="pulse-club">{club.map(row => <li key={`${row.slug}-${row.id}`}><span className={leagueInk(row.slug)}>{managerName(row.slug, row.id)}</span><span className="pulse-club-score pulse-key">{points(row.score)}</span></li>)}</ul> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link>
+      <Link className="pulse-head" to="/weekly"><p className="eyebrow">100+ CLUB</p><strong>{loaded.length ? club.length : '—'}</strong>{club.length ? <ul className="pulse-club">{club.map(row => { const on = isFollowedTeam(followed, row.slug, row.id); return <li key={`${row.slug}-${row.id}`} className={on ? 'followed' : undefined}><span className={`${leagueInk(row.slug)} ${on ? 'followed-name' : ''}`}>{managerName(row.slug, row.id)}<FollowedNote on={on} /></span><span className="pulse-club-score pulse-key">{points(row.score)}</span></li>; })}</ul> : <span>{scores.length ? 'None yet' : 'Awaiting scores'}</span>}</Link>
     </div>
   </nav>;
 }
 
 function CupStrip({ data, players }: { data: SummaryMap; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> }) {
+  const followed = useFollowed();
   const cups = (['jffl', 'premier', 'championship', 'league-one'] as CupId[]).map(id => {
     const cup = buildCup(id, data);
     const round = cup.rounds.find(item => item.matches.some(match => ['live', 'tied', 'unavailable'].includes(match.status))) ?? cup.rounds.find(item => item.matches.some(match => match.status === 'waiting')) ?? cup.rounds.at(-1)!;
@@ -159,10 +176,11 @@ function CupStrip({ data, players }: { data: SummaryMap; players: Partial<Record
       return { match, margin: Math.abs(match.a.total! - match.b.total!), open: canStillSwing(match.a.total!, match.b.total!, homeLeft, awayLeft) };
     });
     const focus = closestOpen(live)?.match;
-    const quiet = focus ? null : cup.champion ? <><span className={leagueInk(cup.champion.slug)}>{cup.champion.manager}</span> · Champion</> : 'Bracket';
+    const championOn = !!cup.champion && (isFollowedName(followed, cup.champion.manager) || isFollowedTeam(followed, cup.champion.slug, cup.champion.teamId));
+    const quiet = focus ? null : cup.champion ? <><span className={`${leagueInk(cup.champion.slug)} ${championOn ? 'followed-name' : ''}`}>{cup.champion.manager}<FollowedNote on={championOn} /></span> · Champion</> : 'Bracket';
     return { cup, round, focus, quiet };
   });
-  return <section className="home-cups"><div className="panel-section-title"><h3>Cups</h3><Link to="/cups">All brackets</Link></div><div className="home-cup-row">{cups.map(({ cup, round, focus, quiet }) => <div key={cup.id} className="home-cup"><Link className="home-cup-title" to={`/cups/${cup.id}`}><p className="eyebrow">{round.name} · {round.weeks.length > 1 ? `Weeks ${round.weeks.join('+')}` : `Week ${round.weeks[0]}`}</p><strong className={leagueInk(cup.id)}><span className="home-cup-name">{cup.name}</span><ArrowUpRight size={15} aria-hidden="true" /></strong></Link>{focus ? <Link className="home-cup-line" to={`/cups/${cup.id}/match/${focus.id}`}><span className="home-cup-kicker">Closest</span><span className={leagueInk(focus.a.participant?.slug)}><RankMark value={cupSeed(cup.id, focus.a.participant)} />{focus.a.participant?.manager ?? 'TBD'}</span> {points(focus.a.total)} · <span className={leagueInk(focus.b.participant?.slug)}><RankMark value={cupSeed(cup.id, focus.b.participant)} />{focus.b.participant?.manager ?? 'TBD'}</span> {points(focus.b.total)}</Link> : <span className="home-cup-line">{quiet}</span>}</div>)}</div></section>;
+  return <section className="home-cups"><div className="panel-section-title"><h3>Cups</h3><Link to="/cups">All brackets</Link></div><div className="home-cup-row">{cups.map(({ cup, round, focus, quiet }) => <div key={cup.id} className="home-cup"><Link className="home-cup-title" to={`/cups/${cup.id}`}><p className="eyebrow">{round.name} · {round.weeks.length > 1 ? `Weeks ${round.weeks.join('+')}` : `Week ${round.weeks[0]}`}</p><strong className={leagueInk(cup.id)}><span className="home-cup-name">{cup.name}</span><ArrowUpRight size={15} aria-hidden="true" /></strong></Link>{focus ? <Link className="home-cup-line" to={`/cups/${cup.id}/match/${focus.id}`}><span className="home-cup-kicker">Closest</span><span className={`${leagueInk(focus.a.participant?.slug)} ${focus.a.participant && isFollowedTeam(followed, focus.a.participant.slug, focus.a.participant.teamId) ? 'followed-name' : ''}`}><RankMark value={cupSeed(cup.id, focus.a.participant)} />{focus.a.participant?.manager ?? 'TBD'}<FollowedNote on={!!focus.a.participant && isFollowedTeam(followed, focus.a.participant.slug, focus.a.participant.teamId)} /></span> {points(focus.a.total)} · <span className={`${leagueInk(focus.b.participant?.slug)} ${focus.b.participant && isFollowedTeam(followed, focus.b.participant.slug, focus.b.participant.teamId) ? 'followed-name' : ''}`}><RankMark value={cupSeed(cup.id, focus.b.participant)} />{focus.b.participant?.manager ?? 'TBD'}<FollowedNote on={!!focus.b.participant && isFollowedTeam(followed, focus.b.participant.slug, focus.b.participant.teamId)} /></span> {points(focus.b.total)}</Link> : <span className="home-cup-line">{quiet}</span>}</div>)}</div></section>;
 }
 
 function Overview() {
@@ -215,6 +233,7 @@ function PlayerTable({ players, slug, teams, showSlot = true, week }: { players:
 }
 
 function TeamPage() {
+  const followed = useFollowed();
   const { slug = '', teamId = '' } = useParams();
   const meta = leagueMeta(slug);
   const summaries = useSummaries();
@@ -245,7 +264,7 @@ function TeamPage() {
     <div className="team-page">
       <p className="team-fresh"><Fresh data={data} error={summaryState.error || !!roster?.error || !!mismatched} /></p>
       {profile && <div className="manager-profile">
-        <strong>Manager: <span className={leagueInk(meta.slug)}>{profile.manager}</span></strong>
+        <strong>Manager: <span className={`${leagueInk(meta.slug)} ${isFollowedTeam(followed, meta.slug, teamId) ? 'followed-name' : ''}`}>{profile.manager}<FollowedNote on={isFollowedTeam(followed, meta.slug, teamId)} /></span></strong>
         <span>{profile.seasons} {profile.seasons === 1 ? 'season' : 'seasons'} · {profile.trophies} historical trophies</span>
         <Link to={`/cups/jffl/highlight/${encodeURIComponent(profile.manager)}`}>JFFL Cup · seed {profile.jfflSeed}<ArrowUpRight size={14}/></Link>
         <Link to={`/cups/${meta.slug}/highlight/${encodeURIComponent(profile.manager)}`}>League Cup · seed {profile.leagueSeed}<ArrowUpRight size={14}/></Link>
@@ -477,15 +496,19 @@ export default function App() {
     <header className="site-header"><div className="header-inner">
       <Link to="/" className="brand" aria-label="JFFL home">JFFL</Link>
       <nav aria-label="Main navigation"><NavLink to="/" end>Leagues</NavLink><NavLink to="/summary" className={location.pathname === '/weekly' || location.pathname.startsWith('/weekly/') || location.pathname === '/history' || location.pathname.startsWith('/history/cup') || /^\/history\/(premier|championship|league-one)(\/|$)/.test(location.pathname) ? 'active' : undefined}>Standings</NavLink><NavLink to="/cups">Cups</NavLink><NavLink to="/players">Players</NavLink><NavLink to="/archive">Archive</NavLink></nav>
-      <button className="theme-toggle" aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={dark} title={dark ? 'Light mode' : 'Dark mode'} onClick={() => setDark(value => !value)}>{dark ? <Sun size={19}/> : <Moon size={19}/>}</button>
-      <span className="header-season">2026 <span>SEASON</span></span>
+      <div className="header-tools">
+        <AccountButton />
+        <button className="theme-toggle" aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={dark} title={dark ? 'Light mode' : 'Dark mode'} onClick={() => setDark(value => !value)}>{dark ? <Sun size={19}/> : <Moon size={19}/>}</button>
+        <span className="header-season">2026 <span>SEASON</span></span>
+      </div>
     </div></header>
     <nav className="league-strip" aria-label="Leagues"><div>{LEAGUES.map(meta => <NavLink key={meta.slug} to={`/league/${meta.slug}`}>{meta.name}</NavLink>)}</div></nav>
     <BackTrail />
     <main id="main" tabIndex={-1}>
       {localPreview && <p className="notice preview-notice">Local preview · real ESPN snapshot.</p>}
       <SiteBack />
-      <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<RosterRoute/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary/:league" element={<SeasonPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly/:week" element={<WeeklyPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history/cup/:league" element={<HistoryPage/>}/><Route path="/history/cup" element={<HistoryPage/>}/><Route path="/history/:league" element={<HistoryPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records/:book" element={<RecordsPage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals/:left/:right" element={<RivalsPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks/:week" element={<WeekHistoryPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId/round/:round/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId/round/:round" element={<CupPage/>}/><Route path="/cups/:cupId/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
+      <FollowPrompt />
+      <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<RosterRoute/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary/:league" element={<SeasonPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly/:week" element={<WeeklyPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history/cup/:league" element={<HistoryPage/>}/><Route path="/history/cup" element={<HistoryPage/>}/><Route path="/history/:league" element={<HistoryPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/t/:threadId" element={<AskPage/>}/><Route path="/archive/ask/s/:shareId" element={<AskSavedSharePage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records/:book" element={<RecordsPage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals/:left/:right" element={<RivalsPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks/:week" element={<WeekHistoryPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId/round/:round/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId/round/:round" element={<CupPage/>}/><Route path="/cups/:cupId/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
     </main>
     <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores</span><span>Refreshes every 3 minutes · ESPN updates may be delayed</span></footer>
   </>;

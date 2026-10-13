@@ -12,6 +12,8 @@ import {
   type HistoryGame, type HistorySeason, type ScoreLine, type SeriesRow, type TitleLeague,
 } from './history/stats.ts';
 import { playedArchive } from './history/played.ts';
+import { useFollowed } from './account';
+import { isFollowedName } from './follow';
 import { leagueInk, leagueOfManager, leagueSlug } from './reference';
 import { points } from './ui';
 import { usePageLabel } from './BackLink';
@@ -45,7 +47,8 @@ function usePlayed() {
 }
 
 function InkName({ name }: { name: string }) {
-  return <span className={leagueInk(leagueOfManager(name))}>{name}</span>;
+  const on = isFollowedName(useFollowed(), name);
+  return <span className={`${leagueInk(leagueOfManager(name))} ${on ? 'followed-name' : ''}`.trim()}>{name}{on ? <span className="sr-only">, followed manager</span> : null}</span>;
 }
 
 function Shell({ eyebrow, title, copy, children }: { eyebrow: string; title: ReactNode; copy: string; children: ReactNode }) {

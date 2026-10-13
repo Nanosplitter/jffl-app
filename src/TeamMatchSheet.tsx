@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { FollowedNote, useFollowed } from './account';
+import { isFollowedName } from './follow';
 import { RankMark } from './RankMark';
 import { leagueInk } from './reference';
 
@@ -19,18 +21,22 @@ export function TeamMatchSheet({ label, status, to, sides, bar, note }: {
   bar: SheetBar | null;
   note?: string;
 }) {
+  const followed = useFollowed();
   const face = <>
     <header><span>{label}</span>{status ? <span>{status}</span> : null}</header>
     <div className="team-sheet-face">
-      {sides.map((side, index) => <div className={`team-sheet-side ${index === 1 ? 'home' : 'away'} ${side.winner ? 'winner' : ''}`} key={side.key}>
+      {sides.map((side, index) => {
+        const on = isFollowedName(followed, side.name);
+        return <div className={`team-sheet-side ${index === 1 ? 'home' : 'away'} ${side.winner ? 'winner' : ''}`} key={side.key}>
         {side.logoUrl ? <img className="team-sheet-logo" src={side.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="team-sheet-logo" aria-hidden="true" />}
         <div className="team-sheet-copy">
-          {side.teamHref ? <Link className={`team-sheet-name ${leagueInk(side.league)}`} to={side.teamHref} title={side.name}><RankMark value={side.mark} />{side.name}</Link> : <span className={`team-sheet-name ${leagueInk(side.league)}`} title={side.name}><RankMark value={side.mark} />{side.name}{side.winner && <span className="sr-only">, advances</span>}</span>}
+          {side.teamHref ? <Link className={`team-sheet-name ${leagueInk(side.league)} ${on ? 'followed-name' : ''}`} to={side.teamHref} title={side.name}><RankMark value={side.mark} />{side.name}<FollowedNote on={on} /></Link> : <span className={`team-sheet-name ${leagueInk(side.league)} ${on ? 'followed-name' : ''}`} title={side.name}><RankMark value={side.mark} />{side.name}{side.winner && <span className="sr-only">, advances</span>}<FollowedNote on={on} /></span>}
           <span className="team-sheet-detail" title={side.detail}>{side.detail}</span>
           <strong className="score">{side.score}</strong>
           <span className="team-sheet-note">{side.note}</span>
         </div>
-      </div>)}
+      </div>;
+      })}
     </div>
     <div className={`win-bar${bar ? '' : ' is-empty'}`} role={bar ? 'img' : undefined} aria-label={bar?.label} aria-hidden={bar ? undefined : true}>
       {bar && <><span className={bar.left > bar.right ? 'favored' : ''} style={{ width: `${bar.left}%` }} /><span className={bar.right > bar.left ? 'favored' : ''} style={{ width: `${bar.right}%` }} /></>}

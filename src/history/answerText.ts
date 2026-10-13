@@ -73,7 +73,14 @@ function paintWords(runs: Inline[], words: Array<[RegExp, Ink]>, replace = false
 const paintLeagues = (runs: Inline[]) => paintWords(runs, LEAGUE_WORDS);
 const paintManagers = (runs: Inline[]) => paintWords(runs, MANAGER_WORDS, true);
 
-export interface Inline { text: string; bold: boolean; color?: Ink; mark?: boolean }
+export interface Inline { text: string; bold: boolean; color?: Ink; mark?: boolean; followed?: boolean }
+
+/** Marks a run that is exactly the followed manager's nickname. */
+function markFollowed(runs: Inline[], name?: string | null): Inline[] {
+  const folded = name?.trim().toLowerCase();
+  if (!folded) return runs;
+  return runs.map(run => (run.text.trim().toLowerCase() === folded ? { ...run, followed: true } : run));
+}
 
 /** A raised place number, 1 through 40. Anything else stays ordinary text. */
 const MARK = /\{#(\d{1,2})\}/g;
@@ -151,7 +158,7 @@ function stripInks(text: string): { text: string; spans: Array<{ start: number; 
   return { text: out, spans };
 }
 
-export function inlineOf(text: string): Inline[] {
+export function inlineOf(text: string, followedName?: string | null): Inline[] {
   const painted = stripInks(text);
   const source = painted.text;
   const boldAt = new Array<boolean>(source.length).fill(false);
@@ -186,15 +193,15 @@ export function inlineOf(text: string): Inline[] {
     buf += source[index];
   }
   flush();
-  return splitMarks(paintManagers(paintLeagues(runs)));
+  return markFollowed(splitMarks(paintManagers(paintLeagues(runs))), followedName);
 }
 
-export function parseAnswer(text: string): Block[] {
+export function parseAnswer(text: string, followedName?: string | null): Block[] {
   const blocks: Block[] = [];
   let list: Inline[][] | null = null;
   let paragraph: string[] = [];
   const flushParagraph = () => {
-    if (paragraph.length) blocks.push({ type: 'p', inline: inlineOf(paragraph.join(' ')) });
+    if (paragraph.length) blocks.push({ type: 'p', inline: inlineOf(paragraph.join(' '), followedName) });
     paragraph = [];
   };
   const flushList = () => {
@@ -207,7 +214,7 @@ export function parseAnswer(text: string): Block[] {
     if (!line) { flushParagraph(); flushList(); continue; }
     if (bullet) {
       flushParagraph();
-      (list ??= []).push(inlineOf(bullet[1]));
+      (list ??= []).push(inlineOf(bullet[1], followedName));
     } else {
       flushList();
       paragraph.push(line);

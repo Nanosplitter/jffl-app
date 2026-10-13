@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
+import { FollowedNote, useFollowed } from './account';
 import { useRosters, useSummaries } from './data';
+import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
 import { MANAGERS, TIMELINE, leagueInk, leagueOfManager, managerFor, type ManagerReference } from './reference';
 import { RankMark, cupSeed } from './RankMark';
@@ -66,15 +68,19 @@ function feederLabel(label: string) {
 }
 
 export function MatchCard({ match, weeks, data, highlighted, index, layout = 'board', cupId, players = undefined }: { match: CupMatch; weeks: number[]; data: SummaryMap; highlighted: string; index: number; layout?: 'board' | 'slot'; cupId: string; players?: Partial<Record<LeagueSlug, RosteredPlayer[] | null>> | null }) {
+  const followed = useFollowed();
   const status = match.status === 'tied' ? 'Old fashioned duel' : match.status === 'live' && match.replay ? 'Replay week' : { bye:'Bye · advances', waiting:'', live:'', final:'Final', unavailable:'Waiting for score data' }[match.status];
   const selected = highlighted && [match.a.participant?.key, match.b.participant?.key].includes(highlighted);
+  const followedKey = followed?.key ?? '';
+  const marked = highlighted ? selected : !!followedKey && [match.a.participant?.key, match.b.participant?.key].includes(followedKey);
+  const nameOn = (key: string | undefined) => !!key && key === followedKey && (!highlighted || highlighted === followedKey);
   const share = match.status === 'bye' ? null : totalShare(match.a.total, match.b.total);
   const open = match.status === 'live' || match.status === 'waiting';
   const chance = open && players ? cupMatchChance(match, data, players) : null;
   const odds = chance && chance !== 'level' ? chance : null;
   const sideName = (side: CupMatch['a']) => side.participant?.manager ?? (side.label || 'TBD');
   const label = `Cup matchup ${index + 1}, ${weekPhrase(weeks)}. ${sideName(match.a)} ${match.status === 'bye' ? 'bye' : points(match.a.total)}. ${sideName(match.b)} ${match.status === 'bye' ? 'bye' : points(match.b.total)}.${odds ? ` ${sideName(match.a)} ${odds.left} percent chance to advance. ${sideName(match.b)} ${odds.right} percent.` : ''}`;
-  if (layout === 'slot') return <Link className={`bracket-node cup-${match.status} ${selected ? 'highlighted' : ''}`} to={matchUrl(cupId, match.id)} aria-label={label}>
+  if (layout === 'slot') return <Link className={`bracket-node cup-${match.status} ${marked ? 'highlighted' : ''}`} to={matchUrl(cupId, match.id)} aria-label={label}>
     {[match.a, match.b].map((side, sideIndex) => {
       const participant = side.participant;
       const team = participant ? data[participant.slug]?.teams.find(item => item.id === participant.teamId) : null;
@@ -86,12 +92,12 @@ export function MatchCard({ match, weeks, data, highlighted, index, layout = 'bo
       const detail = participant ? `${LEAGUES.find(item => item.slug === participant.slug)?.name ?? ''} · ${team?.name ?? 'Team data loading'}` : side.label;
       return <div className={`bracket-row ${winner ? 'winner' : ''} ${openSlot ? 'open-slot' : ''}`} key={sideIndex} title={detail || undefined}>
         {team?.logoUrl ? <img className="bracket-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="bracket-logo" aria-hidden="true" />}
-        <span className={`bracket-name ${participant ? leagueInk(participant.slug) : ''}`}><RankMark value={seed} />{name}{winner && <span className="sr-only"> · Advances</span>}</span>
+        <span className={`bracket-name ${participant ? leagueInk(participant.slug) : ''} ${nameOn(participant?.key) ? 'followed-name' : ''}`}><RankMark value={seed} />{name}{winner && <span className="sr-only"> · Advances</span>}<FollowedNote on={nameOn(participant?.key)} /></span>
         <span className="bracket-score">{showScore ? points(side.total) : ''}</span>
       </div>;
     })}
   </Link>;
-  return <Link className={`cup-match cup-${match.status} ${selected ? 'highlighted' : ''}`} to={matchUrl(cupId, match.id)} aria-label={label}>
+  return <Link className={`cup-match cup-${match.status} ${marked ? 'highlighted' : ''}`} to={matchUrl(cupId, match.id)} aria-label={label}>
     <header><span>Match {index + 1}</span>{status && <span className={`status-tag status-${match.status}`}>{status}</span>}</header>
     <div className="cup-body">
       <div className="cup-face">
@@ -102,7 +108,7 @@ export function MatchCard({ match, weeks, data, highlighted, index, layout = 'bo
           return <div className={`cup-side ${sideIndex === 1 ? 'home' : 'away'} ${winner ? 'cup-winner' : ''}`} key={sideIndex}>
             {team?.logoUrl && <img className="matchup-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
             <div className="cup-side-copy">
-              {participant ? <span className={`cup-manager ${leagueInk(participant.slug)}`}><span><RankMark value={cupSeed(match.id.startsWith('jffl-') ? 'jffl' : 'league', participant)} />{participant.manager}</span>{winner && <span className="sr-only"> · Advances</span>}</span> : <span className="muted cup-placeholder">{side.label || 'TBD'}</span>}
+              {participant ? <span className={`cup-manager ${leagueInk(participant.slug)} ${nameOn(participant.key) ? 'followed-name' : ''}`}><span><RankMark value={cupSeed(match.id.startsWith('jffl-') ? 'jffl' : 'league', participant)} />{participant.manager}</span>{winner && <span className="sr-only"> · Advances</span>}<FollowedNote on={nameOn(participant.key)} /></span> : <span className="muted cup-placeholder">{side.label || 'TBD'}</span>}
               {participant && <small className="cup-team"><span className="cup-league">{LEAGUES.find(item => item.slug === participant.slug)?.name}</span> · {team?.name ?? 'Team data loading'}</small>}
               <strong className="score">{match.status === 'bye' ? '—' : points(side.total)}</strong>
               {weeks.length > 1 && match.status !== 'bye' && <small className="proj-line">{weeks.map((week, legIndex) => `W${week} ${points(side.legs[legIndex])}`).join(' · ')}</small>}
@@ -172,6 +178,7 @@ function ManagerHighlight({ participants, highlighted, onChange }: { participant
 }
 
 export function CupPage() {
+  const followed = useFollowed();
   const { cupId = 'jffl', round: roundParam, manager: managerParam } = useParams();
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -197,7 +204,7 @@ export function CupPage() {
   const leagueCup = cupId !== 'jffl';
   const balanced = cup.rounds.every((round, index) => index === 0 || round.matches.length * 2 === cup.rounds[index - 1].matches.length);
   const tree = selectedRound === 'all' && (balanced || leagueCup);
-  return <><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. A tie plays a third week.' : 'One-week scores. A tie plays the next week. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className={`champion-pill ${leagueInk(cup.champion.slug)}`}><Trophy size={20} />{cup.champion.manager}</span>}</section><UpdateStrip data={data} />
+  return <><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> KNOCKOUT TOURNAMENT</p><h1>{cup.name}</h1><p className="intro-copy">{cupId === 'jffl' ? 'Two-week aggregate scores. A tie plays a third week.' : 'One-week scores. A tie plays the next week. The top six seeds receive first-round byes.'}</p></div>{cup.champion && <span className={`champion-pill ${leagueInk(cup.champion.slug)} ${isFollowedTeam(followed, cup.champion.slug, cup.champion.teamId) ? 'followed-name' : ''}`}><Trophy size={20} />{cup.champion.manager}<FollowedNote on={isFollowedTeam(followed, cup.champion.slug, cup.champion.teamId)} /></span>}</section><UpdateStrip data={data} />
     <div className="bracket-controls"><ManagerHighlight participants={participants} highlighted={highlighted} onChange={key => { const person = MANAGERS.find(item => item.key === key); const base = roundParam ? `/cups/${cupId}/round/${roundParam}` : `/cups/${cupId}`; navigate(person ? `${base}/highlight/${encodeURIComponent(person.manager)}` : base); }} />{selectedRound !== 'all' && <Link className="round-back" to={highlighted ? `/cups/${cupId}/highlight/${encodeURIComponent(managerName)}` : `/cups/${cupId}`}>Full bracket</Link>}</div>
     <div className={`bracket-scroll ${selectedRound !== 'all' ? 'single-round' : tree ? 'bracket-tree' : 'bracket-flow'}${leagueCup && tree ? ' league-bracket' : ''}`} tabIndex={0} role="region" aria-label={selectedRound === 'all' ? `${cup.name} full bracket. Scroll horizontally to see later rounds.` : `${cup.name} selected round`}><div className="bracket-columns">{cup.rounds.map((round, roundIndex) => {
       if (selectedRound !== 'all' && String(roundIndex) !== selectedRound) return null;
@@ -335,6 +342,7 @@ export function CupMatchPage() {
 }
 
 export function LeagueMatchPage() {
+  const followed = useFollowed();
   const { slug = '', matchId = '' } = useParams();
   const meta = LEAGUES.find(league => league.slug === slug);
   const summaries = useSummaries();
@@ -395,7 +403,7 @@ export function LeagueMatchPage() {
     </div>
   </div>;
   return <div className="match-sheet">
-    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1>{away.team ? <Link className={leagueInk(meta.slug)} to={teamUrl(meta.slug, away.team.id)}><RankMark value={away.team.rank} />{away.manager}</Link> : away.manager} vs {home.team ? <Link className={leagueInk(meta.slug)} to={teamUrl(meta.slug, home.team.id)}><RankMark value={home.team.rank} />{home.manager}</Link> : home.manager}</h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
+    <section className="page-intro"><div><p className="eyebrow">{meta.name.toUpperCase()} <span>/</span> WEEK {week}</p><h1>{away.team ? <Link className={`${leagueInk(meta.slug)} ${isFollowedTeam(followed, meta.slug, away.team.id) ? 'followed-name' : ''}`} to={teamUrl(meta.slug, away.team.id)}><RankMark value={away.team.rank} />{away.manager}<FollowedNote on={isFollowedTeam(followed, meta.slug, away.team.id)} /></Link> : away.manager} vs {home.team ? <Link className={`${leagueInk(meta.slug)} ${isFollowedTeam(followed, meta.slug, home.team.id) ? 'followed-name' : ''}`} to={teamUrl(meta.slug, home.team.id)}><RankMark value={home.team.rank} />{home.manager}<FollowedNote on={isFollowedTeam(followed, meta.slug, home.team.id)} /></Link> : home.manager}</h1><p className="intro-copy">{decided ? 'Final' : upcoming ? 'Upcoming' : 'Live'} league matchup</p></div></section>
     <p className="competition-updates">{summaryState ? <Fresh data={data} error={summaryState.error} /> : null}</p>
     <article className="match-board" aria-label={heading}>
       <div className="match-board-row">
@@ -430,15 +438,17 @@ function pointShare(left: number | null, right: number | null) {
 }
 
 export function LeagueStandingsCard({ meta, teams, updated, error = false }: { meta: (typeof LEAGUES)[number]; teams: Team[]; updated?: LeagueSummary; error?: boolean }) {
+  const followed = useFollowed();
   return <section className={`surface season-league ${meta.slug}`}><div className="surface-heading"><h2 className={`league-label ${meta.slug}`}><Link to={`/league/${meta.slug}`}>{meta.name}</Link></h2>{updated && <Fresh data={updated} error={error} />}</div><div className="table-scroll" tabIndex={0} role="region" aria-label={`${meta.name} detailed standings`}><table className="commissioner-table"><thead><tr><th>#</th><th>Manager / team</th><th>Record</th><th>Points</th><th>Per week</th><th>P. Against</th><th>Week Δ</th><th>Start Δ</th><th>Draft Δ</th></tr></thead><tbody>{teams.map(team=>{
     const profile=managerFor(meta.slug,team.id);
+    const on = isFollowedTeam(followed, meta.slug, team.id);
     const rank=team.rank;
     const weekChange=team.previousRank&&rank?team.previousRank-rank:null;
     const startChange=profile&&rank?profile.leagueSeed-rank:null;
     const draftChange=(team.draftRank??profile?.draftRank)&&rank?(team.draftRank??profile!.draftRank)-rank:null;
     const zone=provisionalZone(meta.slug,rank);
     const zoneClass=zone.includes('Relegation')?'danger':zone.includes('promotion')?'promotion':'';
-    return <tr key={team.id}><td className="rank"><span className="rank-with-zone"><span>{rank??'—'}</span><span className={`zone-dot ${zoneClass}`} title={zone} role="img" aria-label={zone} /></span></td><td><div className="manager-cell"><Link className={`manager-link ${leagueInk(meta.slug)}`} to={teamUrl(meta.slug,team.id)}>{profile?.manager??team.name}</Link><span className="muted team-subline"><TeamIdentity team={team}/></span></div></td><td className="numeric">{record(team)}</td><td className="numeric emphasis">{points(team.pointsFor)}</td><td className="numeric">{points(weeklyAverage(team))}</td><td className="numeric muted">{points(team.pointsAgainst)}</td>{[weekChange,startChange,draftChange].map((change,index)=><td key={index} className={`numeric rank-change ${change!==null&&change>0?'up':change!==null&&change<0?'down':''}`}>{delta(change)}</td>)}</tr>;
+    return <tr key={team.id} className={on ? 'followed' : undefined}><td className="rank"><span className="rank-with-zone"><span>{rank??'—'}</span><span className={`zone-dot ${zoneClass}`} title={zone} role="img" aria-label={zone} /></span></td><td><div className="manager-cell"><Link className={`manager-link ${leagueInk(meta.slug)} ${on ? 'followed-name' : ''}`} to={teamUrl(meta.slug,team.id)}>{profile?.manager??team.name}<FollowedNote on={on} /></Link><span className="muted team-subline"><TeamIdentity team={team}/></span></div></td><td className="numeric">{record(team)}</td><td className="numeric emphasis">{points(team.pointsFor)}</td><td className="numeric">{points(weeklyAverage(team))}</td><td className="numeric muted">{points(team.pointsAgainst)}</td>{[weekChange,startChange,draftChange].map((change,index)=><td key={index} className={`numeric rank-change ${change!==null&&change>0?'up':change!==null&&change<0?'down':''}`}>{delta(change)}</td>)}</tr>;
   })}</tbody></table></div>{!teams.length&&<p className="empty-inline">No teams match your search.</p>}</section>;
 }
 
@@ -545,11 +555,12 @@ function TeamMark({ logoUrl }: { logoUrl?: string | null }) {
 }
 
 function WeekFace({ data, slug, id, score }: { data: SummaryMap; slug: string; id: string; score: number }) {
+  const on = isFollowedTeam(useFollowed(), slug, id);
   const team = sideTeam(data, slug, id);
-  return <Link className="week-face" to={teamUrl(slug, id)}>
+  return <Link className={`week-face ${on ? 'followed' : ''}`} to={teamUrl(slug, id)}>
     <TeamMark logoUrl={team?.logoUrl} />
     <span className="week-who">
-      <span className={`week-name ${leagueInk(slug)}`}>{managerFor(slug, id)?.manager ?? 'Team'}</span>
+      <span className={`week-name ${leagueInk(slug)} ${on ? 'followed-name' : ''}`}>{managerFor(slug, id)?.manager ?? 'Team'}<FollowedNote on={on} /></span>
       {team?.name && <span className="week-team">{team.name}</span>}
     </span>
     <strong>{points(score)}</strong>
@@ -557,6 +568,7 @@ function WeekFace({ data, slug, id, score }: { data: SummaryMap; slug: string; i
 }
 
 function WeekPair({ data, slug, id, homeId, awayId, homeScore, awayScore }: { data: SummaryMap; slug: string; id: string; homeId: string | null; awayId: string | null; homeScore: number | null; awayScore: number | null }) {
+  const followed = useFollowed();
   const sides = [
     { id: homeId, score: homeScore },
     { id: awayId, score: awayScore },
@@ -565,10 +577,11 @@ function WeekPair({ data, slug, id, homeId, awayId, homeScore, awayScore }: { da
     {sides.map(side => {
       const team = sideTeam(data, slug, side.id);
       const leading = side.score != null && sides[0].score != null && side.score === sides[0].score && sides[0].score !== sides[1].score;
+      const on = isFollowedTeam(followed, slug, side.id);
       return <span key={side.id ?? 'bye'}>
         <TeamMark logoUrl={team?.logoUrl} />
         <span className="week-who">
-          <span className={`week-name ${side.id ? leagueInk(slug) : ''}`}><RankMark value={team?.rank} />{side.id ? managerFor(slug, side.id)?.manager ?? 'Team' : 'Bye'}</span>
+          <span className={`week-name ${side.id ? leagueInk(slug) : ''} ${on ? 'followed-name' : ''}`}><RankMark value={team?.rank} />{side.id ? managerFor(slug, side.id)?.manager ?? 'Team' : 'Bye'}<FollowedNote on={on} /></span>
           {team?.name && <span className="week-team">{team.name}</span>}
         </span>
         <b className={leading ? 'leading' : ''}>{points(side.score)}</b>
@@ -599,14 +612,15 @@ function StandoutBoard({ title, rows, ready, empty = 'No scores yet.' }: { title
   </section>;
 }
 
-function ResultSlate({ title, ink, games, empty }: { title: string; ink: string; empty: string; games: { key: string; href: string; upset: boolean; span: string | null; sides: { key: string; name: string; slug: string; mark: number | null; score: number | null; logoUrl: string | null; projected: number | null; miss: boolean; leading: boolean; trailing: boolean }[] }[] }) {
+function ResultSlate({ title, ink, games, empty }: { title: string; ink: string; empty: string; games: { key: string; href: string; upset: boolean; span: string | null; sides: { key: string; name: string; slug: string; id?: string | null; mark: number | null; score: number | null; logoUrl: string | null; projected: number | null; miss: boolean; leading: boolean; trailing: boolean }[] }[] }) {
+  const followed = useFollowed();
   const upsets = games.filter(game => game.upset).length;
   const spans = [...new Set(games.map(game => game.span).filter((span): span is string => !!span))];
   const split = games.length >= 8;
   return <section className="surface week-board result-slate">
     <div className="surface-heading"><h2 className={ink}>{title}</h2>{upsets > 0 && <span>{upsets === 1 ? '1 upset' : `${upsets} upsets`}</span>}</div>
     {spans.length === 1 && <p className="result-span">{spans[0]}</p>}
-    {games.length ? <ul className={split ? 'result-games split' : 'result-games'} style={split ? { '--rows': Math.ceil(games.length / 2) } as React.CSSProperties : undefined}>{games.map(game => <li key={game.key} className="result-game"><Link to={game.href}>{game.sides.map((side, index) => <span className="result-side" key={side.key}><span className="result-logo">{side.logoUrl && <TeamMark logoUrl={side.logoUrl} />}</span><span className={`result-name ${side.slug ? leagueInk(side.slug) : ''}`}><RankMark value={side.mark} />{side.name}</span><span className="result-meta">{game.upset && index === 0 && <span className="upset-tag">Upset</span>}{side.miss && side.projected != null && <span className="result-proj">proj {points(side.projected)}</span>}</span><b className={side.leading ? 'leading' : side.trailing ? 'trailing' : ''} aria-label={side.miss && side.projected != null ? `${points(side.score)}, projected ${points(side.projected)}` : undefined}>{points(side.score)}</b></span>)}</Link></li>)}</ul> : <p className="empty-inline">{empty}</p>}
+    {games.length ? <ul className={split ? 'result-games split' : 'result-games'} style={split ? { '--rows': Math.ceil(games.length / 2) } as React.CSSProperties : undefined}>{games.map(game => <li key={game.key} className="result-game"><Link to={game.href}>{game.sides.map((side, index) => { const on = isFollowedName(followed, side.name); return <span className="result-side" key={side.key}><span className="result-logo">{side.logoUrl && <TeamMark logoUrl={side.logoUrl} />}</span><span className={`result-name ${side.slug ? leagueInk(side.slug) : ''} ${on ? 'followed-name' : ''}`}><RankMark value={side.mark} />{side.name}<FollowedNote on={on} /></span><span className="result-meta">{game.upset && index === 0 && <span className="upset-tag">Upset</span>}{side.miss && side.projected != null && <span className="result-proj">proj {points(side.projected)}</span>}</span><b className={side.leading ? 'leading' : side.trailing ? 'trailing' : ''} aria-label={side.miss && side.projected != null ? `${points(side.score)}, projected ${points(side.projected)}` : undefined}>{points(side.score)}</b></span>; })}</Link></li>)}</ul> : <p className="empty-inline">{empty}</p>}
   </section>;
 }
 
@@ -702,6 +716,7 @@ function emailSection(section: { title: string; slug: string; games: { upset: bo
 }
 
 export function WeeklyPage() {
+  const followed = useFollowed();
   const { week: weekParam } = useParams();
   const [params] = useSearchParams();
   const { data } = useCompetitionData();
@@ -784,10 +799,11 @@ export function WeeklyPage() {
       <article><header className="week-card-head"><p className="eyebrow">{email.extremes[4].label}</p><strong>{margins.at(-1) ? `${points(margins.at(-1)!.margin)} pts` : '—'}</strong></header>{margins.at(-1) && <WeekPair data={data} slug={margins.at(-1)!.slug} id={margins.at(-1)!.id} homeId={margins.at(-1)!.homeTeamId} awayId={margins.at(-1)!.awayTeamId} homeScore={margins.at(-1)!.homeScore} awayScore={margins.at(-1)!.awayScore} />}</article>
       <article className="week-club-card"><header className="week-card-head"><p className="eyebrow">100+ club</p><span>{hundred.length} {hundred.length === 1 ? 'team' : 'teams'}</span></header><ul className="week-club">{hundred.map(row => {
         const team = sideTeam(data, row.slug, row.id);
-        return <li key={`${row.slug}-${row.id}`}><Link to={teamUrl(row.slug, row.id)}>
+        const on = isFollowedTeam(followed, row.slug, row.id);
+        return <li key={`${row.slug}-${row.id}`} className={on ? 'followed' : undefined}><Link to={teamUrl(row.slug, row.id)}>
           <TeamMark logoUrl={team?.logoUrl} />
           <span className="week-who">
-            <span className={`week-name ${leagueInk(row.slug)}`}>{managerFor(row.slug, row.id)?.manager ?? 'Team'}</span>
+            <span className={`week-name ${leagueInk(row.slug)} ${on ? 'followed-name' : ''}`}>{managerFor(row.slug, row.id)?.manager ?? 'Team'}<FollowedNote on={on} /></span>
             {team?.name && <span className="week-team">{team.name}</span>}
           </span>
           <b>{points(row.score)}</b>
@@ -816,7 +832,8 @@ export function WeeklyPage() {
       const ahead = row.opponent !== null && row.score > row.opponent;
       const behind = row.opponent !== null && row.score < row.opponent;
       const result = row.opponent === null ? '—' : !ahead && !behind ? row.final ? 'Tie' : 'Level' : ahead ? row.final ? 'Won' : 'Leading' : row.final ? 'Lost' : 'Trailing';
-      return <tr key={`${row.slug}-${row.id}`}><td className="rank">{index + 1}</td><td><Link className={`manager-link team-identity league-ink ${row.slug}`} to={teamUrl(row.slug, row.id)}><TeamMark logoUrl={sideTeam(data, row.slug, row.id)?.logoUrl} />{managerFor(row.slug, row.id)?.manager ?? 'Team'}<span className="sr-only">, {leagueName(row.slug)}</span></Link></td><td className="week-points"><span className="week-score"><span className="numeric emphasis">{points(row.score)}{row.score >= 100 && <span className="hundred-tag">100+</span>}</span><span className="week-bar" data-league={row.slug} aria-hidden="true"><span style={{ width: peak > 0 ? `${Math.round(row.score / peak * 100)}%` : '0%' }} /></span></span></td><td className={ahead ? 'week-result win' : behind ? 'week-result loss' : 'muted'}>{result}</td></tr>;
+      const on = isFollowedTeam(followed, row.slug, row.id);
+      return <tr key={`${row.slug}-${row.id}`} className={on ? 'followed' : undefined}><td className="rank">{index + 1}</td><td><Link className={`manager-link team-identity league-ink ${row.slug} ${on ? 'followed-name' : ''}`} to={teamUrl(row.slug, row.id)}><TeamMark logoUrl={sideTeam(data, row.slug, row.id)?.logoUrl} />{managerFor(row.slug, row.id)?.manager ?? 'Team'}<span className="sr-only">, {leagueName(row.slug)}</span><FollowedNote on={on} /></Link></td><td className="week-points"><span className="week-score"><span className="numeric emphasis">{points(row.score)}{row.score >= 100 && <span className="hundred-tag">100+</span>}</span><span className="week-bar" data-league={row.slug} aria-hidden="true"><span style={{ width: peak > 0 ? `${Math.round(row.score / peak * 100)}%` : '0%' }} /></span></span></td><td className={ahead ? 'week-result win' : behind ? 'week-result loss' : 'muted'}>{result}</td></tr>;
     })}</tbody></table></div></section>
     <StandoutBoard title="Top starting-player performances" rows={standouts} ready={rostersReady} empty={lineupsReady ? undefined : missingLineups} />
     <StandoutBoard title="Top bench performances" rows={bench} ready={rostersReady} empty={lineupsReady ? undefined : missingLineups} />

@@ -1,4 +1,6 @@
 import { Link } from 'react-router-dom';
+import { FollowedNote, useFollowed } from './account';
+import { isFollowedTeam } from './follow';
 import { LeagueStandingsCard } from './CompetitionPages';
 import type { SummaryMap } from './competitions';
 import { cupMatchView, matchupView, teamUrl, type CardItem, type CardSpec } from './history/askCards.ts';
@@ -59,14 +61,16 @@ function CupMatchCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind:
 }
 
 function TeamCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 'team' }>; summaries: SummaryMap }) {
+  const followed = useFollowed();
   const team = summaries[spec.league]?.teams.find(item => item.id === spec.teamId);
   if (!team) return <Gone />;
   const manager = managerFor(spec.league, team.id)?.manager ?? team.name;
+  const on = isFollowedTeam(followed, spec.league, team.id);
   return <Link className="team-sheet ask-team-card" to={teamUrl(spec.league, team.id)}>
     <header><span>{shortLeague(spec.league)} · Team</span><span>#{team.rank ?? '—'}</span></header>
     <div className="team-sheet-side">
       {team.logoUrl ? <img className="team-sheet-logo" src={team.logoUrl} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} /> : <span className="team-sheet-logo" aria-hidden="true" />}
-      <div className="team-sheet-copy"><span className={`team-sheet-name ${leagueInk(spec.league)}`}>{manager}</span><span className="team-sheet-detail">{team.name}</span></div>
+      <div className="team-sheet-copy"><span className={`team-sheet-name ${leagueInk(spec.league)} ${on ? 'followed-name' : ''}`}>{manager}<FollowedNote on={on} /></span><span className="team-sheet-detail">{team.name}</span></div>
     </div>
     <dl className="ask-team-stats">
       <div><dt>Record</dt><dd>{record(team)}</dd></div>

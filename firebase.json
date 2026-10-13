@@ -10,5 +10,13 @@
   },
   "functions": [{"source":"functions","codebase":"jffl","runtime":"python313","ignore":["venv",".venv","__pycache__","tests","local-data.json"]}],
   "firestore": {"rules":"firestore.rules","indexes":"firestore.indexes.json"},
+  "auth": {
+    "authorizedDomains": ["localhost", "jffl.org", "jffl-live-colin.firebaseapp.com", "jffl-live-colin.web.app"],
+    "providers": {
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "JFFL"
+      }
+    }
+  },
   "emulators": {"firestore":{"port":8080},"hosting":{"port":5000},"ui":{"enabled":false},"singleProjectMode":true}
 }
