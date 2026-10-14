@@ -177,9 +177,8 @@ test('every tool declaration is valid for Gemini and the prompt carries the sche
   assert.match(prompt, /Table team_games/);
   assert.match(prompt, /Follow-ups:/);
   assert.match(prompt, /Always write Superbowl and Superbowls/);
-  assert.match(prompt, /\{premier\}Premier\{\/premier\}/);
-  assert.match(prompt, /\{championship\}/);
-  assert.match(prompt, /\{league-one\}/);
+  assert.match(prompt, /Do not add color tags/);
+  assert.doesNotMatch(prompt, /\{premier\}/);
   assert.match(prompt, /Premier: Jason/);
   assert.match(prompt, /League One: RonniColin/);
   assert.match(prompt, /teamLeague/);

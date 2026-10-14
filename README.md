@@ -116,8 +116,9 @@ How it works:
   name, at most four per answer. The site checks the name against the snapshot and stores only a
   small recipe; the card itself (the same match sheet and standings table used elsewhere on the
   site) is drawn from the latest snapshot and links to the full page. The model never supplies
-  card markup or URLs. It may wrap a phrase in a fixed color tag such as `{premier}…{/premier}`;
-  any other markup stays plain text. Manager names in answers link to their 2026 team page, or
+  card markup or URLs. League names and current managers are colored by the site from the
+  words themselves. Older answers may still contain a color tag such as `{premier}…{/premier}`;
+  those tags are removed before the answer is shown, and any other markup stays plain text. Manager names in answers link to their 2026 team page, or
   to their archive profile for past managers (first mention only). Copy for email turns each
   card into a line of text with a link.
 - JFFL Cup scores are two-week totals; the tools flag mixing them with single weeks, and

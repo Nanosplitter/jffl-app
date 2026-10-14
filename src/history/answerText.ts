@@ -108,12 +108,13 @@ export type Block = { type: 'p'; inline: Inline[] } | { type: 'ul'; items: Inlin
 
 const isInk = (name: string): name is Ink => INK_SET.has(name);
 
-/** True when a closing tag of this name exists, counting nested copies. Tag case does not matter. */
-function hasClose(text: string, from: number, name: string) {
+/** True when some later color tag can close this one. The close name does not have to match. */
+function hasInkClose(text: string, from: number) {
   let depth = 1;
   for (let index = from; index < text.length;) {
     const tag = /^\{(\/?)([a-zA-Z][a-zA-Z-]*)\}/.exec(text.slice(index));
-    if (tag && tag[2].toLowerCase() === name) {
+    const name = tag?.[2].toLowerCase();
+    if (tag && name && isInk(name)) {
       if (tag[1]) {
         depth -= 1;
         if (depth === 0) return true;
@@ -126,7 +127,11 @@ function hasClose(text: string, from: number, name: string) {
   return false;
 }
 
-/** Drops closed color tags and records where each color applies. Unclosed or unknown tags stay as text. */
+/**
+ * Drops color tags and records where each color applies. A close tag ends the nearest open
+ * color, even when the model wrote a different name on the close. A stray close tag is removed.
+ * An unclosed tag, and any unknown tag, stays as text.
+ */
 function stripInks(text: string): { text: string; spans: Array<{ start: number; end: number; ink: Ink }> } {
   let out = '';
   const spans: Array<{ start: number; end: number; ink: Ink }> = [];
@@ -140,13 +145,11 @@ function stripInks(text: string): { text: string; spans: Array<{ start: number; 
     }
     if (tag && name && isInk(name)) {
       if (tag[1]) {
-        if (stack[stack.length - 1]?.ink === name) {
-          const open = stack.pop()!;
-          spans.push({ start: open.at, end: out.length, ink: name });
-          index += tag[0].length;
-          continue;
-        }
-      } else if (hasClose(text, index + tag[0].length, name)) {
+        const open = stack.pop();
+        if (open) spans.push({ start: open.at, end: out.length, ink: open.ink });
+        index += tag[0].length;
+        continue;
+      } else if (hasInkClose(text, index + tag[0].length)) {
         stack.push({ ink: name, at: out.length });
         index += tag[0].length;
         continue;

@@ -182,6 +182,35 @@ test('color tags become ink runs, and unknown or unclosed tags stay text', () =>
   assert.deepEqual(blocks[2], { type: 'p', inline: [{ text: '{green}nope{/green} {premier}open', bold: false }] });
 });
 
+test('a mismatched color close is removed and the opening color is kept', () => {
+  const blocks = parseAnswer('{championship}Championship League Cup{/premier} (Quarterfinals)\n\n- {#8}{championship}Jasmin{/premier} topped {#1}SeanT, 140–93\n\n{league-one}League One Cup{/premier}\n\n{/premier} {premier}open');
+  assert.equal(blocks[0].type, 'p');
+  if (blocks[0].type === 'p') {
+    assert.deepEqual(blocks[0].inline, [
+      { text: 'Championship League Cup', bold: false, color: 'championship' },
+      { text: ' (Quarterfinals)', bold: false },
+    ]);
+  }
+  assert.equal(blocks[1].type, 'ul');
+  if (blocks[1].type === 'ul') {
+    assert.deepEqual(blocks[1].items[0], [
+      { text: '8', bold: false, mark: true },
+      { text: 'Jasmin', bold: false, color: 'championship' },
+      { text: ' topped ', bold: false },
+      { text: '1', bold: false, mark: true },
+      { text: 'SeanT', bold: false, color: 'championship' },
+      { text: ', 140–93', bold: false },
+    ]);
+  }
+  assert.equal(blocks[2].type, 'p');
+  if (blocks[2].type === 'p') {
+    assert.deepEqual(blocks[2].inline, [
+      { text: 'League One Cup', bold: false, color: 'league-one' },
+    ]);
+  }
+  assert.deepEqual(blocks[3], { type: 'p', inline: [{ text: ' {premier}open', bold: false }] });
+});
+
 test('a current manager keeps their league color when another color was chosen', () => {
   const blocks = parseAnswer('Jason beat Al. {orange}SeanH{/orange} and {league-one}Michael{/league-one} stayed put.');
   assert.equal(blocks[0].type, 'p');
