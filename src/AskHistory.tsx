@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAccount, useFollowed } from './account';
-import { Check, Copy, RotateCcw, Send, Square, X } from 'lucide-react';
+import { Check, Copy, RotateCcw, Send, Share, Square, X } from 'lucide-react';
 import { ArchiveNav } from './ArchiveNav';
 import { usePageLabel } from './BackLink';
 import { AskCardList } from './AskCards';
@@ -500,7 +500,7 @@ export function AskPage() {
           {!streaming && message.id === lastAssistant?.id && message.followUps.length > 0 && <div className="ask-chips" aria-label="Suggested follow-up questions">
             {message.followUps.map(item => <button key={item} type="button" disabled={busy} onClick={() => void send(item)}>{item}</button>)}
           </div>}
-          {!streaming && (message.text || message.charts.length > 0) && <div className="ask-actions"><button type="button" className="ask-email-copy" onClick={() => void shareTurn(message, question)}><Copy size={15} aria-hidden="true" />Share</button><CopyForEmail question={question} text={message.text} chartIds={message.charts.map(chart => chart.id)} cards={message.cards ?? []} summaries={summaries} handles={chartHandles.current} onDone={setToast} /></div>}
+          {!streaming && (message.text || message.charts.length > 0) && <div className="ask-actions"><button type="button" className="ask-email-copy" onClick={() => void shareTurn(message, question)}><Share size={15} aria-hidden="true" />Share</button><CopyForEmail question={question} text={message.text} chartIds={message.charts.map(chart => chart.id)} cards={message.cards ?? []} summaries={summaries} handles={chartHandles.current} onDone={setToast} /></div>}
         </div>;
       })}
     </div>
