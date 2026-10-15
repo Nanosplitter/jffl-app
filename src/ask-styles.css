@@ -202,7 +202,7 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-confirm h2 { margin: 0; font-family: Inter, sans-serif; font-size: 1.05rem; font-weight: 650; letter-spacing: 0; text-transform: none; line-height: 1.3; }
 .ask-confirm p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.45; }
 .ask-confirm-actions { display: flex; justify-content: flex-end; gap: 10px; }
-.ask-confirm-actions .button { min-height: 40px; }
+.ask-confirm-actions .button, .ask-confirm-delete { min-height: 40px; border-radius: 8px; }
 .ask-confirm-delete { min-height: 40px; padding: 0 16px; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; font-size: .75rem; font-weight: 600; }
 .ask-confirm-delete:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); }
 .ask-composer-actions { display: contents; }
