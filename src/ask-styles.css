@@ -90,9 +90,13 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-composer textarea:focus-visible { outline: 2px solid var(--accent-ink); outline-offset: 2px; }
 .ask-composer .button { border: 0; min-width: 88px; height: 44px; align-self: flex-end; padding-top: 0; padding-bottom: 0; justify-content: center; border-radius: var(--ask-panel-radius); }
 .ask-composer .button:disabled { opacity: .45; cursor: default; }
-.ask-composer-meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; font-size: .68rem; color: var(--muted); flex-wrap: wrap; }
-.ask-composer-meta button { background: none; border: 0; padding: 0; color: var(--muted); font-size: .68rem; text-decoration: underline; text-underline-offset: 4px; }
-.ask-composer-meta button:hover { color: var(--accent-ink); }
+.ask-composer-meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; font-size: .68rem; color: var(--muted); flex-wrap: wrap; align-items: center; }
+.ask-composer-meta button {
+  display: inline-flex; align-items: center; gap: 6px; background: none; color: var(--text);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 32px;
+  font-size: .72rem; text-decoration: none;
+}
+.ask-composer-meta button:hover { border-color: var(--accent); color: var(--accent-ink); }
 
 /* Charts: a nested card inside the answer. */
 .ask-chart { margin: 0; background: var(--surface-muted); border-radius: var(--ask-inner-radius); padding: 16px 18px 10px; min-width: 0; }
@@ -210,12 +214,14 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
   }
   .ask-threads.open .ask-sheet-handle { display: block; width: 36px; height: 4px; margin: 4px auto 10px; border-radius: 999px; background: var(--line); }
   .ask-threads.open .ask-threads-head { padding: 0 10px 8px; }
-  .ask-threads.open .ask-threads-close { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border: 0; text-decoration: none; color: var(--text); }
-  .ask-composer-actions { display: flex; gap: 16px; margin-left: auto; align-items: center; }
+  .ask-threads.open .ask-threads-close { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; }
+  .ask-composer-meta button { min-height: 40px; padding: 6px 12px; font-size: .78rem; }
+  .ask-composer-actions { display: flex; gap: 8px; margin-left: auto; align-items: center; }
   .ask-threads.open ul { max-height: none; overflow: auto; }
-  .ask-threads.open .ask-thread-row { padding: 12px 10px; min-height: 48px; align-items: center; }
+  .ask-threads.open .ask-thread-row { padding: 8px 10px; min-height: 48px; align-items: center; }
   .ask-threads.open .ask-thread-row a { font-size: .92rem; }
-  .ask-threads.open .ask-thread-row button { min-height: 44px; padding: 0 8px; }
-  .ask-composer .ask-threads-open { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: none; text-decoration: none; font-size: .78rem; color: var(--text); }
+  .ask-threads.open .ask-thread-row button { border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 36px; color: var(--text); font-size: .72rem; }
+  .ask-threads.open .ask-thread-row button:hover { border-color: var(--accent); color: var(--accent-ink); }
+  .ask-composer .ask-threads-open { display: inline-flex; }
   body:has(.ask-threads.open) { overflow: hidden; }
 }
