@@ -109,16 +109,12 @@ svg { flex-shrink: 0; }
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--follow) 72%, var(--line));
 }
 .week-face.followed, .week-pair > span.followed, .week-club li.followed > a, .pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .result-side.followed, .team-sheet-side.followed { padding: 10px 14px; }
-table tr.followed > td {
-  border-bottom-color: transparent;
-  box-shadow: inset 0 1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line)), inset 0 -1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line));
+.table-scroll:has(tr.followed) { padding: 6px; }
+tr.followed {
+  outline: 1.5px solid color-mix(in srgb, var(--follow) 72%, var(--line));
+  outline-offset: 4px;
 }
-table tr.followed > td:first-child {
-  box-shadow: inset 1.5px 0 0 color-mix(in srgb, var(--follow) 72%, var(--line)), inset 0 1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line)), inset 0 -1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line));
-}
-table tr.followed > td:last-child {
-  box-shadow: inset -1.5px 0 0 color-mix(in srgb, var(--follow) 72%, var(--line)), inset 0 1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line)), inset 0 -1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line));
-}
+table tr.followed > td { border-bottom-color: transparent; }
 .league-strip { border-bottom: 1px solid var(--line); }
 .league-strip > div { max-width: 1620px; margin: auto; padding: 0 40px; display: flex; gap: 28px; }
 .league-strip a { color: var(--muted); font-size: .72rem; padding: 15px 0 13px; border-bottom: 2px solid transparent; }
@@ -665,12 +661,4 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
 :root[data-theme=dark] .commissioner-table td:first-child,
 :root[data-theme=dark] .commissioner-table th:nth-child(2),
 :root[data-theme=dark] .commissioner-table td:nth-child(2) { background: color-mix(in srgb, #2c2c2c 44%, var(--canvas)); box-shadow: none; }
-table.commissioner-table tr.followed > td:first-child,
-:root[data-theme=dark] table.commissioner-table tr.followed > td:first-child {
-  box-shadow: inset 1.5px 0 0 color-mix(in srgb, var(--follow) 72%, var(--line)), inset 0 1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line)), inset 0 -1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line));
-}
-table.commissioner-table tr.followed > td:nth-child(2),
-:root[data-theme=dark] table.commissioner-table tr.followed > td:nth-child(2) {
-  box-shadow: inset 0 1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line)), inset 0 -1.5px 0 color-mix(in srgb, var(--follow) 72%, var(--line));
-}
 @media(prefers-reduced-motion:reduce) { * { scroll-behavior: auto !important; } }
