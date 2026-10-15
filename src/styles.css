@@ -105,10 +105,25 @@ svg { flex-shrink: 0; }
 .followed-name { background: color-mix(in srgb, var(--follow) 28%, transparent); border-radius: 2px; box-decoration-break: clone; }
 .followed .followed-name, .followed.followed-name, .highlighted .followed-name, .highlighted.followed-name { background: transparent; }
 h1 .followed-name { background: linear-gradient(var(--follow), var(--follow)) left bottom / 100% 3px no-repeat; border-radius: 0; padding-bottom: 0.06em; }
-.week-name.followed-name, .week-name .followed-name, .result-name .followed-name {
-  background: linear-gradient(var(--follow), var(--follow)) left bottom / 100% 2px no-repeat;
-  border-radius: 0;
-  padding-bottom: 1px;
+.week-face.followed .week-who,
+.week-club li.followed .week-who,
+.week-pair > span.followed .week-who,
+.result-side.followed .result-name { position: relative; }
+.week-face.followed .week-who,
+.week-club li.followed .week-who,
+.week-pair > span.followed .week-who { overflow: visible; }
+.week-face.followed .week-who::before,
+.week-club li.followed .week-who::before,
+.week-pair > span.followed .week-who::before,
+.result-side.followed .result-name::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 1px;
+  bottom: 1px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--follow);
 }
 .pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .champion-pill.followed, .team-sheet-side.followed, .team-sheet.followed, .matchup.followed {
   border-radius: 8px;
