@@ -92,11 +92,11 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-composer .button:disabled { opacity: .45; cursor: default; }
 .ask-composer-meta { display: flex; justify-content: space-between; gap: 16px; margin-top: 8px; font-size: .68rem; color: var(--muted); flex-wrap: wrap; align-items: center; }
 .ask-composer-meta button {
-  display: inline-flex; align-items: center; gap: 6px; background: none; color: var(--text);
-  border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 32px;
-  font-size: .72rem; text-decoration: none;
+  display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 0;
+  color: var(--muted); font-size: .68rem; text-decoration: underline; text-underline-offset: 4px;
 }
-.ask-composer-meta button:hover { border-color: var(--accent); color: var(--accent-ink); }
+.ask-composer-meta button:hover { color: var(--accent-ink); }
+.ask-composer .ask-threads-open { display: none; }
 
 /* Charts: a nested card inside the answer. */
 .ask-chart { margin: 0; background: var(--surface-muted); border-radius: var(--ask-inner-radius); padding: 16px 18px 10px; min-width: 0; }
@@ -205,7 +205,7 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-confirm-actions .button, .ask-confirm-delete { min-height: 40px; border-radius: 8px; }
 .ask-confirm-delete { min-height: 40px; padding: 0 16px; background: transparent; color: var(--danger); border: 1px solid var(--danger); border-radius: 8px; font-size: .75rem; font-weight: 600; }
 .ask-confirm-delete:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); }
-.ask-composer-actions { display: contents; }
+.ask-composer-actions { display: flex; gap: 16px; align-items: center; margin-left: auto; }
 .ask-actions { display: flex; gap: 16px; align-items: center; }
 .ask-keep { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
 .ask-keep p { margin: 0; }
@@ -223,7 +223,8 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
   .ask-threads.open .ask-sheet-handle { display: block; width: 36px; height: 4px; margin: 4px auto 10px; border-radius: 999px; background: var(--line); }
   .ask-threads.open .ask-threads-head { padding: 0 10px 8px; }
   .ask-threads.open .ask-threads-close { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 6px 12px; }
-  .ask-composer-meta button { min-height: 40px; padding: 6px 12px; font-size: .78rem; }
+  .ask-composer-meta button { min-height: 40px; padding: 6px 12px; font-size: .78rem; color: var(--text); text-decoration: none; border: 1px solid var(--line); border-radius: 8px; }
+  .ask-composer-meta button:hover { border-color: var(--accent); color: var(--accent-ink); }
   .ask-composer-actions { display: flex; gap: 8px; margin-left: auto; align-items: center; }
   .ask-threads.open ul { max-height: none; overflow: auto; }
   .ask-threads.open .ask-thread-row { padding: 8px 10px; min-height: 48px; align-items: center; }
