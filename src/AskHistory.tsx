@@ -594,9 +594,13 @@ function ThreadDrawer({ open, onClose, onNew }: { open: boolean; onClose: () => 
   const { threadId } = useParams();
   const navigate = useNavigate();
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const [pending, setPending] = useState<ThreadSummary | null>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
+  const pendingRef = useRef<ThreadSummary | null>(null);
   const dismiss = useRef(onClose);
   dismiss.current = onClose;
+  pendingRef.current = pending;
   useEffect(() => {
     if (!user) return undefined;
     return watchThreads(user.uid, setThreads);
@@ -604,10 +608,21 @@ function ThreadDrawer({ open, onClose, onNew }: { open: boolean; onClose: () => 
   useEffect(() => {
     if (!open) return undefined;
     closeButton.current?.focus();
-    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') dismiss.current(); };
+    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape' && !pendingRef.current) dismiss.current(); };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
+  useEffect(() => {
+    if (!pending) return undefined;
+    cancelButton.current?.focus();
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      setPending(null);
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [pending]);
   if (!user) return null;
   return <>
     {open && <button type="button" className="ask-threads-backdrop" aria-label="Close your chats" onClick={onClose} />}
@@ -622,9 +637,23 @@ function ThreadDrawer({ open, onClose, onNew }: { open: boolean; onClose: () => 
       </div>
       {threads.length ? <ul>{threads.map(thread => <li key={thread.id} className="ask-thread-row">
         <Link to={`/archive/ask/t/${thread.id}`} aria-current={thread.id === threadId ? 'page' : undefined} onClick={onClose}>{thread.title}</Link>
-        <button type="button" aria-label={`Delete ${thread.title}`} onClick={() => { void deleteThread(user.uid, thread.id).then(() => { if (thread.id === threadId) navigate('/archive/ask'); }); }}>Delete</button>
+        <button type="button" aria-label={`Delete ${thread.title}`} onClick={() => setPending(thread)}>Delete</button>
       </li>)}</ul> : <p className="empty-inline">No saved chats yet.</p>}
     </aside>
+    {pending && <div className="ask-confirm-backdrop" onClick={() => setPending(null)}>
+      <div className="ask-confirm" role="alertdialog" aria-modal="true" aria-labelledby="ask-confirm-title" aria-describedby="ask-confirm-body" onClick={event => event.stopPropagation()}>
+        <h2 id="ask-confirm-title">Delete this chat?</h2>
+        <p id="ask-confirm-body">{pending.title}</p>
+        <div className="ask-confirm-actions">
+          <button type="button" className="button secondary" ref={cancelButton} onClick={() => setPending(null)}>Cancel</button>
+          <button type="button" className="ask-confirm-delete" onClick={() => {
+            const id = pending.id;
+            setPending(null);
+            void deleteThread(user.uid, id).then(() => { if (id === threadId) navigate('/archive/ask'); });
+          }}>Delete</button>
+        </div>
+      </div>
+    </div>}
   </>;
 }
 
