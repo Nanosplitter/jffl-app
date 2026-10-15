@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAccount, useFollowed } from './account';
-import { Check, Copy, RotateCcw, Send, Square } from 'lucide-react';
+import { Check, Copy, RotateCcw, Send, Square, X } from 'lucide-react';
 import { ArchiveNav } from './ArchiveNav';
 import { usePageLabel } from './BackLink';
 import { AskCardList } from './AskCards';
@@ -463,8 +463,6 @@ export function AskPage() {
 
     {unavailable && <p className="notice" role="status">The assistant is not switched on for this site yet. The archive pages and any shared links still work.</p>}
     {mock && <p className="notice" role="status">Local test assistant: canned wording, real archive numbers. It is only available in development.</p>}
-    {account.user && <button type="button" className="ask-threads-open" onClick={() => setThreadsOpen(true)}>Your chats</button>}
-
     <div className={account.user ? 'ask-shell' : undefined}>
     {account.user && <ThreadDrawer open={threadsOpen} onClose={() => setThreadsOpen(false)} onNew={reset} />}
     <div className="ask-column">
@@ -523,8 +521,11 @@ export function AskPage() {
       </form>
       <div className="ask-composer-meta">
         <span>Enter to send, Shift+Enter for a new line.</span>
-        {messages.length > 0 && account.user && <button type="button" onClick={() => void shareThread()}>Share chat</button>}
-        {messages.length > 0 && <button type="button" onClick={reset}><RotateCcw size={12} aria-hidden="true" /> New chat</button>}
+        {account.user && <button type="button" className="ask-threads-open" aria-expanded={threadsOpen} aria-controls="ask-threads" onClick={() => setThreadsOpen(true)}>Your chats</button>}
+        <span className="ask-composer-actions">
+          {messages.length > 0 && account.user && <button type="button" onClick={() => void shareThread()}>Share chat</button>}
+          {messages.length > 0 && <button type="button" onClick={reset}><RotateCcw size={12} aria-hidden="true" /> New chat</button>}
+        </span>
       </div>
     </div>
     </div>
@@ -594,18 +595,38 @@ function ThreadDrawer({ open, onClose, onNew }: { open: boolean; onClose: () => 
   const { threadId } = useParams();
   const navigate = useNavigate();
   const [threads, setThreads] = useState<ThreadSummary[]>([]);
+  const closeButton = useRef<HTMLButtonElement>(null);
+  const dismiss = useRef(onClose);
+  dismiss.current = onClose;
   useEffect(() => {
     if (!user) return undefined;
     return watchThreads(user.uid, setThreads);
   }, [user]);
+  useEffect(() => {
+    if (!open) return undefined;
+    closeButton.current?.focus();
+    const onKey = (event: globalThis.KeyboardEvent) => { if (event.key === 'Escape') dismiss.current(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
   if (!user) return null;
-  return <aside className={`ask-threads ${open ? 'open' : ''}`} aria-label="Your chats">
-    <div className="ask-threads-head"><h2>Your chats</h2><button type="button" onClick={() => { onNew(); onClose(); }}>New chat</button></div>
-    {threads.length ? <ul>{threads.map(thread => <li key={thread.id} className="ask-thread-row">
-      <Link to={`/archive/ask/t/${thread.id}`} aria-current={thread.id === threadId ? 'page' : undefined} onClick={onClose}>{thread.title}</Link>
-      <button type="button" aria-label={`Delete ${thread.title}`} onClick={() => { void deleteThread(user.uid, thread.id).then(() => { if (thread.id === threadId) navigate('/archive/ask'); }); }}>Delete</button>
-    </li>)}</ul> : <p className="empty-inline">No saved chats yet.</p>}
-  </aside>;
+  return <>
+    {open && <button type="button" className="ask-threads-backdrop" aria-label="Close your chats" onClick={onClose} />}
+    <aside id="ask-threads" className={`ask-threads ${open ? 'open' : ''}`} aria-label="Your chats">
+      <span className="ask-sheet-handle" aria-hidden="true" />
+      <div className="ask-threads-head">
+        <h2>Your chats</h2>
+        <div className="ask-threads-tools">
+          <button type="button" onClick={() => { onNew(); onClose(); }}>New chat</button>
+          <button type="button" className="ask-threads-close" ref={closeButton} onClick={onClose}><X size={18} aria-hidden="true" />Close</button>
+        </div>
+      </div>
+      {threads.length ? <ul>{threads.map(thread => <li key={thread.id} className="ask-thread-row">
+        <Link to={`/archive/ask/t/${thread.id}`} aria-current={thread.id === threadId ? 'page' : undefined} onClick={onClose}>{thread.title}</Link>
+        <button type="button" aria-label={`Delete ${thread.title}`} onClick={() => { void deleteThread(user.uid, thread.id).then(() => { if (thread.id === threadId) navigate('/archive/ask'); }); }}>Delete</button>
+      </li>)}</ul> : <p className="empty-inline">No saved chats yet.</p>}
+    </aside>
+  </>;
 }
 
 export function AskSavedSharePage() {

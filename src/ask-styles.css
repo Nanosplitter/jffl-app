@@ -162,8 +162,9 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
   .ask-composer textarea { min-height: 44px; padding: 10px 12px; font-size: 16px; }
   .ask-composer textarea:focus-visible { outline-offset: 0; }
   .ask-composer .button { flex: 0 0 auto; min-width: 0; height: 44px; padding: 0 14px; }
-  .ask-composer-meta span { display: none; }
-  .ask-composer-meta { margin-top: 4px; justify-content: flex-end; }
+  .ask-composer-meta > span:first-child { display: none; }
+  .ask-composer-meta { margin-top: 4px; justify-content: space-between; align-items: center; }
+  .ask-composer-actions { display: flex; gap: 16px; margin-left: auto; align-items: center; }
   .ask-starters button, .ask-chips button { width: 100%; }
   .ask-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .ask-canvas { min-height: 220px; }
@@ -178,6 +179,7 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-threads { position: sticky; top: 12px; border: 0; background: transparent; }
 .ask-threads-head, .ask-thread-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .ask-threads-head { padding: 0 0 14px; border-bottom: 0; }
+.ask-threads-tools { display: flex; align-items: center; gap: 8px; }
 .ask-threads h2 { margin: 0; font-family: Inter, sans-serif; font-size: .65rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .ask-threads-head button, .ask-thread-row button, .ask-keep button { background: none; border: 0; padding: 0; color: var(--muted); font-size: .72rem; text-decoration: underline; text-underline-offset: 3px; }
 .ask-threads-head button { text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 32px; color: var(--text); }
@@ -190,13 +192,30 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-thread-row button { text-decoration: none; font-size: .65rem; padding-top: 2px; }
 .ask-thread-row button:hover { color: var(--text); }
 .ask-threads .empty-inline { padding: 4px 0 8px; }
-.ask-threads-open { display: none; }
+.ask-threads-open, .ask-threads-close, .ask-sheet-handle, .ask-threads-backdrop { display: none; }
+.ask-composer-actions { display: contents; }
 .ask-actions { display: flex; gap: 16px; align-items: center; }
 .ask-keep { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
 .ask-keep p { margin: 0; }
 @media (max-width: 720px) {
   .ask-shell { display: block; }
   .ask-threads { display: none; }
-  .ask-threads.open { display: block; position: fixed; z-index: 7; inset: 0 18% 0 0; overflow: auto; background: var(--canvas); padding: 20px 18px; }
-  .ask-threads-open { display: inline-flex; margin-bottom: 12px; }
+  .ask-threads-backdrop { display: block; position: fixed; inset: 0; z-index: 7; border: 0; padding: 0; background: color-mix(in srgb, #000 55%, transparent); }
+  .ask-threads.open {
+    display: flex; flex-direction: column; position: fixed; z-index: 8; left: 0; right: 0; bottom: 0; top: auto;
+    max-height: min(70vh, 520px); overflow: hidden; background: var(--canvas);
+    border-radius: 16px 16px 0 0; border-top: 1px solid var(--line);
+    padding: 8px 8px calc(12px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -12px 40px color-mix(in srgb, #000 45%, transparent);
+  }
+  .ask-threads.open .ask-sheet-handle { display: block; width: 36px; height: 4px; margin: 4px auto 10px; border-radius: 999px; background: var(--line); }
+  .ask-threads.open .ask-threads-head { padding: 0 10px 8px; }
+  .ask-threads.open .ask-threads-close { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 8px; border: 0; text-decoration: none; color: var(--text); }
+  .ask-composer-actions { display: flex; gap: 16px; margin-left: auto; align-items: center; }
+  .ask-threads.open ul { max-height: none; overflow: auto; }
+  .ask-threads.open .ask-thread-row { padding: 12px 10px; min-height: 48px; align-items: center; }
+  .ask-threads.open .ask-thread-row a { font-size: .92rem; }
+  .ask-threads.open .ask-thread-row button { min-height: 44px; padding: 0 8px; }
+  .ask-composer .ask-threads-open { display: inline-flex; align-items: center; min-height: 44px; padding: 0; border: 0; background: none; text-decoration: none; font-size: .78rem; color: var(--text); }
+  body:has(.ask-threads.open) { overflow: hidden; }
 }
