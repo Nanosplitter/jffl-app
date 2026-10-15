@@ -113,13 +113,10 @@ h1 .followed-name { background: linear-gradient(var(--follow), var(--follow)) le
   border-radius: 8px;
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--follow) 72%, var(--line));
 }
-.week-pair > span.followed {
+.week-pair.followed,
+.result-game.followed > a {
   border-radius: 8px;
   box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--follow) 72%, var(--line));
-}
-.result-side.followed {
-  border-radius: 8px;
-  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--follow) 72%, var(--line));
 }
 .pulse-head.followed {
   border-radius: 8px;

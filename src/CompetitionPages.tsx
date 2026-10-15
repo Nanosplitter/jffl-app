@@ -573,12 +573,13 @@ function WeekPair({ data, slug, id, homeId, awayId, homeScore, awayScore }: { da
     { id: homeId, score: homeScore },
     { id: awayId, score: awayScore },
   ].sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
-  return <Link className="week-pair" to={`/league/${slug}/match/${id}`}>
+  const mine = sides.some(side => isFollowedTeam(followed, slug, side.id));
+  return <Link className={`week-pair${mine ? ' followed' : ''}`} to={`/league/${slug}/match/${id}`}>
     {sides.map(side => {
       const team = sideTeam(data, slug, side.id);
       const leading = side.score != null && sides[0].score != null && side.score === sides[0].score && sides[0].score !== sides[1].score;
       const on = isFollowedTeam(followed, slug, side.id);
-      return <span key={side.id ?? 'bye'} className={on ? 'followed' : undefined}>
+      return <span key={side.id ?? 'bye'}>
         <TeamMark logoUrl={team?.logoUrl} />
         <span className="week-who">
           <span className={`week-name ${side.id ? leagueInk(slug) : ''}`}><RankMark value={team?.rank} />{on ? <span className="followed-name">{side.id ? managerFor(slug, side.id)?.manager ?? 'Team' : 'Bye'}</span> : (side.id ? managerFor(slug, side.id)?.manager ?? 'Team' : 'Bye')}<FollowedNote on={on} /></span>
@@ -620,7 +621,7 @@ function ResultSlate({ title, ink, games, empty }: { title: string; ink: string;
   return <section className="surface week-board result-slate">
     <div className="surface-heading"><h2 className={ink}>{title}</h2>{upsets > 0 && <span>{upsets === 1 ? '1 upset' : `${upsets} upsets`}</span>}</div>
     {spans.length === 1 && <p className="result-span">{spans[0]}</p>}
-    {games.length ? <ul className={split ? 'result-games split' : 'result-games'} style={split ? { '--rows': Math.ceil(games.length / 2) } as React.CSSProperties : undefined}>{games.map(game => <li key={game.key} className="result-game"><Link to={game.href}>{game.sides.map((side, index) => { const on = isFollowedName(followed, side.name); return <span className={`result-side${on ? ' followed' : ''}`} key={side.key}><span className="result-logo">{side.logoUrl && <TeamMark logoUrl={side.logoUrl} />}</span><span className={`result-name ${side.slug ? leagueInk(side.slug) : ''}`}><RankMark value={side.mark} />{on ? <span className="followed-name">{side.name}</span> : side.name}<FollowedNote on={on} /></span><span className="result-meta">{game.upset && index === 0 && <span className="upset-tag">Upset</span>}{side.miss && side.projected != null && <span className="result-proj">proj {points(side.projected)}</span>}</span><b className={side.leading ? 'leading' : side.trailing ? 'trailing' : ''} aria-label={side.miss && side.projected != null ? `${points(side.score)}, projected ${points(side.projected)}` : undefined}>{points(side.score)}</b></span>; })}</Link></li>)}</ul> : <p className="empty-inline">{empty}</p>}
+    {games.length ? <ul className={split ? 'result-games split' : 'result-games'} style={split ? { '--rows': Math.ceil(games.length / 2) } as React.CSSProperties : undefined}>{games.map(game => { const mine = game.sides.some(side => isFollowedName(followed, side.name)); return <li key={game.key} className={`result-game${mine ? ' followed' : ''}`}><Link to={game.href}>{game.sides.map((side, index) => { const on = isFollowedName(followed, side.name); return <span className="result-side" key={side.key}><span className="result-logo">{side.logoUrl && <TeamMark logoUrl={side.logoUrl} />}</span><span className={`result-name ${side.slug ? leagueInk(side.slug) : ''}`}><RankMark value={side.mark} />{on ? <span className="followed-name">{side.name}</span> : side.name}<FollowedNote on={on} /></span><span className="result-meta">{game.upset && index === 0 && <span className="upset-tag">Upset</span>}{side.miss && side.projected != null && <span className="result-proj">proj {points(side.projected)}</span>}</span><b className={side.leading ? 'leading' : side.trailing ? 'trailing' : ''} aria-label={side.miss && side.projected != null ? `${points(side.score)}, projected ${points(side.projected)}` : undefined}>{points(side.score)}</b></span>; })}</Link></li>; })}</ul> : <p className="empty-inline">{empty}</p>}
   </section>;
 }
 
