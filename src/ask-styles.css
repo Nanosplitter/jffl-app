@@ -1,11 +1,14 @@
 /* Ask the archive: chat thread, composer, and interactive charts. Loaded only on /archive/ask. */
 .ask-page {
-  max-width: 1040px;
   /* Panels match the site cards (12px in dark mode); controls and chips are a step smaller. */
   --ask-panel-radius: var(--panel-radius, 12px);
   --ask-inner-radius: 10px;
   --ask-control-radius: 10px;
 }
+.ask-has-thread .page-intro { margin-bottom: 20px; }
+.ask-has-thread .page-intro h1 { font-size: 2.4rem; }
+.ask-has-thread .intro-copy,
+.ask-has-thread .source-note { display: none; }
 /* Keep focused controls clear of the sticky composer. */
 html:has(.ask-page) { scroll-padding-bottom: 200px; }
 .ask-page .notice { border: 1px solid var(--warning); border-radius: var(--ask-inner-radius); }
@@ -170,16 +173,23 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
   .ask-composer { padding-left: 18px; padding-right: 18px; }
 }
 
-.ask-shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 28px; align-items: start; }
-.ask-threads { border: 1px solid var(--line); background: var(--surface); }
+.ask-shell { display: grid; grid-template-columns: minmax(200px, 260px) minmax(0, 1fr); gap: 36px 48px; align-items: start; }
+.ask-column { min-width: 0; }
+.ask-threads { position: sticky; top: 12px; border: 0; background: transparent; }
 .ask-threads-head, .ask-thread-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.ask-threads-head { padding: 12px; border-bottom: 1px solid var(--line); }
-.ask-threads h2 { margin: 0; font-size: .82rem; }
+.ask-threads-head { padding: 0 0 14px; border-bottom: 0; }
+.ask-threads h2 { margin: 0; font-family: Inter, sans-serif; font-size: .65rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .ask-threads-head button, .ask-thread-row button, .ask-keep button { background: none; border: 0; padding: 0; color: var(--muted); font-size: .72rem; text-decoration: underline; text-underline-offset: 3px; }
-.ask-threads ul { list-style: none; margin: 0; padding: 0; max-height: 60vh; overflow: auto; }
-.ask-thread-row { padding: 8px 12px; border-bottom: 1px solid var(--line); }
-.ask-thread-row a { color: var(--text); font-size: .78rem; text-decoration: none; }
-.ask-thread-row a[aria-current="page"] { color: var(--accent-ink); }
+.ask-threads-head button { text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 32px; color: var(--text); }
+.ask-threads-head button:hover { border-color: var(--accent); color: var(--accent-ink); }
+.ask-threads ul { list-style: none; margin: 0; padding: 0; max-height: calc(100vh - 220px); overflow: auto; }
+.ask-thread-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; padding: 8px 4px 8px 12px; border-bottom: 0; border-left: 2px solid transparent; }
+.ask-thread-row a { color: var(--text); font-size: .8rem; line-height: 1.35; text-decoration: none; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+.ask-thread-row:has(a[aria-current="page"]) { border-left-color: var(--accent); }
+.ask-thread-row a[aria-current="page"] { color: var(--text); font-weight: 650; }
+.ask-thread-row button { text-decoration: none; font-size: .65rem; padding-top: 2px; }
+.ask-thread-row button:hover { color: var(--text); }
+.ask-threads .empty-inline { padding: 4px 0 8px; }
 .ask-threads-open { display: none; }
 .ask-actions { display: flex; gap: 16px; align-items: center; }
 .ask-keep { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
@@ -187,6 +197,6 @@ html:has(.ask-page) { scroll-padding-bottom: 200px; }
 @media (max-width: 720px) {
   .ask-shell { display: block; }
   .ask-threads { display: none; }
-  .ask-threads.open { display: block; position: fixed; z-index: 7; inset: 0 18% 0 0; overflow: auto; }
+  .ask-threads.open { display: block; position: fixed; z-index: 7; inset: 0 18% 0 0; overflow: auto; background: var(--canvas); padding: 20px 18px; }
   .ask-threads-open { display: inline-flex; margin-bottom: 12px; }
 }

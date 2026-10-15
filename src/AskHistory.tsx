@@ -457,7 +457,7 @@ export function AskPage() {
   const lastUserIndex = messages.map(message => message.role).lastIndexOf('user');
   const summaries = archive.live?.summaries ?? NO_SUMMARIES;
 
-  return <div className="ask-page">
+  return <div className={`ask-page${messages.length ? ' ask-has-thread' : ''}`}>
     <ArchiveNav />
     <section className="page-intro"><div><p className="eyebrow">League archive</p><h1>Ask the archive</h1><p className="intro-copy">Ask about 24 seasons of JFFL history{archive.live ? ' and the season in progress' : ''} in your own words. The assistant looks the answer up in the archive and can draw a chart you can adjust.</p><LiveNote archive={archive} /></div></section>
 
@@ -506,8 +506,6 @@ export function AskPage() {
         </div>;
       })}
     </div>
-    </div>
-    </div>
 
     <p className="sr-only" role="status">{busy ? `${note || 'Working'}` : messages.length ? 'Answer ready' : ''}</p>
     {toast && <div className="ask-toast" role="status">{toast}</div>}
@@ -528,6 +526,8 @@ export function AskPage() {
         {messages.length > 0 && account.user && <button type="button" onClick={() => void shareThread()}>Share chat</button>}
         {messages.length > 0 && <button type="button" onClick={reset}><RotateCcw size={12} aria-hidden="true" /> New chat</button>}
       </div>
+    </div>
+    </div>
     </div>
   </div>;
 }
