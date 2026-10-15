@@ -105,11 +105,16 @@ svg { flex-shrink: 0; }
 .followed-name { background: color-mix(in srgb, var(--follow) 28%, transparent); border-radius: 2px; box-decoration-break: clone; }
 .followed .followed-name, .followed.followed-name, .highlighted .followed-name, .highlighted.followed-name { background: transparent; }
 h1 .followed-name { background: linear-gradient(var(--follow), var(--follow)) left bottom / 100% 3px no-repeat; border-radius: 0; padding-bottom: 0.06em; }
-.week-face.followed, .week-pair > span.followed, .week-club li.followed > a, .pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .result-side.followed, .champion-pill.followed, .team-sheet-side.followed, .team-sheet.followed, .matchup.followed {
+.week-name.followed-name, .week-name .followed-name, .result-name .followed-name {
+  background: linear-gradient(var(--follow), var(--follow)) left bottom / 100% 2px no-repeat;
+  border-radius: 0;
+  padding-bottom: 1px;
+}
+.pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .champion-pill.followed, .team-sheet-side.followed, .team-sheet.followed, .matchup.followed {
   border-radius: 8px;
   box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--follow) 72%, var(--line));
 }
-.week-face.followed, .week-pair > span.followed, .week-club li.followed > a, .pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .result-side.followed, .team-sheet-side.followed { padding: 10px 14px; }
+.pulse-club li.followed, .pulse-rows li.followed, .pulse-head.followed, .team-sheet-side.followed { padding: 10px 14px; }
 tr:has(+ tr.followed) > td,
 thead:has(+ tbody > tr:first-child.followed) th,
 tbody tr.followed > td { border-bottom-color: color-mix(in srgb, var(--follow) 72%, var(--line)); }
