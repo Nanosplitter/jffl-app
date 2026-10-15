@@ -573,7 +573,6 @@ export function AskSharePage() {
     <section className="page-intro"><div>
       <p className="eyebrow">Shared from Ask the archive</p>
       <h1>{built?.question || 'Shared chart'}</h1>
-      <p className="intro-copy">These charts were rebuilt from the league archive on your device. Nothing was sent to the assistant to show this page.</p>
     </div></section>
     {state.status === 'loading' && <div className="waiting" role="status">Opening shared chart…</div>}
     {state.status === 'error' && <div className="ask-thread"><p className="ask-error" role="alert">{state.message}</p><div className="ask-share-bar"><Link className="button" to="/archive/ask">Ask your own question</Link></div></div>}
@@ -688,7 +687,6 @@ export function AskSavedSharePage() {
     <section className="page-intro"><div>
       <p className="eyebrow">Shared from Ask the archive</p>
       <h1>{frozen?.title || 'Shared chat'}</h1>
-      <p className="intro-copy">This is a copy from the moment it was shared. Nothing was sent to the assistant to show this page.</p>
     </div></section>
     {loading && <div className="waiting" role="status">Opening shared chat…</div>}
     {error && <div className="ask-thread"><p className="ask-error" role="alert">{error}</p><div className="ask-share-bar"><Link className="button" to="/archive/ask">Ask your own question</Link></div></div>}
