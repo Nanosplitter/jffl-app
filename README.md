@@ -72,6 +72,9 @@ Older `/archive/ask/share#...` links still open. Signing in can also follow one
 manager, highlighted across the site. That choice is a preference, not a check
 that the Google account belongs to them. Archive is a header section; Ask the
 archive is one of its pages.
+On `jffl.org`, Firebase Auth uses `jffl.org` as its auth domain so Safari keeps
+the redirect state first-party. Keep `https://jffl.org/__/auth/handler` registered
+as an authorized Google redirect URI when changing the Auth configuration.
 
 How it works:
 

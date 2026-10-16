@@ -1,4 +1,5 @@
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app';
+import { authDomainForHost } from './authDomain';
 
 /** Whether the public Firebase web configuration is present. These values are public client config, not secrets. */
 export const firebaseConfigured = !!import.meta.env.VITE_FIREBASE_PROJECT_ID;
@@ -10,7 +11,7 @@ export function getFirebaseApp(): FirebaseApp | null {
   if (!firebaseConfigured) return null;
   app ??= getApps()[0] ?? initializeApp({
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    authDomain: authDomainForHost(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, typeof window === 'undefined' ? undefined : window.location.hostname),
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
   });

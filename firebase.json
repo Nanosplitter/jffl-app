@@ -15,7 +15,12 @@
     "providers": {
       "googleSignIn": {
         "oAuthBrandDisplayName": "JFFL",
-        "supportEmail": "nanosplitter21@gmail.com"
+        "supportEmail": "nanosplitter21@gmail.com",
+        "authorizedRedirectUris": [
+          "https://jffl.org/__/auth/handler",
+          "https://jffl-live-colin.firebaseapp.com/__/auth/handler",
+          "https://jffl-live-colin.web.app/__/auth/handler"
+        ]
       }
     }
   },
