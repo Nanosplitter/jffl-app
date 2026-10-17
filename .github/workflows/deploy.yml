@@ -1,0 +1,93 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: What to publish to jffl-live-colin
+        required: true
+        default: hosting,functions
+        type: choice
+        options:
+          - hosting,functions
+          - hosting
+          - functions
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Require deploy credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+        run: |
+          missing=0
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "Add the FIREBASE_SERVICE_ACCOUNT secret: a JSON key for a deploy service account on jffl-live-colin."
+            missing=1
+          fi
+          if [ "${{ inputs.target }}" != "functions" ] && [ -z "$PRODUCTION_ENV" ]; then
+            echo "Add the PRODUCTION_ENV secret: the public Vite settings from .env.example, without the App Check debug token."
+            missing=1
+          fi
+          exit "$missing"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        if: inputs.target != 'functions'
+        run: npm ci
+
+      - name: Check competition behavior
+        if: inputs.target != 'functions'
+        run: npm run test:competitions
+
+      - name: Write the production client config
+        if: inputs.target != 'functions'
+        env:
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
+        run: |
+          printf '%s\n' "$PRODUCTION_ENV" \
+            | grep -Ev '^(VITE_APPCHECK_DEBUG_TOKEN|VITE_ASK_MOCK|VITE_USE_EMULATORS)=' \
+            > .env.production.local
+
+      - name: Build the site
+        if: inputs.target != 'functions'
+        run: npm run build
+
+      - name: Set up Python
+        if: inputs.target != 'hosting'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Prepare the functions environment
+        if: inputs.target != 'hosting'
+        run: |
+          python -m venv functions/venv
+          functions/venv/bin/pip install -r functions/requirements.txt
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+
+      - name: Publish
+        run: npx -y firebase-tools@latest deploy --only "${{ inputs.target }}" --project jffl-live-colin --non-interactive

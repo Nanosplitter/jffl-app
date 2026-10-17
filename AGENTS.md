@@ -66,6 +66,11 @@ and are static source data, not ESPN history.
   default. Use fixtures, Firebase emulators, and a demo project. Production
   deploys, seeding, security-rule changes, and billing changes require an
   explicit user request in the active conversation.
+- When a hosting or functions deploy is requested, run the manual GitHub Action
+  in `.github/workflows/deploy.yml` (`workflow_dispatch` on the Deploy workflow).
+  It publishes to `jffl-live-colin`. Auth and Firestore rules stay outside that
+  workflow. Fall back to a local `firebase deploy` only when that Action cannot
+  run.
 - This repository intentionally omits `.firebaserc`. Select and confirm the
   Firebase target explicitly for any authorized deploy.
 

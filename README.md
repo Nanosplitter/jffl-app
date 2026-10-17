@@ -301,11 +301,26 @@ functions/venv/Scripts/python.exe functions/verify_live.py --export
 node scripts/seed-firestore.cjs
 ```
 
-Subsequent frontend/rules releases:
+Publish hosting and the updater from GitHub: Actions → Deploy → Run workflow.
+The default publishes both. Hosting-only and functions-only are the other choices.
+The workflow targets `jffl-live-colin` and does not deploy Auth or Firestore rules.
+
+Two repository secrets are required:
+
+- `FIREBASE_SERVICE_ACCOUNT`: JSON key for a deploy service account on that project.
+  Grant Firebase Hosting Admin, Cloud Functions Admin, Cloud Scheduler Admin,
+  Service Account User, and Cloud Build Editor. Artifact Registry Writer is also
+  required when a functions deploy builds a container.
+- `PRODUCTION_ENV`: the public Vite settings from `.env.example` (`VITE_FIREBASE_*`,
+  `VITE_AI_FIREBASE_*`, and `VITE_RECAPTCHA_SITE_KEY`). Leave out
+  `VITE_APPCHECK_DEBUG_TOKEN`, `VITE_ASK_MOCK`, and `VITE_USE_EMULATORS`. The
+  workflow drops those three if they are present.
+
+A local release, when the workflow cannot run:
 
 ```powershell
 npm run build
-firebase deploy --only hosting,firestore --project <your-firebase-project>
+firebase deploy --only hosting,functions --project <your-firebase-project>
 ```
 
 ## Costs and limitations
