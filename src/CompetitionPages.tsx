@@ -370,6 +370,18 @@ export function LeagueMatchPage() {
   };
   const away = side(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected);
   const home = side(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected);
+  const prior = (teamId: string | null) => {
+    if (!teamId) return null;
+    const match = (data.weeklyMatchups ?? [])
+      .filter(item => item.week < week && item.status !== 'pending' && (item.homeTeamId === teamId || item.awayTeamId === teamId))
+      .sort((a, b) => b.week - a.week)
+      .find(item => (item.homeTeamId === teamId ? item.homeScore : item.awayScore) != null);
+    if (!match) return null;
+    return { week: match.week, score: match.homeTeamId === teamId ? match.homeScore : match.awayScore };
+  };
+  const awayPrior = prior(away.teamId);
+  const homePrior = prior(home.teamId);
+  const priorLabel = awayPrior && homePrior && awayPrior.week === homePrior.week ? `Week ${awayPrior.week}` : 'Last week';
   const heading = `${away.manager} vs ${home.manager}`;
   const chance = decided ? null : projectedWinChance(home.projected, away.projected);
   const share = pointShare(away.score, home.score);
@@ -419,7 +431,7 @@ export function LeagueMatchPage() {
     </article>
     <section className="match-stats" aria-label="Score and season comparison">
       <CompareDuel rows={[
-        { label: `Week ${week}`, left: points(away.score), right: points(home.score), share: valueShare(away.score, home.score) },
+        ...(awayPrior || homePrior ? [{ label: priorLabel, left: points(awayPrior?.score), right: points(homePrior?.score), share: valueShare(awayPrior?.score ?? null, homePrior?.score ?? null) }] : []),
         ...(away.projected != null || home.projected != null ? [{ label: 'Projected', left: points(away.projected), right: points(home.projected), share: valueShare(away.projected, home.projected) }] : []),
         { label: 'Record', left: away.team ? record(away.team) : '—', right: home.team ? record(home.team) : '—', share: valueShare(winRate(away.team), winRate(home.team)) },
         { label: 'Avg / week', left: points(weeklyAverage(away.team)), right: points(weeklyAverage(home.team)), share: valueShare(weeklyAverage(away.team), weeklyAverage(home.team)) },
