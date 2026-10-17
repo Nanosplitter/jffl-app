@@ -5,6 +5,7 @@ import { AccountButton, FollowedNote, FollowPrompt, useFollowed } from './accoun
 import { localPreview, useRosters, useSummaries } from './data';
 import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup, type RosteredPlayer, type Team } from './types';
+import { kickoffLabel } from './kickoff';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, LeagueStandingsCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
 const ArchivePage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.ArchivePage })));
@@ -62,7 +63,8 @@ function Lineup({ slug, teamId, players }: { slug: string; teamId: string | null
   const on = isFollowedTeam(followed, slug, teamId);
   return <div><p className={`lineup-heading ${leagueInk(slug)} ${on ? 'followed-name' : ''}`}>{managerFor(slug, teamId)?.manager ?? 'Team'}<FollowedNote on={on} /></p>{starters.length ? <ul className="lineup">{starters.map(player => {
     const yet = player.weekPoints == null && player.projectedPoints != null;
-    return <li key={player.id} className={yet ? 'yet-to-play' : ''}><PlayerIdentity player={player} injury={player.injuryStatus} /><span className="lineup-points"><strong>{points(player.weekPoints)}</strong><small>{yet ? `Yet to play · proj ${points(player.projectedPoints)}` : player.projectedPoints != null ? `Proj ${points(player.projectedPoints)}` : ''}</small></span></li>;
+    const when = yet ? kickoffLabel(player.kickoff) ?? 'Yet to play' : null;
+    return <li key={player.id} className={yet ? 'yet-to-play' : ''}><PlayerIdentity player={player} injury={player.injuryStatus} /><span className="lineup-points"><strong>{points(player.weekPoints)}</strong><small>{when ? `${when} · proj ${points(player.projectedPoints)}` : player.projectedPoints != null ? `Proj ${points(player.projectedPoints)}` : ''}</small></span></li>;
   })}</ul> : <p className="empty-inline">No starters in this snapshot.</p>}</div>;
 }
 

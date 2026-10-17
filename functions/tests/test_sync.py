@@ -1,8 +1,9 @@
 import copy
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
-from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, espn_image_url, normalize_player, validate_snapshot, week_lineups, weekly_matchups
+from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, espn_image_url, kickoff_iso, normalize_player, validate_snapshot, week_lineups, weekly_matchups
 from history_archive import fold_public_history
 from sync_service import retain_projections, sync_leagues
 
@@ -85,6 +86,15 @@ def test_lineup_and_missing_values(slot, group):
     assert result["projectedPoints"] is None
     assert result["seasonPoints"] is None
     assert result["weekPoints"] is None
+    assert result["kickoff"] is None
+
+
+def test_kickoff_is_the_utc_instant_from_the_box_score_clock():
+    instant = datetime(2026, 10, 18, 20, 25, tzinfo=timezone.utc)
+    box = SimpleNamespace(game_date=datetime.fromtimestamp(instant.timestamp()))
+    assert kickoff_iso(box) == "2026-10-18T20:25:00Z"
+    assert kickoff_iso(SimpleNamespace()) is None
+    assert kickoff_iso(None) is None
 
 
 def test_scoring_rules_name_the_yardage_bundles_and_field_goal_ranges():

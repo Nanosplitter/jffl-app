@@ -549,6 +549,8 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
   .starter-score.left { padding-right: 8px; }
   .starter-score.right { padding-left: 8px; }
   .starter-score .yet-label { display: none; }
+  .starter-score .yet-label.kickoff { display: block; font-size: .55rem; white-space: nowrap; }
+  .starter-score .kickoff .yet-sep { display: none; }
   .match-lineups .injury { display: none; }
   .match-lineups .player-headshot, .match-lineups .nfl-portrait { display: none; }
   .match-lineups .player-name { display: block; font-size: .74rem; line-height: 1.2; }

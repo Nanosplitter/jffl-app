@@ -182,6 +182,20 @@ def weekly_stats(raw, through_week):
     return rows
 
 
+def kickoff_iso(box_player):
+    """UTC kickoff from the box score. A bye or a missing schedule stays absent."""
+    game_date = getattr(box_player, "game_date", None) if box_player is not None else None
+    if not isinstance(game_date, datetime):
+        return None
+    try:
+        instant = game_date.timestamp()
+    except (OSError, OverflowError, ValueError):
+        return None
+    if not math.isfinite(instant):
+        return None
+    return datetime.fromtimestamp(instant, timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
 def normalize_player(player, team_id, week, raw, box_player=None):
     actual = source_stat(raw, week, 0)
     projected = source_stat(raw, week, 1)
@@ -198,6 +212,7 @@ def normalize_player(player, team_id, week, raw, box_player=None):
         "averagePoints": number(season.get("appliedAverage")),
         "weekStats": breakdown(actual), "seasonStats": breakdown(season),
         "weeklyStats": weekly_stats(raw, week),
+        "kickoff": kickoff_iso(box_player),
     }
 
 

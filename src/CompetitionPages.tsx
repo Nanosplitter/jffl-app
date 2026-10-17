@@ -11,6 +11,7 @@ import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
 import { chartTheme, horizontalBars } from './history/archiveCharts';
 import { esc } from './history/chartKit';
 import { buildCup, matchupProjection, projectionUpset, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
+import { kickoffLabel } from './kickoff';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
 import { cupMatchChance } from './cupOdds';
@@ -263,10 +264,12 @@ function benchFor(players: RosteredPlayer[], teamId: string) {
 function StarterScore({ player, align }: { player?: RosteredPlayer; align: 'left' | 'right' }) {
   if (!player) return <span className={`starter-score ${align}`} />;
   const yet = player.weekPoints == null && player.projectedPoints != null;
+  const kickoff = yet ? kickoffLabel(player.kickoff) : null;
+  const when = yet ? kickoff ?? 'Yet to play' : null;
   const projected = player.projectedPoints != null ? points(player.projectedPoints) : null;
   return <span className={`starter-score ${align}${yet ? ' yet' : ''}`}>
     <strong>{points(player.weekPoints)}</strong>
-    {projected != null && <small>{align === 'left' ? <>{yet && <span className="yet-label">Yet to play · </span>}proj {projected}</> : <>{projected} proj{yet && <span className="yet-label"> · Yet to play</span>}</>}</small>}
+    {projected != null && <small>{when && <span className={`yet-label${kickoff ? ' kickoff' : ''}`}>{when}<span className="yet-sep"> · </span></span>}{align === 'left' ? `proj ${projected}` : `${projected} proj`}</small>}
   </span>;
 }
 
