@@ -15,3 +15,9 @@ export function byeWeek(proTeam: string | null | undefined) {
   if (!proTeam) return null;
   return BYE_WEEK[proTeam.trim().toUpperCase()] ?? null;
 }
+
+/** Status under a score that has not posted. A bye replaces a kickoff. */
+export function pendingPlayLabel(proTeam: string | null | undefined, week: number, kickoff: string | null) {
+  if (byeWeek(proTeam) === week) return 'Bye';
+  return kickoff ?? 'Yet to play';
+}

@@ -56,15 +56,16 @@ function starterList(players: RosteredPlayer[], teamId: string) {
   return players.filter(player => player.teamId === teamId && player.group === 'starter').sort(compareByLineup);
 }
 
-function Lineup({ slug, teamId, players }: { slug: string; teamId: string | null; players: RosteredPlayer[] }) {
+function Lineup({ slug, teamId, players, week }: { slug: string; teamId: string | null; players: RosteredPlayer[]; week: number }) {
   const followed = useFollowed();
   if (!teamId) return null;
   const starters = starterList(players, teamId);
   const on = isFollowedTeam(followed, slug, teamId);
   return <div><p className={`lineup-heading ${leagueInk(slug)} ${on ? 'followed-name' : ''}`}>{managerFor(slug, teamId)?.manager ?? 'Team'}<FollowedNote on={on} /></p>{starters.length ? <ul className="lineup">{starters.map(player => {
-    const yet = player.weekPoints == null && player.projectedPoints != null;
-    const when = yet ? kickoffLabel(player.kickoff) ?? 'Yet to play' : null;
-    return <li key={player.id} className={yet ? 'yet-to-play' : ''}><PlayerIdentity player={player} injury={player.injuryStatus} /><span className="lineup-points"><strong>{points(player.weekPoints)}</strong><small>{when ? `${when} · proj ${points(player.projectedPoints)}` : player.projectedPoints != null ? `Proj ${points(player.projectedPoints)}` : ''}</small></span></li>;
+    const onBye = player.weekPoints == null && byeWeek(player.proTeam) === week;
+    const yet = !onBye && player.weekPoints == null && player.projectedPoints != null;
+    const when = onBye ? 'Bye' : yet ? kickoffLabel(player.kickoff) ?? 'Yet to play' : null;
+    return <li key={player.id} className={yet || onBye ? 'yet-to-play' : ''}><PlayerIdentity player={player} injury={player.injuryStatus} /><span className="lineup-points"><strong>{points(player.weekPoints)}</strong><small>{onBye ? 'Bye' : when ? `${when} · proj ${points(player.projectedPoints)}` : player.projectedPoints != null ? `Proj ${points(player.projectedPoints)}` : ''}</small></span></li>;
   })}</ul> : <p className="empty-inline">No starters in this snapshot.</p>}</div>;
 }
 
@@ -104,7 +105,7 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
   return <article className={`matchup ${compact ? 'compact' : ''} ${expanded ? 'open' : ''} ${mine ? 'followed' : ''} ${className}`}>
     {to ? <Link className="matchup-link" to={to}>{face}</Link> : face}
     {onToggle && <button className="matchup-toggle" aria-expanded={expanded} aria-controls={panelId} onClick={onToggle}>{expanded ? 'Hide starters' : 'Show starters'}<span className="sr-only"> for {sideName(away, matchup.awayTeamId)} versus {sideName(home, matchup.homeTeamId)}</span></button>}
-    {expanded && <div id={panelId} className="matchup-lineup">{!lineup || (lineup.loading && !lineup.players) ? <p className="empty-inline">Loading starters…</p> : lineup.error && !lineup.players ? <p className="empty-inline">Starters are temporarily unavailable.</p> : <div className="lineup-sides"><Lineup slug={data.slug} teamId={matchup.awayTeamId} players={lineup.players ?? []} /><Lineup slug={data.slug} teamId={matchup.homeTeamId} players={lineup.players ?? []} /></div>}</div>}
+    {expanded && <div id={panelId} className="matchup-lineup">{!lineup || (lineup.loading && !lineup.players) ? <p className="empty-inline">Loading starters…</p> : lineup.error && !lineup.players ? <p className="empty-inline">Starters are temporarily unavailable.</p> : <div className="lineup-sides"><Lineup slug={data.slug} teamId={matchup.awayTeamId} players={lineup.players ?? []} week={data.week} /><Lineup slug={data.slug} teamId={matchup.homeTeamId} players={lineup.players ?? []} week={data.week} /></div>}</div>}
   </article>;
 }
 
