@@ -100,6 +100,18 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .match-center-score { display: flex; align-items: baseline; justify-content: center; gap: 16px; font-family: 'Barlow Condensed', sans-serif; font-size: 3rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
 .match-center-score span { color: var(--muted); font-size: 1.5rem; }
 .match-center-score .leading { color: var(--accent-ink); }
+.match-chance { display: grid; gap: 8px; margin-top: 16px; }
+.match-chance .win-bar { margin-top: 0; }
+.match-chance .cup-odds-note { margin: 0; }
+.duel-read { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: baseline; gap: 12px; }
+.duel-read > span:first-child, .duel-read > span:last-child { font-variant-numeric: tabular-nums; font-weight: 650; }
+.duel-read > span:last-child { text-align: right; }
+.duel-read .lead { color: var(--accent-ink); }
+.duel-label { color: var(--muted); font-size: .62rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.match-duel { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+.duel-track { display: flex; gap: 3px; height: 7px; margin-top: 7px; }
+.duel-track span { display: block; height: 100%; min-width: 2px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 38%, transparent); }
+.duel-track span.lead { background: var(--accent); }
 .match-board .win-bar { margin-top: 16px; }
 .match-board .cup-odds { margin-top: 16px; }
 .match-board .cup-odds .win-bar { margin-top: 8px; }

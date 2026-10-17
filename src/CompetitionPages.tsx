@@ -411,16 +411,20 @@ export function LeagueMatchPage() {
         <div className="match-center-score"><strong className={leading(away.score, home.score) ? 'leading' : ''}>{points(away.score)}</strong><span aria-hidden="true">–</span><strong className={leading(home.score, away.score) ? 'leading' : ''}>{points(home.score)}</strong></div>
         {identity(home, 'right')}
       </div>
-      {bar && <div className="win-bar" role="img" aria-label={bar.label}><span className={bar.left > bar.right ? 'favored' : ''} style={{ width: `${bar.left}%` }} /><span className={bar.right > bar.left ? 'favored' : ''} style={{ width: `${bar.right}%` }} /></div>}
+      {bar && <div className="match-chance">
+        {chance && <div className="duel-read"><span className={chance.away > chance.home ? 'lead' : ''}>{chance.away}%</span><span className="duel-label">Win chance</span><span className={chance.home > chance.away ? 'lead' : ''}>{chance.home}%</span></div>}
+        <div className="win-bar" role="img" aria-label={bar.label}><span className={bar.left > bar.right ? 'favored' : ''} style={{ width: `${bar.left}%` }} /><span className={bar.right > bar.left ? 'favored' : ''} style={{ width: `${bar.right}%` }} /></div>
+        {chance && <p className="cup-odds-note">From the gap in ESPN projected totals.</p>}
+      </div>}
     </article>
     <section className="match-stats" aria-label="Score and season comparison">
-      <table className="match-compare"><caption className="sr-only">Score and season comparison</caption><thead><tr><th scope="col"><span className="sr-only">Stat</span></th><th scope="col">{away.manager}</th><th scope="col">{home.manager}</th></tr></thead><tbody>
-        <tr><th scope="row">Week {week}</th><td>{points(away.score)}</td><td>{points(home.score)}</td></tr>
-        {(away.projected != null || home.projected != null) && <tr><th scope="row">Projected</th><td>{points(away.projected)}</td><td>{points(home.projected)}</td></tr>}
-        <tr><th scope="row">Record</th><td>{away.team ? record(away.team) : '—'}</td><td>{home.team ? record(home.team) : '—'}</td></tr>
-        <tr><th scope="row">Avg / week</th><td>{points(weeklyAverage(away.team))}</td><td>{points(weeklyAverage(home.team))}</td></tr>
-        <tr><th scope="row">League rank</th><td>{away.team?.rank != null ? `#${away.team.rank}` : '—'}</td><td>{home.team?.rank != null ? `#${home.team.rank}` : '—'}</td></tr>
-      </tbody></table>
+      <CompareDuel rows={[
+        { label: `Week ${week}`, left: points(away.score), right: points(home.score), share: valueShare(away.score, home.score) },
+        ...(away.projected != null || home.projected != null ? [{ label: 'Projected', left: points(away.projected), right: points(home.projected), share: valueShare(away.projected, home.projected) }] : []),
+        { label: 'Record', left: away.team ? record(away.team) : '—', right: home.team ? record(home.team) : '—', share: valueShare(winRate(away.team), winRate(home.team)) },
+        { label: 'Avg / week', left: points(weeklyAverage(away.team)), right: points(weeklyAverage(home.team)), share: valueShare(weeklyAverage(away.team), weeklyAverage(home.team)) },
+        { label: 'League rank', left: away.team?.rank != null ? `#${away.team.rank}` : '—', right: home.team?.rank != null ? `#${home.team.rank}` : '—', share: valueShare(away.team?.rank ?? null, home.team?.rank ?? null, 'lower') },
+      ]} />
     </section>
     {upcoming
       ? <p className="notice">Week {week} has not started. Scores, projections, and starters appear once it is the current week.</p>
@@ -429,6 +433,32 @@ export function LeagueMatchPage() {
         {data.week === week && <section className="match-lineups" aria-label={`Week ${week} bench`}><h2>Week {week} bench</h2><StarterCompare sides={[bench(away.teamId, away.manager, away.team?.rank ?? null), bench(home.teamId, home.manager, home.team?.rank ?? null)]} /></section>}
       </>}
   </div>;
+}
+
+function winRate(team: Team | null) {
+  if (!team || team.wins == null || team.losses == null) return null;
+  const games = team.wins + team.losses + (team.ties ?? 0);
+  return games > 0 ? team.wins / games : null;
+}
+
+function valueShare(left: number | null, right: number | null, better: 'higher' | 'lower' = 'higher') {
+  if (left == null || right == null || !Number.isFinite(left) || !Number.isFinite(right)) return null;
+  const leftWeight = better === 'lower' ? right : left;
+  const rightWeight = better === 'lower' ? left : right;
+  const total = leftWeight + rightWeight;
+  if (total <= 0) return null;
+  const share = Math.round((leftWeight / total) * 100);
+  return { left: share, right: 100 - share };
+}
+
+function CompareDuel({ rows }: { rows: { label: string; left: string; right: string; share: { left: number; right: number } | null }[] }) {
+  return <ul className="match-duel">{rows.map(row => {
+    const lead = row.share && row.share.left !== row.share.right ? row.share.left > row.share.right ? 'left' : 'right' : null;
+    return <li key={row.label}>
+      <div className="duel-read"><span className={lead === 'left' ? 'lead' : ''}>{row.left}</span><span className="duel-label">{row.label}</span><span className={lead === 'right' ? 'lead' : ''}>{row.right}</span></div>
+      {row.share && <div className="duel-track" aria-hidden="true">{row.share.left > 0 && <span className={lead === 'left' ? 'lead' : ''} style={{ width: `${row.share.left}%` }} />}{row.share.right > 0 && <span className={lead === 'right' ? 'lead' : ''} style={{ width: `${row.share.right}%` }} />}</div>}
+    </li>;
+  })}</ul>;
 }
 
 function pointShare(left: number | null, right: number | null) {
