@@ -436,9 +436,9 @@ export function LeagueMatchPage() {
       <CompareDuel rows={[
         ...(awayPrior || homePrior ? [{ label: priorLabel, left: points(awayPrior?.score), right: points(homePrior?.score), share: valueShare(awayPrior?.score ?? null, homePrior?.score ?? null) }] : []),
         ...(away.projected != null || home.projected != null ? [{ label: 'Projected', left: points(away.projected), right: points(home.projected), share: valueShare(away.projected, home.projected) }] : []),
-        { label: 'Record', left: away.team ? record(away.team) : '—', right: home.team ? record(home.team) : '—', share: valueShare(winRate(away.team), winRate(home.team)) },
         { label: 'Avg / week', left: points(weeklyAverage(away.team)), right: points(weeklyAverage(home.team)), share: valueShare(weeklyAverage(away.team), weeklyAverage(home.team)) },
-        { label: 'League rank', left: away.team?.rank != null ? `#${away.team.rank}` : '—', right: home.team?.rank != null ? `#${home.team.rank}` : '—', share: valueShare(away.team?.rank ?? null, home.team?.rank ?? null, 'lower') },
+        { label: 'Record', left: away.team ? record(away.team) : '—', right: home.team ? record(home.team) : '—', share: valueShare(winRate(away.team), winRate(home.team)), bar: false },
+        { label: 'League rank', left: away.team?.rank != null ? `#${away.team.rank}` : '—', right: home.team?.rank != null ? `#${home.team.rank}` : '—', share: valueShare(away.team?.rank ?? null, home.team?.rank ?? null, 'lower'), bar: false },
       ]} />
     </section>
     {upcoming
@@ -466,12 +466,12 @@ function valueShare(left: number | null, right: number | null, better: 'higher' 
   return { left: share, right: 100 - share };
 }
 
-function CompareDuel({ rows }: { rows: { label: string; left: string; right: string; share: { left: number; right: number } | null }[] }) {
+function CompareDuel({ rows }: { rows: { label: string; left: string; right: string; share: { left: number; right: number } | null; bar?: boolean }[] }) {
   return <ul className="match-duel">{rows.map(row => {
     const lead = row.share && row.share.left !== row.share.right ? row.share.left > row.share.right ? 'left' : 'right' : null;
     return <li key={row.label}>
       <div className="duel-read"><span className={lead === 'left' ? 'lead' : ''}>{row.left}</span><span className="duel-label">{row.label}</span><span className={lead === 'right' ? 'lead' : ''}>{row.right}</span></div>
-      {row.share && <div className="duel-track" aria-hidden="true">{row.share.left > 0 && <span className={lead === 'left' ? 'lead' : ''} style={{ width: `${row.share.left}%` }} />}{row.share.right > 0 && <span className={lead === 'right' ? 'lead' : ''} style={{ width: `${row.share.right}%` }} />}</div>}
+      {row.bar !== false && row.share && <div className="duel-track" aria-hidden="true">{row.share.left > 0 && <span className={lead === 'left' ? 'lead' : ''} style={{ width: `${row.share.left}%` }} />}{row.share.right > 0 && <span className={lead === 'right' ? 'lead' : ''} style={{ width: `${row.share.right}%` }} />}</div>}
     </li>;
   })}</ul>;
 }
