@@ -19,6 +19,7 @@ const AskSharePage = lazy(() => import('./AskHistory').then(module => ({ default
 const AskSavedSharePage = lazy(() => import('./AskHistory').then(module => ({ default: module.AskSavedSharePage })));
 const DraftPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.DraftPage })));
 const WeekHistoryPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.WeekHistoryPage })));
+const MatchdayPage = lazy(() => import('./MatchdayPage').then(module => ({ default: module.MatchdayPage })));
 import { leagueInk, managerFor } from './reference';
 import { RankMark, cupSeed } from './RankMark';
 import { cupMatchChance } from './cupOdds';
@@ -186,6 +187,23 @@ function CupStrip({ data, players }: { data: SummaryMap; players: Partial<Record
   return <section className="home-cups"><div className="panel-section-title"><h3>Cups</h3><Link to="/cups">All brackets</Link></div><div className="home-cup-row">{cups.map(({ cup, round, focus, quiet }) => <div key={cup.id} className="home-cup"><Link className="home-cup-title" to={`/cups/${cup.id}`}><p className="eyebrow">{round.name} · {round.weeks.length > 1 ? `Weeks ${round.weeks.join('+')}` : `Week ${round.weeks[0]}`}</p><strong className={leagueInk(cup.id)}><span className="home-cup-name">{cup.name}</span><ArrowUpRight size={15} aria-hidden="true" /></strong></Link>{focus ? <Link className="home-cup-line" to={`/cups/${cup.id}/match/${focus.id}`}><span className="home-cup-kicker">Closest</span><span className={`${leagueInk(focus.a.participant?.slug)} ${focus.a.participant && isFollowedTeam(followed, focus.a.participant.slug, focus.a.participant.teamId) ? 'followed-name' : ''}`}><RankMark value={cupSeed(cup.id, focus.a.participant)} />{focus.a.participant?.manager ?? 'TBD'}<FollowedNote on={!!focus.a.participant && isFollowedTeam(followed, focus.a.participant.slug, focus.a.participant.teamId)} /></span> {points(focus.a.total)} · <span className={`${leagueInk(focus.b.participant?.slug)} ${focus.b.participant && isFollowedTeam(followed, focus.b.participant.slug, focus.b.participant.teamId) ? 'followed-name' : ''}`}><RankMark value={cupSeed(cup.id, focus.b.participant)} />{focus.b.participant?.manager ?? 'TBD'}<FollowedNote on={!!focus.b.participant && isFollowedTeam(followed, focus.b.participant.slug, focus.b.participant.teamId)} /></span> {points(focus.b.total)}</Link> : <span className="home-cup-line">{quiet}</span>}</div>)}</div></section>;
 }
 
+function FollowedMatchdayStrip() {
+  const followed = useFollowed();
+  const summaries = useSummaries();
+  if (!followed) return null;
+  const [slug, teamId] = followed.key.split(':') as [LeagueSlug, string];
+  const data = summaries[slug]?.data;
+  if (!data) return null;
+  const matchup = data.matchups.find(item => item.homeTeamId === teamId || item.awayTeamId === teamId);
+  if (!matchup) return null;
+  const home = matchup.homeTeamId === teamId;
+  const mine = home ? matchup.homeScore : matchup.awayScore;
+  const theirs = home ? matchup.awayScore : matchup.homeScore;
+  const oppId = home ? matchup.awayTeamId : matchup.homeTeamId;
+  const opponent = oppId ? managerFor(slug, oppId)?.manager ?? 'Opponent' : 'Bye';
+  return <Link className="matchday-strip" to="/matchday"><span><span className="eyebrow">Your matchday</span><strong className={`${leagueInk(slug)} followed-name`}>{followed.name} {points(mine)}<FollowedNote on /></strong><span className="muted"> · {opponent}{oppId ? ` ${points(theirs)}` : ''}</span></span><ArrowUpRight size={16} aria-hidden="true" /></Link>;
+}
+
 function Overview() {
   usePageLabel('Home');
   const summaries = useSummaries();
@@ -196,6 +214,7 @@ function Overview() {
   const board: SummaryMap = {};
   for (const meta of LEAGUES) if (summaries[meta.slug].data) board[meta.slug] = summaries[meta.slug].data!;
   return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 <span>/</span> WEEK {loaded[0]?.week ?? '—'}</p><h1>The leagues</h1><p className="intro-copy">Three leagues. One JFFL.</p></div></section>
+    <FollowedMatchdayStrip />
     <WeekPulse loaded={loaded} players={players} />
     <nav className="overview-links" aria-label="More from JFFL"><Link to="/weekly">Weekly roundup<ArrowUpRight size={14}/></Link><Link to="/history">Trophies & history<ArrowUpRight size={14}/></Link></nav>
     {loaded.length > 0 && <CupStrip data={board} players={players} />}
@@ -452,6 +471,7 @@ function PlayersPage() {
 function NotFound() { return <div className="waiting"><Shield size={30} /><h1>Page not found</h1><Link className="button" to="/">Back to the leagues</Link></div>; }
 
 function documentTitle(pathname: string) {
+  if (pathname === '/matchday' || pathname.startsWith('/matchday/')) return 'Matchday';
   if (pathname.startsWith('/cups')) return 'Cups';
   if (pathname === '/summary' || pathname.startsWith('/summary/')) return 'Standings';
   const weekly = pathname.match(/^\/weekly\/(\d+)$/);
@@ -511,7 +531,7 @@ export default function App() {
       {localPreview && <p className="notice preview-notice">Local preview · real ESPN snapshot.</p>}
       <SiteBack />
       <FollowPrompt />
-      <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<RosterRoute/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary/:league" element={<SeasonPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly/:week" element={<WeeklyPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history/cup/:league" element={<HistoryPage/>}/><Route path="/history/cup" element={<HistoryPage/>}/><Route path="/history/:league" element={<HistoryPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/t/:threadId" element={<AskPage/>}/><Route path="/archive/ask/s/:shareId" element={<AskSavedSharePage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records/:book" element={<RecordsPage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals/:left/:right" element={<RivalsPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks/:week" element={<WeekHistoryPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId/round/:round/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId/round/:round" element={<CupPage/>}/><Route path="/cups/:cupId/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
+      <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/matchday/:slug/:teamId" element={<MatchdayPage/>}/><Route path="/matchday" element={<MatchdayPage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<RosterRoute/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary/:league" element={<SeasonPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly/:week" element={<WeeklyPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history/cup/:league" element={<HistoryPage/>}/><Route path="/history/cup" element={<HistoryPage/>}/><Route path="/history/:league" element={<HistoryPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/t/:threadId" element={<AskPage/>}/><Route path="/archive/ask/s/:shareId" element={<AskSavedSharePage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records/:book" element={<RecordsPage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals/:left/:right" element={<RivalsPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks/:week" element={<WeekHistoryPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId/round/:round/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId/round/:round" element={<CupPage/>}/><Route path="/cups/:cupId/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
     </main>
     <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores</span><span>Refreshes every 3 minutes · ESPN updates may be delayed</span></footer>
   </>;

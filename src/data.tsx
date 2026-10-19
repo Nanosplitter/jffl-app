@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import { connectFirestoreEmulator, doc, getFirestore, onSnapshot } from 'firebase/firestore';
 import { isSavedHistory, type SavedHistory } from './history/savedSeason.ts';
 import { getFirebaseApp } from './firebaseApp';
-import { LEAGUES, type LeagueRosterSnapshot, type LeagueSlug, type LeagueSummary } from './types';
+import { LEAGUES, type LeagueLiveSnapshot, type LeagueRosterSnapshot, type LeagueSlug, type LeagueSummary } from './types';
 
 type State<T> = { data: T | null; loading: boolean; error: boolean };
 const empty = <T,>(): State<T> => ({ data: null, loading: true, error: false });
@@ -10,7 +10,7 @@ const firebaseApp = getFirebaseApp();
 const db = firebaseApp ? getFirestore(firebaseApp) : null;
 if (db && import.meta.env.DEV && import.meta.env.VITE_USE_EMULATORS === 'true') connectFirestoreEmulator(db, '127.0.0.1', 8080);
 
-type LocalData = { summaries: Record<LeagueSlug, LeagueSummary>; rosters: Record<LeagueSlug, LeagueRosterSnapshot> };
+type LocalData = { summaries: Record<LeagueSlug, LeagueSummary>; rosters: Record<LeagueSlug, LeagueRosterSnapshot>; live?: Partial<Record<LeagueSlug, unknown>> };
 let localPromise: Promise<LocalData> | null = null;
 function readLocal() {
   return localPromise ??= fetch('/__local-data').then(async response => {
@@ -67,6 +67,33 @@ export function useRosters(slugs: LeagueSlug[]) {
   }, [key]);
   return states;
 }
+function liveOk(value: unknown, slug: LeagueSlug): value is LeagueLiveSnapshot {
+  if (!value || typeof value !== 'object') return false;
+  const doc = value as LeagueLiveSnapshot;
+  return doc.schemaVersion === 1 && doc.slug === slug && typeof doc.week === 'number' && typeof doc.updatedAt === 'string'
+    && !!doc.games && typeof doc.games === 'object' && !!doc.series && typeof doc.series === 'object';
+}
+
+/** Live score history. A missing or denied document is absent, so matchday still renders. */
+export function useLive(slugs: LeagueSlug[]) {
+  const key = slugs.join(',');
+  const [states, setStates] = useState<Partial<Record<LeagueSlug, State<LeagueLiveSnapshot | null>>>>({});
+  useEffect(() => {
+    const selected = key.split(',').filter(Boolean) as LeagueSlug[];
+    const stops = selected.map(slug => {
+      setStates(previous => ({ ...previous, [slug]: previous[slug] ?? empty() }));
+      const receive = (value: unknown) => setStates(previous => ({ ...previous, [slug]: { data: liveOk(value, slug) ? value : null, loading: false, error: false } }));
+      if (db) return onSnapshot(doc(db, 'publicLive', slug), snapshot => receive(snapshot.exists() ? snapshot.data() : null), () => receive(null));
+      let cancelled = false;
+      if (import.meta.env.DEV) readLocal().then(data => { if (!cancelled) receive(data.live?.[slug] ?? null); }).catch(() => { if (!cancelled) receive(null); });
+      else receive(null);
+      return () => { cancelled = true; };
+    });
+    return () => stops.forEach(stop => stop());
+  }, [key]);
+  return states;
+}
+
 export const localPreview = import.meta.env.DEV && !firebaseApp;
 
 /** Saved seasons in `publicHistory/{year}`. A missing year is left out. The current snapshots stay the source for the season in progress. */

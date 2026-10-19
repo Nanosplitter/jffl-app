@@ -18,6 +18,7 @@ before(async () => {
       ]),
       setDoc(doc(db, '_sync', 'lease'), { token: 'private' }),
       setDoc(doc(db, 'publicHistory', '2026'), { schemaVersion: 1, season: 2026 }),
+      setDoc(doc(db, 'publicLive', 'premier'), { schemaVersion: 1, slug: 'premier' }),
     ]);
   });
 });
@@ -43,6 +44,15 @@ test('internal state, unlisted leagues, and collection scans are denied', async 
   await assertFails(getDoc(doc(db, 'publicLeagues', 'other')));
   await assertFails(getDocs(collection(db, 'publicLeagues')));
   await assertFails(getDocs(collection(db, 'publicHistory')));
+});
+test('a live timeline is readable by id and cannot be listed or written', async () => {
+  const anon = environment.unauthenticatedContext().firestore();
+  const visitor = environment.authenticatedContext('visitor').firestore();
+  await assertSucceeds(getDoc(doc(anon, 'publicLive', 'premier')));
+  await assertFails(getDoc(doc(anon, 'publicLive', 'other')));
+  await assertFails(getDocs(collection(anon, 'publicLive')));
+  await assertFails(setDoc(doc(visitor, 'publicLive', 'premier'), { overwritten: true }));
+  await assertFails(setDoc(doc(anon, 'publicLive', 'championship'), { slug: 'championship' }));
 });
 test('a saved season is publicly readable and not writable', async () => {
   const db = environment.unauthenticatedContext().firestore();

@@ -38,6 +38,10 @@ service cloud.firestore {
       allow get: if publishedLeague(slug);
       allow list, write: if false;
     }
+    match /publicLive/{slug} {
+      allow get: if publishedLeague(slug);
+      allow list, write: if false;
+    }
     match /publicHistory/{season} {
       allow get: if season.matches('^20[2-9][0-9]$');
       allow list, write: if false;

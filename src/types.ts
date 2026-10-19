@@ -41,3 +41,14 @@ export interface WeekLineupPlayer {
 }
 export interface WeekLineup { week: number; teamId: string; players: WeekLineupPlayer[] }
 export interface LeagueRosterSnapshot extends Freshness { players: RosteredPlayer[]; weeklyLineups?: WeekLineup[] }
+export interface LiveGame {
+  kickoff: string | null; state: 'pre' | 'in' | 'post'; detail: string; progress: number;
+  opponent?: string | null; endedAt?: string;
+}
+export interface ScoreSeries { t: number[]; s: (number | null)[]; p: (number | null)[] }
+export interface LeagueLiveSnapshot {
+  schemaVersion: 1; slug: LeagueSlug; season: number; week: number; updatedAt: string;
+  gamesUpdatedAt: string | null;
+  games: Record<string, LiveGame>;
+  series: Record<string, ScoreSeries>;
+}

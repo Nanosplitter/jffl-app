@@ -26,7 +26,8 @@ controls are configured in Firebase and Google Cloud consoles, not in this repo.
 | Championship | 50597 | `/league/championship` |
 | League One | 2035286513 | `/league/league-one` |
 
-Overview `/`; team `/league/:slug/team/:teamId`; league match `/league/:slug/match/:matchId`; rostered players `/players` and `/players/:league`; player `/players/:playerId`.
+Overview `/`; team `/league/:slug/team/:teamId`; league match `/league/:slug/match/:matchId`; matchday `/matchday` and `/matchday/:slug/:teamId`; rostered players `/players` and `/players/:league`; player `/players/:playerId`.
+`/matchday` follows the signed-in visitor's manager. A direct link opens any current manager without signing in. The page lists that manager's league matchup and any cup tie scoring the same week.
 Player fantasy totals and projections are scoped to the corresponding league's
 scoring. The player page keeps each played week's counting stats; a week with
 no captured line stays blank. Missing numbers display as a dash. Starters,
@@ -260,7 +261,10 @@ are committed together in a Firestore batch:
 - `publicLeagues/{slug}`: teams, standings, weekly matchups for every scheduled week (future weeks are `pending` with null scores; playoff slots appear once ESPN assigns teams), completed weeks, scoring, freshness. A matchup projection ESPN sends is kept on later refreshes. A missing projection stays null, and a later refresh does not replace a saved number with null. A finished score is kept the same way when a later fetch drops it.
 - `publicRosters/{slug}`: rostered players, slots, weekly and cumulative stats.
 - `publicHistory/{year}`: the season archive. Each successful refresh copies that league's teams and weekly matchups into the document for the season year, with manager nicknames, and never replaces a saved score with null. The client reads it for seasons that are no longer the live snapshot. Visitors can get a year document and cannot list or write the collection.
+- `publicLive/{slug}`: this week's score history and the NFL scoreboard, written after a successful league publish. A point is stored only when a team's score or live projection changes. A missing score stays null. Visitors can get a league document and cannot list or write the collection. The refresh also makes one public NFL scoreboard request per run. If that request or the live write fails, the league snapshot is still published and the other leagues continue.
 - `_sync/lease`: private synchronization state.
+
+Matchday can render before `publicLive` is readable. Until a rules deploy allows `publicLive` reads and a refresh has stored the first samples, win chance falls back to kickoff times and the chart says history starts with the next update. Shipping that rules change is separate from the hosting and functions deploy, and needs an explicit request.
 
 Validation checks ownership, duplicate IDs, finite JSON numbers, and a conservative
 700 KB ceiling per document. Published data excludes account identities, email

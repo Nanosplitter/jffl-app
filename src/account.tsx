@@ -237,6 +237,7 @@ export function AccountButton() {
           </optgroup>)}
         </select>
       </label>
+      <Link to="/matchday" onClick={() => setOpen(false)}>Your matchday</Link>
       <Link to="/archive/ask" onClick={() => setOpen(false)}>Your chats</Link>
       <button type="button" onClick={() => { setOpen(false); void signOutUser(); }}>Sign out</button>
       {error && <p className="account-error" role="alert">{error}</p>}

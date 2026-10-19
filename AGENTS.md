@@ -46,7 +46,7 @@ and are static source data, not ESPN history.
   roster documents together. A failed refresh must preserve that league's last
   good data and must not block the other leagues.
 - Published documents are `publicLeagues/{slug}`, `publicRosters/{slug}`,
-  and `publicHistory/{year}`. Internal lease/status data stays private.
+  `publicHistory/{year}`, and `publicLive/{slug}`. Internal lease/status data stays private.
 - Firestore allows public reads only for published documents, plus get (not list)
   of a frozen Ask share at `shares/{id}` and its messages. A signed-in visitor
   may read and write only `users/{their uid}` (profile, threads, and transcript).

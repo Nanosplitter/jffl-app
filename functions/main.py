@@ -27,6 +27,13 @@ class FirestoreStore:
         batch.set(self.db.collection("publicRosters").document(slug), roster)
         batch.commit()
 
+    def latest_live(self, slug):
+        snapshot = self.db.collection("publicLive").document(slug).get()
+        return snapshot.to_dict() if snapshot.exists else None
+
+    def publish_live(self, slug, document):
+        self.db.collection("publicLive").document(slug).set(document)
+
     def fold_history(self, summary):
         season = summary.get("season")
         if not isinstance(season, int):

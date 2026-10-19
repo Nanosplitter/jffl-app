@@ -301,6 +301,145 @@ def week_lineups(schedule, week):
     return rows
 
 
+SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+QUARTER_SECONDS = 15 * 60
+ABBR_ALIAS = {"WAS": "WSH", "WSH": "WSH", "LA": "LAR", "LAR": "LAR", "JAC": "JAX", "JAX": "JAX"}
+KNOWN_ABBR = {abbr for abbr in PRO_TEAM_MAP.values() if abbr != "None"}
+
+
+def team_abbr(value):
+    if not isinstance(value, str):
+        return None
+    abbr = ABBR_ALIAS.get(value.strip().upper(), value.strip().upper())
+    return abbr if abbr in KNOWN_ABBR else None
+
+
+def _clock_seconds(value):
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and value >= 0:
+        return float(value)
+    if not isinstance(value, str) or ":" not in value:
+        return None
+    minutes, _, seconds = value.partition(":")
+    try:
+        return int(minutes) * 60 + float(seconds)
+    except ValueError:
+        return None
+
+
+def game_progress(status):
+    """Share of a regulation game already played. Overtime stays under 1 until the final."""
+    if not isinstance(status, dict):
+        return 0
+    kind = status.get("type") if isinstance(status.get("type"), dict) else {}
+    state = kind.get("state")
+    if state == "post" or kind.get("completed") is True:
+        return 1
+    if state != "in":
+        return 0
+    period = status.get("period")
+    if isinstance(period, bool) or not isinstance(period, int) or period < 1:
+        return 0
+    name = kind.get("name") or ""
+    short = kind.get("shortDetail") if isinstance(kind.get("shortDetail"), str) else ""
+    if name == "STATUS_HALFTIME" or short.lower() == "halftime":
+        return 0.5
+    if period >= 5:
+        return 0.99
+    remaining = _clock_seconds(status.get("clock"))
+    if remaining is None:
+        remaining = _clock_seconds(status.get("displayClock"))
+    if remaining is None:
+        remaining = QUARTER_SECONDS
+    remaining = min(QUARTER_SECONDS, remaining)
+    fraction = ((period - 1) + (1 - remaining / QUARTER_SECONDS)) / 4
+    return round(min(0.99, max(0, fraction)), 4)
+
+
+def game_detail(status):
+    if not isinstance(status, dict):
+        return ""
+    kind = status.get("type") if isinstance(status.get("type"), dict) else {}
+    state = kind.get("state")
+    period = status.get("period") if isinstance(status.get("period"), int) and not isinstance(status.get("period"), bool) else 0
+    clock = status.get("displayClock") if isinstance(status.get("displayClock"), str) else ""
+    name = kind.get("name") or ""
+    if state == "post":
+        return "Final/OT" if period > 4 else "Final"
+    if name == "STATUS_HALFTIME":
+        return "Halftime"
+    if state == "in" and period >= 5:
+        return f"OT {clock}".strip()
+    if state == "in" and period >= 1:
+        return f"Q{period} {clock}".strip()
+    short = kind.get("shortDetail")
+    return short if isinstance(short, str) else ""
+
+
+def _kickoff(value):
+    if not isinstance(value, str) or "T" not in value or len(value) > 40:
+        return None
+    return value if value.endswith("Z") else None
+
+
+def parse_nfl_scoreboard(payload):
+    """NFL games keyed by the abbreviation used on fantasy rosters. A bad payload is empty."""
+    if not isinstance(payload, dict):
+        return {}
+    events = payload.get("events")
+    if not isinstance(events, list):
+        return {}
+    games = {}
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        competitions = event.get("competitions")
+        competition = competitions[0] if isinstance(competitions, list) and competitions else {}
+        if not isinstance(competition, dict):
+            continue
+        status = competition.get("status") if isinstance(competition.get("status"), dict) else {}
+        kind = status.get("type") if isinstance(status.get("type"), dict) else {}
+        state = kind.get("state")
+        if state not in ("pre", "in", "post"):
+            continue
+        competitors = competition.get("competitors")
+        if not isinstance(competitors, list):
+            continue
+        sides = []
+        for competitor in competitors:
+            if not isinstance(competitor, dict):
+                continue
+            team = competitor.get("team") if isinstance(competitor.get("team"), dict) else {}
+            abbr = team_abbr(team.get("abbreviation"))
+            if abbr:
+                sides.append(abbr)
+        if len(sides) != 2 or sides[0] == sides[1]:
+            continue
+        kickoff = _kickoff(competition.get("date")) or _kickoff(event.get("date"))
+        progress = game_progress(status)
+        detail = game_detail(status)
+        for index, abbr in enumerate(sides):
+            games[abbr] = {
+                "kickoff": kickoff,
+                "state": state,
+                "detail": detail,
+                "progress": progress,
+                "opponent": sides[1 - index],
+            }
+    return games
+
+
+def fetch_nfl_games(week):
+    """One public NFL scoreboard read. No cookies and no league identity."""
+    if isinstance(week, bool) or not isinstance(week, int) or week < 1 or week > 18:
+        return {}
+    response = requests.get(SCOREBOARD_URL, params={"seasontype": 2, "week": week}, timeout=(3, 10))
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Unexpected ESPN scoreboard response")
+    return parse_nfl_scoreboard(payload)
+
+
 def fetch_league(slug):
     config = LEAGUES[slug]
     league = League(league_id=config["id"], year=SEASON, fetch_league=False)

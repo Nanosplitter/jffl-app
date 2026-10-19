@@ -60,6 +60,56 @@ def test_provider_failure_preserves_snapshot_and_continues_other_leagues():
     assert store.snapshots["league-one"][0]["updatedAt"] == "new-success"
 
 
+def test_live_timeline_does_not_block_a_publish():
+    class LiveStore(MemoryStore):
+        def __init__(self):
+            super().__init__()
+            self.live = {}
+            self.fail_live = False
+
+        def latest_live(self, slug):
+            return copy.deepcopy(self.live.get(slug))
+
+        def publish_live(self, slug, document):
+            if self.fail_live:
+                raise ConnectionError("live write failed")
+            self.live[slug] = copy.deepcopy(document)
+
+    store = LiveStore()
+    calls = []
+
+    def fetch(slug):
+        return {
+            "slug": slug, "season": 2026, "week": 6, "updatedAt": "new",
+            "teams": [{"id": "1"}], "matchups": [{
+                "homeTeamId": "1", "awayTeamId": "2",
+                "homeScore": 10, "awayScore": None, "homeProjected": 80, "awayProjected": None,
+            }],
+        }, {"players": [{"id": "9"}]}
+
+    def games_for(week):
+        calls.append(week)
+        raise TimeoutError("scoreboard down")
+
+    assert sync_leagues(store, fetch, games_for) == {"premier": "ok", "championship": "ok", "league-one": "ok"}
+    assert calls == [6]
+    assert store.snapshots["premier"][0]["updatedAt"] == "new"
+    assert store.live["premier"]["series"]["1"]["s"] == [10]
+    assert store.live["premier"]["series"]["2"]["s"] == [None]
+    assert store.live["premier"]["games"] == {}
+
+    def fetch_again(slug):
+        summary, roster = fetch(slug)
+        summary["matchups"][0]["homeScore"] = 11
+        summary["updatedAt"] = "newer"
+        return summary, roster
+
+    store.fail_live = True
+    assert sync_leagues(store, fetch_again, lambda week: {})["championship"] == "ok"
+    assert store.snapshots["premier"][0]["updatedAt"] == "newer"
+    assert store.live["premier"]["series"]["1"]["s"] == [10]
+
+
 def test_failure_to_record_error_does_not_stop_other_leagues():
     class FailingMetadataStore(MemoryStore):
         def mark_failed(self, slug, stamp):

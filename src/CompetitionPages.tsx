@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { FollowedNote, useFollowed } from './account';
-import { useRosters, useSummaries } from './data';
+import { useLive, useRosters, useSummaries } from './data';
 import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
 import { MANAGERS, TIMELINE, leagueInk, leagueOfManager, managerFor, type ManagerReference } from './reference';
@@ -15,6 +15,7 @@ import { byeWeek, pendingPlayLabel } from './byeWeeks';
 import { kickoffLabel } from './kickoff';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
+import { cupLiveChance, liveMatchChance, toOddsStarter } from './liveOdds';
 import { cupMatchChance } from './cupOdds';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
@@ -289,6 +290,7 @@ export function CupMatchPage() {
     }))]
     : [];
   const rosters = useRosters(lineupSlugs as LeagueSlug[]);
+  const live = useLive(lineupSlugs as LeagueSlug[]);
   const awayName = located?.match.a.participant?.manager ?? null;
   const homeName = located?.match.b.participant?.manager ?? null;
   usePageLabel(awayName && homeName ? `${awayName} vs ${homeName}` : cup?.name ?? null);
@@ -310,7 +312,8 @@ export function CupMatchPage() {
   const openMatch = match.status === 'live' || match.status === 'waiting';
   const rosterPending = openMatch && lineupSlugs.some(slug => !rosters[slug]?.data && !rosters[slug]?.error);
   const players = Object.fromEntries(lineupSlugs.map(slug => [slug, rosters[slug]?.data?.players ?? null])) as Partial<Record<LeagueSlug, RosteredPlayer[] | null>>;
-  const chance = openMatch && !rosterPending ? cupMatchChance(match, data, players) : null;
+  const fromLive = openMatch && !rosterPending ? cupLiveChance(match, data, players, Object.fromEntries(lineupSlugs.map(slug => [slug, live[slug as LeagueSlug]?.data ?? null]))) : null;
+  const chance = fromLive ?? (openMatch && !rosterPending ? cupMatchChance(match, data, players) : null);
   const odds = chance && chance !== 'level' ? chance : null;
   const oddsLabel = odds ? `${left.title} has a ${odds.left} percent chance to advance. ${right.title} has a ${odds.right} percent chance to advance. Finished weeks count as played. Each starter still to play uses an ESPN projection, widened by that player's weekly range.` : '';
   return <div className="match-sheet">
@@ -323,7 +326,7 @@ export function CupMatchPage() {
           <div className="match-center-score"><strong className={left.leading ? 'leading' : ''}>{points(match.a.total)}</strong><span aria-hidden="true">–</span><strong className={right.leading ? 'leading' : ''}>{points(match.b.total)}</strong></div>
           <MatchIdentity participant={right.participant} team={right.team} seed={right.seed} title={right.title} align="right" />
         </div>
-        {odds ? <div className="cup-odds"><p className="cup-odds-read"><span className={odds.left > odds.right ? 'favored' : ''}>{odds.left}%</span><span className={odds.right > odds.left ? 'favored' : ''}>{odds.right}%</span></p><div className="win-bar" role="img" aria-label={oddsLabel}><span className={odds.left > odds.right ? 'favored' : ''} style={{ width: `${odds.left}%` }} /><span className={odds.right > odds.left ? 'favored' : ''} style={{ width: `${odds.right}%` }} /></div><p className="cup-odds-note">Chance to advance from the starters still to play. Finished weeks count as played. Each remaining projection is widened by that player’s weekly range.</p></div> : chance === 'level' ? <p className="cup-odds-note">Both lineups are done and the match is level.</p> : share && <div className="win-bar" role="img" aria-label={`${left.title} ${share.away} percent of the scored points. ${right.title} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
+        {odds ? <div className="cup-odds"><p className="cup-odds-read"><span className={odds.left > odds.right ? 'favored' : ''}>{odds.left}%</span><span className={odds.right > odds.left ? 'favored' : ''}>{odds.right}%</span></p><div className="win-bar" role="img" aria-label={oddsLabel}><span className={odds.left > odds.right ? 'favored' : ''} style={{ width: `${odds.left}%` }} /><span className={odds.right > odds.left ? 'favored' : ''} style={{ width: `${odds.right}%` }} /></div><p className="cup-odds-note">{fromLive ? 'Chance to advance from the live projection and the starters still playing. Finished weeks count as played.' : 'Chance to advance from the starters still to play. Finished weeks count as played. Each remaining projection is widened by that player’s weekly range.'}</p></div> : chance === 'level' ? <p className="cup-odds-note">Both lineups are done and the match is level.</p> : share && <div className="win-bar" role="img" aria-label={`${left.title} ${share.away} percent of the scored points. ${right.title} ${share.home} percent.`}><span className={share.away > share.home ? 'favored' : ''} style={{ width: `${share.away}%` }} /><span className={share.home > share.away ? 'favored' : ''} style={{ width: `${share.home}%` }} /></div>}
       </article>
       <section className="match-stats" aria-label="Score and season comparison">
         <table className="match-compare"><caption className="sr-only">Score and season comparison</caption><thead><tr><th scope="col"><span className="sr-only">Stat</span></th><th scope="col">{left.title}</th><th scope="col">{right.title}</th></tr></thead><tbody>
@@ -355,6 +358,7 @@ export function LeagueMatchPage() {
   const summaryState = meta ? summaries[meta.slug] : undefined;
   const data = summaryState?.data;
   const rosters = useRosters(meta ? [meta.slug] : []);
+  const liveStates = useLive(meta ? [meta.slug] : []);
   const scoreboard = data?.matchups.find(item => item.id === matchId);
   const weekly = data?.weeklyMatchups?.find(item => item.id === matchId) ?? data?.weeklyMatchups?.find(item => scoreboard && item.week === data.week && item.homeTeamId === scoreboard.homeTeamId && item.awayTeamId === scoreboard.awayTeamId);
   const matched = scoreboard ?? weekly;
@@ -389,9 +393,12 @@ export function LeagueMatchPage() {
   const homePrior = prior(home.teamId);
   const priorLabel = awayPrior && homePrior && awayPrior.week === homePrior.week ? `Week ${awayPrior.week}` : 'Last week';
   const heading = `${away.manager} vs ${home.manager}`;
-  const chance = decided ? null : projectedWinChance(home.projected, away.projected);
+  const liveDoc = meta ? liveStates[meta.slug]?.data ?? null : null;
+  const oddsFor = (teamId: string | null) => teamId && roster?.data ? roster.data.players.filter(player => player.teamId === teamId && player.group === 'starter').map(player => toOddsStarter(player, week)) : [];
+  const fromLive = !decided && !upcoming && liveDoc ? liveMatchChance({ left: { projected: away.projected, starters: oddsFor(away.teamId), week }, right: { projected: home.projected, starters: oddsFor(home.teamId), week }, games: liveDoc.games }) : null;
+  const chance = fromLive === 'level' ? { away: 50, home: 50 } : fromLive ? { away: fromLive.left, home: fromLive.right } : decided ? null : projectedWinChance(home.projected, away.projected);
   const share = pointShare(away.score, home.score);
-  const bar = chance ? { left: chance.away, right: chance.home, label: `From ESPN projected totals. ${away.manager} ${chance.away} percent. ${home.manager} ${chance.home} percent.` } : share ? { left: share.left, right: share.right, label: `${away.manager} ${share.left} percent of the scored points. ${home.manager} ${share.right} percent.` } : null;
+  const bar = chance ? { left: chance.away, right: chance.home, label: `${fromLive ? 'Live win chance' : 'From ESPN projected totals'}. ${away.manager} ${chance.away} percent. ${home.manager} ${chance.home} percent.` } : share ? { left: share.left, right: share.right, label: `${away.manager} ${share.left} percent of the scored points. ${home.manager} ${share.right} percent.` } : null;
   const leading = (score: number | null, opponent: number | null) => score != null && opponent != null && score > opponent;
   const starters = (teamId: string | null, manager: string, mark: number | null) => {
     if (!teamId) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Bye' };
@@ -432,7 +439,7 @@ export function LeagueMatchPage() {
       {bar && <div className="match-chance">
         {chance && <div className="duel-read"><span className={chance.away > chance.home ? 'lead' : ''}>{chance.away}%</span><span className="duel-label">Win chance</span><span className={chance.home > chance.away ? 'lead' : ''}>{chance.home}%</span></div>}
         <div className="win-bar" role="img" aria-label={bar.label}><span className={bar.left > bar.right ? 'favored' : ''} style={{ width: `${bar.left}%` }} /><span className={bar.right > bar.left ? 'favored' : ''} style={{ width: `${bar.right}%` }} /></div>
-        {chance && <p className="cup-odds-note">From the gap in ESPN projected totals.</p>}
+        {chance && <p className="cup-odds-note">{fromLive ? 'From the starters still playing and ESPN’s live projection.' : 'From the gap in ESPN projected totals.'}</p>}
       </div>}
     </article>
     <section className="match-stats" aria-label="Score and season comparison">
