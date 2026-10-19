@@ -27,7 +27,7 @@ controls are configured in Firebase and Google Cloud consoles, not in this repo.
 | League One | 2035286513 | `/league/league-one` |
 
 Overview `/`; team `/league/:slug/team/:teamId`; league match `/league/:slug/match/:matchId`; matchday `/matchday` and `/matchday/:slug/:teamId`; rostered players `/players` and `/players/:league`; player `/players/:playerId`.
-`/matchday` follows the signed-in visitor's manager. A direct link opens any current manager without signing in. The page lists that manager's league matchup and any cup tie scoring the same week.
+`/matchday` opens the followed manager when someone is signed in and following. Otherwise it lists every manager. A direct link, the manager menu on a matchday, and the team page open any current manager without signing in. The page lists that manager's league matchup and any cup tie scoring the same week.
 Player fantasy totals and projections are scoped to the corresponding league's
 scoring. The player page keeps each played week's counting stats; a week with
 no captured line stays blank. Missing numbers display as a dash. Starters,

@@ -288,6 +288,7 @@ function TeamPage() {
       {profile && <div className="manager-profile">
         <strong>Manager: <span className={`${leagueInk(meta.slug)} ${isFollowedTeam(followed, meta.slug, teamId) ? 'followed-name' : ''}`}>{profile.manager}<FollowedNote on={isFollowedTeam(followed, meta.slug, teamId)} /></span></strong>
         <span>{profile.seasons} {profile.seasons === 1 ? 'season' : 'seasons'} · {profile.trophies} historical trophies</span>
+        <Link to={`/matchday/${meta.slug}/${teamId}`}>Matchday<ArrowUpRight size={14}/></Link>
         <Link to={`/cups/jffl/highlight/${encodeURIComponent(profile.manager)}`}>JFFL Cup · seed {profile.jfflSeed}<ArrowUpRight size={14}/></Link>
         <Link to={`/cups/${meta.slug}/highlight/${encodeURIComponent(profile.manager)}`}>League Cup · seed {profile.leagueSeed}<ArrowUpRight size={14}/></Link>
       </div>}
@@ -518,7 +519,7 @@ export default function App() {
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header"><div className="header-inner">
       <Link to="/" className="brand" aria-label="JFFL home">JFFL</Link>
-      <nav aria-label="Main navigation"><NavLink to="/" end>Leagues</NavLink><NavLink to="/summary" className={location.pathname === '/weekly' || location.pathname.startsWith('/weekly/') || location.pathname === '/history' || location.pathname.startsWith('/history/cup') || /^\/history\/(premier|championship|league-one)(\/|$)/.test(location.pathname) ? 'active' : undefined}>Standings</NavLink><NavLink to="/cups">Cups</NavLink><NavLink to="/players">Players</NavLink><NavLink to="/archive">Archive</NavLink></nav>
+      <nav aria-label="Main navigation"><NavLink to="/" end>Leagues</NavLink><NavLink to="/matchday">Matchday</NavLink><NavLink to="/summary" className={location.pathname === '/weekly' || location.pathname.startsWith('/weekly/') || location.pathname === '/history' || location.pathname.startsWith('/history/cup') || /^\/history\/(premier|championship|league-one)(\/|$)/.test(location.pathname) ? 'active' : undefined}>Standings</NavLink><NavLink to="/cups">Cups</NavLink><NavLink to="/players">Players</NavLink><NavLink to="/archive">Archive</NavLink></nav>
       <div className="header-tools">
         <AccountButton />
         <button className="theme-toggle" aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'} aria-pressed={dark} title={dark ? 'Light mode' : 'Dark mode'} onClick={() => setDark(value => !value)}>{dark ? <Sun size={19}/> : <Moon size={19}/>}</button>

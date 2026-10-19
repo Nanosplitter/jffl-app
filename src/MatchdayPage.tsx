@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useAccount, useFollowed } from './account';
 import { usePageLabel } from './BackLink';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
@@ -402,22 +402,32 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
   </section>;
 }
 
-function ManagerPicker() {
-  const { setFollowed } = useAccount();
-  const [choice, setChoice] = useState('');
-  return <section className="page-intro"><div><p className="eyebrow">MATCHDAY</p><h1>Your matchday</h1><p className="intro-copy">Follow a manager to watch every match they play this week.</p></div>
-    <div className="follow-prompt-actions">
-      <label>Manager
-        <select value={choice} onChange={event => setChoice(event.target.value)}>
-          <option value="">Choose a manager</option>
-          {(['premier', 'championship', 'league-one'] as const).map(slug => <optgroup key={slug} label={slug === 'league-one' ? 'League One' : slug === 'premier' ? 'Premier' : 'Championship'}>
-            {MANAGERS.filter(item => item.slug === slug).map(item => <option key={item.key} value={item.key}>{item.manager}</option>)}
-          </optgroup>)}
-        </select>
-      </label>
-      <button type="button" className="button" disabled={!choice} onClick={() => { const manager = MANAGERS.find(item => item.key === choice); if (manager) void setFollowed({ key: manager.key, name: manager.manager }); }}>Follow</button>
+function ManagerOptions() {
+  return LEAGUES.map(meta => <optgroup key={meta.slug} label={meta.name}>
+    {MANAGERS.filter(item => item.slug === meta.slug).map(item => <option key={item.key} value={`${item.slug}/${item.teamId}`}>{item.manager}</option>)}
+  </optgroup>);
+}
+
+function ManagerSwitch({ slug, teamId }: { slug: LeagueSlug; teamId: string }) {
+  const navigate = useNavigate();
+  return <label className="matchday-switch">Manager
+    <select value={`${slug}/${teamId}`} onChange={event => navigate(`/matchday/${event.target.value}`)}>
+      <ManagerOptions />
+    </select>
+  </label>;
+}
+
+function MatchdayDirectory({ followedKey }: { followedKey: string | null }) {
+  const yours = followedKey ? managerFor(followedKey.split(':')[0] ?? '', followedKey.split(':')[1] ?? '') : null;
+  return <div className="matchday">
+    <section className="page-intro"><div><p className="eyebrow">MATCHDAY</p><h1>Matchday</h1><p className="intro-copy">Pick a manager to see every match they play this week.</p></div></section>
+    {yours && <Link className="matchday-strip" to={`/matchday/${yours.slug}/${yours.teamId}`}><span><span className="eyebrow">Your matchday</span><strong className={leagueInk(yours.slug)}>{yours.manager}</strong></span></Link>}
+    <div className="matchday-directory">
+      {LEAGUES.map(meta => <section key={meta.slug}><h2 className={leagueInk(meta.slug)}>{meta.name}</h2><ul>
+        {MANAGERS.filter(item => item.slug === meta.slug).map(item => <li key={item.key}><Link className={item.key === followedKey ? 'is-you' : ''} to={`/matchday/${item.slug}/${item.teamId}`}>{item.manager}</Link></li>)}
+      </ul></section>)}
     </div>
-  </section>;
+  </div>;
 }
 
 export function MatchdayPage() {
@@ -446,17 +456,16 @@ export function MatchdayPage() {
   const games = Object.assign({}, ...watch.map(slug => live[slug]?.data?.games ?? {})) as Record<string, LiveGame>;
   const summary = manager ? summaries[manager.slug] : undefined;
 
-  if (routed && !manager) return <p className="notice">Manager not found. <Link to="/matchday">Your matchday</Link></p>;
+  if (routed && !manager) return <p className="notice">Manager not found. <Link to="/matchday">All managers</Link></p>;
   if (!routed && !account.ready) return <p className="notice">Loading…</p>;
-  if (!routed && !account.user) return <section className="page-intro"><div><p className="eyebrow">MATCHDAY</p><h1>Your matchday</h1><p className="intro-copy">Sign in and follow a manager to watch their week on one page.</p><button type="button" className="button" onClick={() => void account.signIn()}>Sign in</button></div></section>;
-  if (!routed && !manager) return <ManagerPicker />;
+  if (!routed && !manager) return <MatchdayDirectory followedKey={followed?.key ?? null} />;
   if (!manager) return null;
   if (!summary?.data) return <p className="notice">{summary?.error ? 'League data is temporarily unavailable.' : 'Loading league data…'}</p>;
 
   const you = isFollowedTeam(followed, manager.slug, manager.teamId);
   const teamFor = (slug: LeagueSlug, id: string) => data[slug]?.teams.find(team => team.id === id) ?? null;
   return <div className="matchday">
-    <section className="page-intro"><div><p className="eyebrow">{summary.data.leagueName.toUpperCase()} <span>/</span> WEEK {summary.data.week}</p><h1>{manager.manager}</h1><p className="intro-copy">Every match this week. <Link to={`/league/${manager.slug}/team/${manager.teamId}`}>Team page</Link></p></div></section>
+    <section className="page-intro"><div><p className="eyebrow">{summary.data.leagueName.toUpperCase()} <span>/</span> WEEK {summary.data.week}</p><h1>{manager.manager}</h1><p className="intro-copy">Every match this week. <Link to={`/league/${manager.slug}/team/${manager.teamId}`}>Team page</Link></p></div><ManagerSwitch slug={manager.slug} teamId={manager.teamId} /></section>
     {summary?.data && <p className="competition-updates"><Fresh data={summary.data} error={summary.error} /></p>}
     {matches.length > 1 && <nav className="matchday-jumps" aria-label="Matches">{matches.map(match => <a key={match.id} href={`#matchday-${match.id}`}>{match.label}</a>)}</nav>}
     {narrow && matches.some(match => match.right) && <div className="matchday-toggle" role="group" aria-label="Which lineup">
