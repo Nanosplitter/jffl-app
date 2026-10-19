@@ -8,7 +8,7 @@ import { baseOption, esc } from './history/chartKit';
 import { useLive, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
 import { liveMatchChance, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
-import { matchdayMatches, matchNotes, matchTotal, playerBoard, windowMarkers, type BoardRow, type MatchdayMatch, type PlayerBoard } from './matchday';
+import { matchdayMatches, matchFacts, matchTotal, playerBoard, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
 import { PlayerIdentity } from './PlayerIdentity';
 import { MANAGERS, leagueInk, managerFor } from './reference';
 import { RankMark } from './RankMark';
@@ -80,13 +80,32 @@ function Scoreboard({ match, chance, leftRank, rightRank, leftLogo, rightLogo, p
       <div className="match-center-score"><strong className={leftTotal != null && rightTotal != null && leftTotal > rightTotal ? 'leading' : ''}>{points(leftTotal)}</strong><span aria-hidden="true">–</span><strong className={leftTotal != null && rightTotal != null && rightTotal > leftTotal ? 'leading' : ''}>{match.right ? points(rightTotal) : 'Bye'}</strong></div>
       {match.right ? identity(match.right.manager, match.right.slug, rightRank, rightLogo, 'right', `/league/${match.right.slug}/team/${match.right.teamId}`) : <div className="match-id right"><span className="muted">Bye</span></div>}
     </div>
-    <p className="matchday-proj"><span>{leftProjected != null ? `Proj ${points(leftProjected)}` : '—'}{pregameLeft != null && pregameLeft !== leftProjected ? ` · open ${points(pregameLeft)}` : ''}</span><span>{status}</span><span>{match.right ? <>{rightProjected != null ? `Proj ${points(rightProjected)}` : '—'}{pregameRight != null && pregameRight !== rightProjected ? ` · open ${points(pregameRight)}` : ''}</> : 'Bye'}</span></p>
+    <p className="matchday-proj">
+      <ProjectionSide current={leftProjected} earlier={pregameLeft} />
+      <span>{status}</span>
+      {match.right ? <ProjectionSide current={rightProjected} earlier={pregameRight} align="right" /> : <span>Bye</span>}
+    </p>
     {odds && <div className="match-chance">
       <div className="duel-read"><span className={odds.left > odds.right ? 'lead' : ''}>{odds.left}%</span><span className="duel-label">Win chance</span><span className={odds.right > odds.left ? 'lead' : ''}>{odds.right}%</span></div>
       <div className="win-bar" role="img" aria-label={`${match.left.manager} ${odds.left} percent. ${match.right?.manager ?? 'Bye'} ${odds.right} percent.`}><span className={odds.left > odds.right ? 'favored' : ''} style={{ width: `${odds.left}%` }} /><span className={odds.right > odds.left ? 'favored' : ''} style={{ width: `${odds.right}%` }} /></div>
-      <p className="cup-odds-note">{leftOut.count || rightOut.count ? `${leftOut.count} still to play (${points(leftOut.points)}) · ${rightOut.count} still to play (${points(rightOut.points)})` : 'Both lineups are in.'}</p>
+      <div className="matchday-remaining">{leftOut.count || rightOut.count ? <><RemainingSide out={leftOut} /><RemainingSide out={rightOut} align="right" /></> : <p className="cup-odds-note">Every starter has played.</p>}</div>
     </div>}
   </article>;
+}
+
+function ProjectionSide({ current, earlier, align }: { current: number | null; earlier: number | null; align?: 'right' }) {
+  const moved = earlier != null && current != null && earlier !== current;
+  return <span className={align === 'right' ? 'is-right' : ''} title={moved ? `The projection was ${points(earlier)} when tracking started` : undefined}>
+    {current != null ? <><strong>{points(current)}</strong> projected</> : '—'}
+    {moved && <small>was {points(earlier)}</small>}
+  </span>;
+}
+
+function RemainingSide({ out, align }: { out: { count: number; points: number | null }; align?: 'right' }) {
+  return <span className={align === 'right' ? 'is-right' : ''}>
+    <strong>{out.count ? `${out.count} still to play` : 'All in'}</strong>
+    <small>{out.count && out.points != null ? `${points(out.points)} projected points left` : 'No projected points left'}</small>
+  </span>;
 }
 
 function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName: string, pointsIn: { t: number; chance: number; scoreLeft: number | null; scoreRight: number | null; projectedLeft: number | null; projectedRight: number | null }[], markers: { label: string; at: number }[]) {
@@ -121,26 +140,32 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
       ],
     };
   }
+  const last = pointsIn[pointsIn.length - 1];
+  const spanStart = pointsIn[0].t * 1000;
+  const spanEnd = last.t * 1000;
+  const inWindow = marker.filter(item => item.xAxis >= spanStart && item.xAxis <= spanEnd);
   return {
-    ...baseOption(theme, { top: 16 }),
+    ...baseOption(theme, { top: 28 }),
     legend: undefined,
     tooltip: { ...baseOption(theme).tooltip, trigger: 'axis' as const, formatter: (params: { data?: { value?: [number, number]; point?: typeof pointsIn[number] } }[]) => {
       const item = params.find(entry => entry.data?.point);
       const point = item?.data?.point;
       if (!point) return '';
       return tip(point.t * 1000, [
-        `${esc(leftName)} ${point.chance}%`,
-        `${esc(leftName)} ${point.scoreLeft ?? '—'} · proj ${point.projectedLeft ?? '—'}`,
+        `${esc(leftName)} ${point.chance}% to win`,
         `${esc(rightName)} ${100 - point.chance}%`,
-        `${esc(rightName)} ${point.scoreRight ?? '—'} · proj ${point.projectedRight ?? '—'}`,
+        `Score ${point.scoreLeft ?? '—'}–${point.scoreRight ?? '—'}`,
+        `Projected ${point.projectedLeft ?? '—'}–${point.projectedRight ?? '—'}`,
       ]);
     } },
-    visualMap: { show: false, type: 'piecewise' as const, seriesIndex: 0, dimension: 1, pieces: [{ min: 50, max: 100, color: leftColor }, { min: 0, max: 50, color: rightColor }] },
     xAxis: { type: 'time' as const, axisLabel: { color: theme.muted, hideOverlap: true } },
-    yAxis: { type: 'value' as const, min: 0, max: 100, interval: 25, axisLabel: { color: theme.muted, formatter: '{value}%' } },
+    yAxis: { type: 'value' as const, min: 0, max: 100, interval: 50, axisLabel: { color: theme.muted, formatter: '{value}%' } },
     series: [{
-      name: leftName, type: 'line' as const, showSymbol: false, smooth: 0.15, areaStyle: {},
-      markLine: { silent: true, symbol: 'none', lineStyle: { type: 'dashed' as const, color: theme.line }, data: [{ yAxis: 50, label: { show: false } }, ...marker] },
+      name: leftName, type: 'line' as const, showSymbol: false, smooth: 0.2, color: leftColor,
+      lineStyle: { width: 2.5, color: leftColor },
+      areaStyle: { color: leftColor, opacity: 0.14 },
+      markLine: { silent: true, symbol: 'none', lineStyle: { type: 'dashed' as const, color: theme.line }, label: { color: theme.muted, fontSize: 10 }, data: [{ yAxis: 50, label: { formatter: 'Even' } }, ...inWindow] },
+      markPoint: { symbol: 'circle', symbolSize: 8, itemStyle: { color: leftColor }, label: { formatter: `${last.chance}%`, color: theme.text, fontWeight: 650, position: 'bottom' as const }, data: [{ coord: [spanEnd, last.chance] }] },
       data: pointsIn.map(point => ({ value: [point.t * 1000, point.chance], point })),
     }],
   };
@@ -179,18 +204,22 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
       </div>
       <p className="chance-edge right"><span style={{ background: theme.palette[1] }} />{match.right.manager}</p>
     </div>
-    {option ? <ArchiveChart option={option} summary={`${match.left.manager} win chance against ${match.right.manager} this week.`} height={narrow ? 220 : 300} /> : <p className="matchday-empty">History starts with the next update.</p>}
+    <p className="matchday-chart-caption">{mode === 'chance' ? `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.` : 'Solid lines are points scored. Dashed lines are the live projection.'}</p>
+    {option ? <ArchiveChart option={option} summary={`${match.left.manager} win chance against ${match.right.manager} this week.`} height={narrow ? 220 : 280} /> : <p className="matchday-empty">History starts with the next update.</p>}
   </section>;
 }
 
 function PlayerLine({ row }: { row: BoardRow }) {
   const gap = row.gap != null && Math.abs(row.gap) >= 1 ? row.gap : null;
+  const waiting = row.status === 'yet' || row.status === 'bye';
+  const pace = gap == null ? null : gap > 0 ? `${points(gap)} ahead` : `${points(Math.abs(gap))} behind`;
   return <li className="matchday-player">
-    <PlayerIdentity player={row.player} injury={row.player.injuryStatus} detail={row.detail} />
+    <PlayerIdentity player={row.player} injury={row.player.injuryStatus} />
     <span className="matchday-player-score">
-      <strong>{points(row.player.weekPoints)}</strong>
-      {gap != null && <small className={gap > 0 ? 'up' : 'down'}>{gap > 0 ? '+' : '−'}{points(Math.abs(gap))}</small>}
+      <strong>{waiting ? points(row.player.projectedPoints) : points(row.player.weekPoints)}</strong>
+      <small className={gap == null ? '' : gap > 0 ? 'up' : 'down'}>{waiting ? 'projected' : pace ?? (row.status === 'done' ? 'on pace' : '')}</small>
     </span>
+    {row.detail && <span className="matchday-chip">{row.detail}</span>}
   </li>;
 }
 
@@ -217,18 +246,43 @@ function Board({ left, right, showLeft, showRight, leftName, rightName }: {
   const empty: PlayerBoard = { playing: [], above: [], below: [], yet: [], bye: [], done: [] };
   const other = right ?? empty;
   const both = showLeft && showRight;
+  const finished = (rows: BoardRow[], direction: number) => rows.filter(row => row.status === 'done' && row.gap != null && Math.sign(row.gap) === direction);
+  const close = (board: PlayerBoard) => board.done.filter(row => row.gap == null || Math.abs(row.gap) < 1);
   const yetWindows = [...new Set([...left.yet.map(group => group.window), ...other.yet.map(group => group.window)])];
   const sections: { title: string; left: BoardRow[]; right: BoardRow[] }[] = [
     { title: 'Playing now', left: left.playing, right: other.playing },
-    { title: 'Above projection', left: left.above, right: other.above },
-    { title: 'Below projection', left: left.below, right: other.below },
+    { title: 'Beat their projection', left: finished(left.above, 1), right: finished(other.above, 1) },
+    { title: 'Missed their projection', left: finished(left.below, -1), right: finished(other.below, -1) },
   ];
   return <div className="matchday-board">
     <div className={`matchday-pair matchday-board-names${both ? '' : ' single'}`}><span className={showLeft ? '' : 'matchday-hidden'}>{leftName}</span><span className={showRight ? '' : 'matchday-hidden'}>{rightName}</span></div>
     {sections.map(section => (section.left.length || section.right.length) ? <section key={section.title}><h3>{section.title}</h3><PlayerColumns left={section.left} right={section.right} showLeft={showLeft} showRight={showRight} /></section> : null)}
     {yetWindows.length > 0 && <section><h3>Yet to play</h3>{yetWindows.map(window => <div key={window}><p className="matchday-window">{window}</p><PlayerColumns left={left.yet.find(group => group.window === window)?.players ?? []} right={other.yet.find(group => group.window === window)?.players ?? []} showLeft={showLeft} showRight={showRight} /></div>)}</section>}
     {(left.bye.length || other.bye.length) > 0 && <section><h3>Bye</h3><PlayerColumns left={left.bye} right={other.bye} showLeft={showLeft} showRight={showRight} /></section>}
-    {(left.done.length || other.done.length) > 0 && <section><h3>Done</h3><PlayerColumns left={left.done} right={other.done} showLeft={showLeft} showRight={showRight} /></section>}
+    {(close(left).length || close(other).length) > 0 && <section><h3>Finished near projection</h3><PlayerColumns left={close(left)} right={close(other)} showLeft={showLeft} showRight={showRight} /></section>}
+  </div>;
+}
+
+function MatchInsights({ facts }: { facts: MatchFacts }) {
+  if (!facts.catchup && !facts.swing && !facts.bench && !facts.lineup) return null;
+  return <div className="matchday-insights">
+    {facts.catchup && <article className="matchday-insight">
+      <p className="eyebrow">{facts.catchup === 'level' ? 'Projection' : 'To catch the projection'}</p>
+      <strong>{facts.catchup === 'level' ? 'Level' : points(facts.catchup.amount)}</strong>
+      <p>{facts.catchup === 'level' ? 'Both sides are projected to finish even.' : `${facts.catchup.name} needs this many points above the current projection.`}</p>
+    </article>}
+    {facts.swing && <article className="matchday-insight">
+      <p className="eyebrow">Widest range still out</p>
+      <strong>{facts.swing.name}</strong>
+      <div className="matchday-range" aria-label={`${facts.swing.name} usually varies by ${points(facts.swing.spread)} points`}><span>−{points(facts.swing.spread)}</span><span className="track" /><span>+{points(facts.swing.spread)}</span></div>
+      <p>Usual weekly range. This player is still going.</p>
+    </article>}
+    {facts.bench && <article className="matchday-insight">
+      <p className="eyebrow">Bench points</p>
+      <div className="matchday-bench"><span>{facts.bench.leftName}<strong>{facts.bench.left == null ? '—' : points(facts.bench.left)}</strong></span>{facts.bench.rightName && <span>{facts.bench.rightName}<strong>{facts.bench.right == null ? '—' : points(facts.bench.right)}</strong></span>}</div>
+      <p>Points scored by players who are not starting.</p>
+    </article>}
+    {facts.lineup && <article className="matchday-insight"><p className="eyebrow">A lineup that would have won</p><p>{facts.lineup}</p></article>}
   </div>;
 }
 
@@ -258,7 +312,7 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
   }) : null;
   const seriesLeft = liveSeries(match.left.slug, match.left.teamId);
   const seriesRight = match.right ? liveSeries(match.right.slug, match.right.teamId) : null;
-  const notes = matchNotes({
+  const facts = matchFacts({
     leftName: match.left.manager,
     rightName: match.right?.manager ?? '',
     leftProjected: projectedTotal(match.left.projected, match.left.offset),
@@ -279,7 +333,7 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
       <div className="matchday-main">
         <Scoreboard match={match} chance={chance} leftRank={leftTeam?.rank ?? null} rightRank={rightTeam?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightTeam?.logoUrl} pregameLeft={seriesLeft?.p[0] != null ? projectedTotal(seriesLeft.p[0], match.left.offset) : null} pregameRight={match.right && seriesRight?.p[0] != null ? projectedTotal(seriesRight.p[0], match.right.offset) : null} leftOut={stillOut(leftBoard)} rightOut={stillOut(rightBoard ?? { playing: [], above: [], below: [], yet: [], bye: [], done: [] })} />
         <ChanceChart match={match} seriesLeft={seriesLeft} seriesRight={seriesRight} leftStarters={leftStarters.map(player => toOddsStarter(player, match.week))} rightStarters={rightStarters.map(player => toOddsStarter(player, match.week))} games={games} now={now} markers={markers} />
-        {notes.length > 0 && <ul className="matchday-notes">{notes.map(note => <li key={note}>{note}</li>)}</ul>}
+        <MatchInsights facts={facts} />
       </div>
       <Board left={leftBoard} right={rightBoard} showLeft={showLeft} showRight={showRight && !!match.right} leftName={match.left.manager} rightName={match.right?.manager ?? 'Bye'} />
     </div>

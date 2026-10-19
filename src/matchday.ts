@@ -247,7 +247,14 @@ function swingLeft(players: readonly RosteredPlayer[], games: Record<string, Liv
   return best;
 }
 
-export function matchNotes(input: {
+export interface MatchFacts {
+  catchup: { name: string; amount: number } | 'level' | null;
+  swing: { name: string; spread: number } | null;
+  bench: { leftName: string; rightName: string; left: number | null; right: number | null } | null;
+  lineup: string | null;
+}
+
+export function matchFacts(input: {
   leftName: string;
   rightName: string;
   leftProjected: number | null;
@@ -264,28 +271,40 @@ export function matchNotes(input: {
   rightScore: number | null;
   leftTotal: number | null;
   rightTotal: number | null;
-}): string[] {
-  const notes: string[] = [];
+}): MatchFacts {
+  let catchup: MatchFacts['catchup'] = null;
   if (input.leftProjected != null && input.rightProjected != null) {
     const gap = input.rightProjected - input.leftProjected;
-    if (Math.abs(gap) < 0.05) notes.push('Projected to finish level.');
-    else if (gap > 0) notes.push(`${input.leftName} needs ${formatPoints(gap)} more than projected.`);
-    else notes.push(`${input.rightName} needs ${formatPoints(-gap)} more than projected.`);
+    if (Math.abs(gap) < 0.05) catchup = 'level';
+    else if (gap > 0) catchup = { name: input.leftName, amount: gap };
+    else catchup = { name: input.rightName, amount: -gap };
   }
   const leftSwing = swingLeft(input.leftPlayers, input.games, input.now, input.week);
   const rightSwing = input.rightTeamId ? swingLeft(input.rightPlayers, input.games, input.now, input.week) : null;
-  const swing = [leftSwing, rightSwing].filter((starter): starter is OddsStarter => !!starter).sort((a, b) => playerSpread(b.position, b.previousPoints) - playerSpread(a.position, a.previousPoints))[0];
-  if (swing) notes.push(`Biggest swing left: ${swing.name} (±${formatPoints(playerSpread(swing.position, swing.previousPoints))}).`);
+  const swingStarter = [leftSwing, rightSwing].filter((starter): starter is OddsStarter => !!starter).sort((a, b) => playerSpread(b.position, b.previousPoints) - playerSpread(a.position, a.previousPoints))[0] ?? null;
+  const swing = swingStarter ? { name: swingStarter.name, spread: playerSpread(swingStarter.position, swingStarter.previousPoints) } : null;
   const leftBench = benchPoints(input.leftPlayers, input.leftTeamId);
   const rightBench = input.rightTeamId ? benchPoints(input.rightPlayers, input.rightTeamId) : null;
-  if (leftBench != null || rightBench != null) notes.push(`Bench: ${input.leftName} ${leftBench == null ? '—' : formatPoints(leftBench)}${input.rightName ? `, ${input.rightName} ${rightBench == null ? '—' : formatPoints(rightBench)}` : ''}.`);
+  const bench = leftBench != null || rightBench != null ? { leftName: input.leftName, rightName: input.rightName, left: leftBench, right: rightBench } : null;
+  let lineup: string | null = null;
   if (input.final && input.rightTeamId && input.leftScore != null && input.rightScore != null && input.leftTotal != null && input.rightTotal != null && input.leftTotal < input.rightTotal) {
-    const lineup = lineupWouldWin(candidates(input.leftPlayers, input.leftTeamId), candidates(input.rightPlayers, input.rightTeamId), input.leftScore, input.rightScore);
-    if (lineup?.swaps.length) {
-      const start = lineup.swaps.map(swap => swap.start.name).join(', ');
-      const sit = lineup.swaps.map(swap => swap.sit.name).join(', ');
-      notes.push(`Starting ${start} instead of ${sit} would have won.`);
+    const result = lineupWouldWin(candidates(input.leftPlayers, input.leftTeamId), candidates(input.rightPlayers, input.rightTeamId), input.leftScore, input.rightScore);
+    if (result?.swaps.length) {
+      const start = result.swaps.map(swap => swap.start.name).join(', ');
+      const sit = result.swaps.map(swap => swap.sit.name).join(', ');
+      lineup = `Starting ${start} instead of ${sit} would have won.`;
     }
   }
+  return { catchup, swing, bench, lineup };
+}
+
+export function matchNotes(input: Parameters<typeof matchFacts>[0]): string[] {
+  const facts = matchFacts(input);
+  const notes: string[] = [];
+  if (facts.catchup === 'level') notes.push('Projected to finish level.');
+  else if (facts.catchup) notes.push(`${facts.catchup.name} needs ${formatPoints(facts.catchup.amount)} more than projected.`);
+  if (facts.swing) notes.push(`Biggest swing left: ${facts.swing.name} (±${formatPoints(facts.swing.spread)}).`);
+  if (facts.bench) notes.push(`Bench: ${facts.bench.leftName} ${facts.bench.left == null ? '—' : formatPoints(facts.bench.left)}${facts.bench.rightName ? `, ${facts.bench.rightName} ${facts.bench.right == null ? '—' : formatPoints(facts.bench.right)}` : ''}.`);
+  if (facts.lineup) notes.push(facts.lineup);
   return notes;
 }
