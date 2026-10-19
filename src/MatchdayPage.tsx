@@ -136,8 +136,8 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
         const future = time > nowMs;
         if (future) {
           const bands = [
-            { name: leftName, score: last.scoreLeft, finish: last.projectedLeft, sd: outlook?.leftSd ?? 0 },
-            { name: rightName, score: last.scoreRight, finish: last.projectedRight, sd: outlook?.rightSd ?? 0 },
+            { name: leftName, color: leftColor, score: last.scoreLeft, finish: last.projectedLeft, sd: outlook?.leftSd ?? 0 },
+            { name: rightName, color: rightColor, score: last.scoreRight, finish: last.projectedRight, sd: outlook?.rightSd ?? 0 },
           ];
           const span = Math.max(endMs - nowMs, 1);
           const place = Math.min(1, Math.max(0, (time - nowMs) / span));
@@ -145,12 +145,14 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
             const rounded = Math.round(value * 10) / 10;
             return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
           };
+          const dot = (color: string) => `<span style="display:inline-block;margin-right:4px;border-radius:10px;width:10px;height:10px;background-color:${esc(color)}"></span>`;
           return tip(time, bands.flatMap(band => {
             if (band.score == null || band.finish == null || band.sd < 0.5) return [];
             const at = (end: number) => band.score! + (end - band.score!) * place;
+            const marker = params.find(item => item.seriesName === `${band.name} projected`)?.marker || dot(band.color);
             return [
-              `${esc(band.name)} projected ${shown(at(band.finish))}`,
-              `Low ${shown(at(band.finish - band.sd))} · High ${shown(at(band.finish + band.sd))}`,
+              `${marker} ${esc(band.name)} projected ${shown(at(band.finish))}`,
+              `${marker} Low ${shown(at(band.finish - band.sd))} · High ${shown(at(band.finish + band.sd))}`,
             ];
           }));
         }
