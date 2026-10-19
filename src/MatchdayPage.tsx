@@ -112,10 +112,10 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
         return score == null ? [] : [{ value: [point.t * 1000, score] as [number, number] }];
       }),
     });
-    const projected = (name: string, color: string, value: number | null) => value == null || endMs <= nowMs ? [] : [{
+    const projected = (name: string, color: string, score: number | null, finish: number | null) => score == null || finish == null || endMs <= nowMs ? [] : [{
       name: `${name} projected`, type: 'line' as const, showSymbol: false, color, z: 2,
       lineStyle: { width: 1.5, type: 'dashed' as const },
-      data: [{ value: [nowMs, value] as [number, number] }, { value: [endMs, value] as [number, number] }],
+      data: [{ value: [nowMs, score] as [number, number] }, { value: [endMs, finish] as [number, number] }],
     }];
     const cone = (stack: string, color: string, score: number | null, finish: number | null, sd: number) => {
       if (score == null || finish == null || sd < 0.5 || endMs <= nowMs) return [];
@@ -146,8 +146,8 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
         ...cone('right-range', rightColor, last.scoreRight, last.projectedRight, outlook?.rightSd ?? 0),
         scored(leftName, leftColor, point => point.scoreLeft),
         scored(rightName, rightColor, point => point.scoreRight),
-        ...projected(leftName, leftColor, last.projectedLeft),
-        ...projected(rightName, rightColor, last.projectedRight),
+        ...projected(leftName, leftColor, last.scoreLeft, last.projectedLeft),
+        ...projected(rightName, rightColor, last.scoreRight, last.projectedRight),
       ],
     };
   }
@@ -220,7 +220,7 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
       </div>
       <p className="chance-edge right"><span style={{ background: theme.palette[1] }} />{match.right.manager}</p>
     </div>
-    <p className="matchday-chart-caption">{mode === 'chance' ? `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.` : 'Solid lines are points so far. The shade is where the score can still finish.'}</p>
+    <p className="matchday-chart-caption">{mode === 'chance' ? `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.` : 'The dashed line continues from the score to the projected finish. The shade is the range around it.'}</p>
     {option ? <ArchiveChart option={option} summary={`${match.left.manager} win chance against ${match.right.manager} this week.`} height={narrow ? 220 : 280} /> : <p className="matchday-empty">History starts with the next update.</p>}
   </section>;
 }
@@ -293,9 +293,9 @@ function MatchInsights({ facts }: { facts: MatchFacts }) {
   if (!facts.catchup && !facts.swing && !facts.bench && !facts.lineup) return null;
   return <div className="matchday-insights">
     {facts.catchup && <article className="matchday-insight">
-      <p className="eyebrow">{facts.catchup === 'level' ? 'Projection' : 'Better than predicted'}</p>
+      <p className="eyebrow">{facts.catchup === 'level' ? 'Projection' : `What ${facts.catchup.name} needs to win`}</p>
       <strong>{facts.catchup === 'level' ? 'Level' : points(facts.catchup.amount)}</strong>
-      <p>{facts.catchup === 'level' ? 'Both sides are projected to finish even.' : `${facts.catchup.name} needs to finish this much better than predicted to catch up.`}</p>
+      <p>{facts.catchup === 'level' ? 'Both sides are projected to finish even.' : 'This many points better than predicted.'}</p>
     </article>}
     {facts.swing && <article className="matchday-insight">
       <p className="eyebrow">Widest range still out</p>
