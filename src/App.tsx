@@ -126,7 +126,7 @@ function PulseMatch({ to, slug, leftId, leftScore, leftRank, rightId, rightScore
   return <li className={leftOn || rightOn ? 'followed' : undefined}><Link className="pulse-match" to={to}><span className={`pulse-match-name ${leagueInk(slug)} ${leftOn ? 'followed-name' : ''}`}><RankMark value={leftRank} />{managerName(slug, leftId)}<FollowedNote on={leftOn} /></span><span className={`pulse-match-score${emphasize === 'left' ? ' pulse-key' : ''}`}>{points(leftScore)}</span><span className="pulse-match-dot" aria-hidden="true">·</span><span className={`pulse-match-name ${leagueInk(slug)} ${rightOn ? 'followed-name' : ''}`}><RankMark value={rightRank} />{managerName(slug, rightId)}<FollowedNote on={rightOn} /></span><span className="pulse-match-score">{points(rightScore)}</span>{margin != null && <span className="pulse-match-gap" aria-label={`margin ${points(margin)}`}><span className="pulse-plusminus" aria-hidden="true">±</span><span className={emphasize === 'margin' ? 'pulse-key' : ''}>{points(margin)}</span></span>}</Link></li>;
 }
 
-function WeekPulse({ loaded, players, games }: { loaded: LeagueSummary[]; players: Partial<Record<LeagueSlug, RosteredPlayer[] | null>>; games: Record<string, LiveGame> }) {
+function WeekPulse({ loaded }: { loaded: LeagueSummary[] }) {
   const followed = useFollowed();
   const week = Math.max(0, ...loaded.map(data => data.week));
   const matchups = loaded.flatMap(data => (data.weeklyMatchups ?? []).filter(item => item.week === week).map(item => ({ ...item, slug: data.slug })));
@@ -134,12 +134,9 @@ function WeekPulse({ loaded, players, games }: { loaded: LeagueSummary[]; player
     matchup.homeTeamId != null && matchup.homeScore != null ? { slug: matchup.slug, id: matchup.homeTeamId, score: matchup.homeScore, matchId: matchup.id } : null,
     matchup.awayTeamId != null && matchup.awayScore != null ? { slug: matchup.slug, id: matchup.awayTeamId, score: matchup.awayScore, matchId: matchup.id } : null,
   ].filter((row): row is { slug: LeagueSlug; id: string; score: number; matchId: string } => row !== null)).sort((a, b) => b.score - a.score);
-  const margins = matchups.filter(matchup => matchup.homeScore != null && matchup.awayScore != null).map(matchup => {
-    const done = matchup.status === 'final';
-    const homeLeft = done ? 0 : pointsStillToPlay(players[matchup.slug], matchup.homeTeamId, games);
-    const awayLeft = done ? 0 : pointsStillToPlay(players[matchup.slug], matchup.awayTeamId, games);
-    return { ...matchup, margin: Math.abs(matchup.homeScore! - matchup.awayScore!), open: canStillSwing(matchup.homeScore!, matchup.awayScore!, homeLeft, awayLeft) };
-  });
+  const margins = matchups.filter(matchup => matchup.homeScore != null && matchup.awayScore != null).map(matchup => ({
+    ...matchup, margin: Math.abs(matchup.homeScore! - matchup.awayScore!), open: true,
+  }));
   if (!scores.some(row => row.score > 0)) return null;
   const high = scores[0];
   const top = scores.slice(0, 3).flatMap(row => {
@@ -217,7 +214,7 @@ function Overview() {
   for (const meta of LEAGUES) if (summaries[meta.slug].data) board[meta.slug] = summaries[meta.slug].data!;
   return <><section className="page-intro"><div><p className="eyebrow">SEASON 25 <span>/</span> 2026 <span>/</span> WEEK {loaded[0]?.week ?? '—'}</p><h1>The leagues</h1><p className="intro-copy">Three leagues. One JFFL.</p></div></section>
     <FollowedMatchdayStrip />
-    <WeekPulse loaded={loaded} players={players} games={games} />
+    <WeekPulse loaded={loaded} />
     <nav className="overview-links" aria-label="More from JFFL"><Link to="/weekly">Weekly roundup<ArrowUpRight size={14}/></Link><Link to="/history">Trophies & history<ArrowUpRight size={14}/></Link></nav>
     {loaded.length > 0 && <CupStrip data={board} players={players} games={games} />}
     <div className="home-leagues">{LEAGUES.map(meta => { const state = summaries[meta.slug]; const roster = rosters[meta.slug]; const teams = state.data ? state.data.teams.slice().sort((a, b) => (a.rank ?? 99) - (b.rank ?? 99)) : []; return <section className={`home-league ${meta.slug}`} key={meta.slug}>{state.data ? <LeagueStandingsCard meta={meta} teams={teams} updated={state.data} error={state.error} /> : <Waiting error={state.error} />}{state.data && <div className="mini-matchups">{state.data.matchups.map(matchup => { const key = `${meta.slug}:${matchup.id}`; const open = openKey === key; return <MatchupCard key={matchup.id} matchup={matchup} data={state.data!} compact board to={`/league/${meta.slug}/match/${matchup.id}`} expanded={open} onToggle={() => setOpenKey(open ? null : key)} lineup={open ? { players: roster?.data?.players ?? null, loading: roster?.loading ?? true, error: roster?.error ?? false } : undefined} />; })}</div>}</section>; })}</div>
