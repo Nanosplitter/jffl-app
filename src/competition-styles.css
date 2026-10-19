@@ -805,10 +805,20 @@ a:hover .league-ink.jffl,
 .matchday-board > section { display: grid; gap: 8px; }
 .matchday-board h3 { margin: 0 0 4px; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .matchday-board-names { font-size: .84rem; font-weight: 650; color: var(--text); }
+.matchday-board-names span { display: flex; align-items: center; gap: 6px; }
 .matchday-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .matchday-pair.single { grid-template-columns: 1fr; }
 .matchday-column { min-width: 0; }
-.matchday-column-name { display: none; margin: 0 0 6px; font-size: .78rem; font-weight: 650; }
+.matchday-column-name { display: none; margin: 0 0 6px; font-size: .84rem; font-weight: 650; }
+.matchday-column.side-left .matchday-player { background: color-mix(in srgb, #4aa8dd 18%, var(--surface-muted)); border-color: color-mix(in srgb, #4aa8dd 42%, var(--line)); }
+.matchday-column.side-right .matchday-player { background: color-mix(in srgb, #f0a155 18%, var(--surface-muted)); border-color: color-mix(in srgb, #f0a155 42%, var(--line)); }
+.matchday-board-names .side-left::before,
+.matchday-board-names .side-right::before,
+.matchday-column-name::before { content: ""; width: 8px; height: 8px; border-radius: 99px; flex: none; }
+.matchday-board-names .side-left::before,
+.matchday-column.side-left .matchday-column-name::before { background: #4aa8dd; }
+.matchday-board-names .side-right::before,
+.matchday-column.side-right .matchday-column-name::before { background: #f0a155; }
 .matchday-window { margin: 8px 0 4px; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .matchday-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .matchday-player { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; background: var(--surface-muted); border: 1px solid var(--line); border-radius: var(--panel-radius, 0); }
@@ -838,7 +848,7 @@ a:hover .league-ink.jffl,
 @media (max-width: 540px) {
   .matchday-board-names { display: none; }
   .matchday-pair { grid-template-columns: 1fr; gap: 16px; }
-  .matchday-column-name { display: block; }
+  .matchday-column-name { display: flex; align-items: center; gap: 6px; }
   .matchday-player { padding: 10px; }
   .matchday-player .player-meta { flex-wrap: nowrap; }
 }

@@ -274,9 +274,9 @@ function RangeBar({ span, quiet }: { span: { low: number; high: number; center: 
   </span>;
 }
 
-function BoardColumn({ rows, name }: { rows: BoardRow[]; name: string }) {
+function BoardColumn({ rows, name, side }: { rows: BoardRow[]; name: string; side: 'left' | 'right' }) {
   if (!rows.length) return <span />;
-  return <div className="matchday-column">
+  return <div className={`matchday-column side-${side}`}>
     <p className="matchday-column-name">{name}</p>
     <ul className="matchday-players">{rows.map(row => <PlayerLine key={row.player.id} row={row} />)}</ul>
   </div>;
@@ -284,8 +284,8 @@ function BoardColumn({ rows, name }: { rows: BoardRow[]; name: string }) {
 
 function PlayerColumns({ left, right, showLeft, showRight, leftName, rightName }: { left: BoardRow[]; right: BoardRow[]; showLeft: boolean; showRight: boolean; leftName: string; rightName: string }) {
   return <div className={`matchday-pair${showLeft && showRight ? '' : ' single'}`}>
-    {showLeft && <BoardColumn rows={left} name={leftName} />}
-    {showRight && <BoardColumn rows={right} name={rightName} />}
+    {showLeft && <BoardColumn rows={left} name={leftName} side="left" />}
+    {showRight && <BoardColumn rows={right} name={rightName} side="right" />}
   </div>;
 }
 
@@ -312,7 +312,7 @@ function Board({ left, right, showLeft, showRight, leftName, rightName }: {
     ? <section key={section.title}><h3>{section.title}</h3><PlayerColumns left={section.left} right={section.right} showLeft={showLeft} showRight={showRight} leftName={leftName} rightName={rightName} /></section>
     : null;
   return <div className="matchday-board">
-    <div className={`matchday-pair matchday-board-names${both ? '' : ' single'}`}><span className={showLeft ? '' : 'matchday-hidden'}>{leftName}</span><span className={showRight ? '' : 'matchday-hidden'}>{rightName}</span></div>
+    <div className={`matchday-pair matchday-board-names${both ? '' : ' single'}`}><span className={showLeft ? 'side-left' : 'matchday-hidden'}>{leftName}</span><span className={showRight ? 'side-right' : 'matchday-hidden'}>{rightName}</span></div>
     {block(playing)}
     {yetWindows.length > 0 && <section><h3>Yet to play</h3>{yetWindows.map(window => <div key={window}><p className="matchday-window">{window}</p><PlayerColumns left={left.yet.find(group => group.window === window)?.players ?? []} right={other.yet.find(group => group.window === window)?.players ?? []} showLeft={showLeft} showRight={showRight} leftName={leftName} rightName={rightName} /></div>)}</section>}
     {later.map(block)}
