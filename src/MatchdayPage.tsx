@@ -238,7 +238,7 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
   if (!match.right) return null;
   const ready = history.length >= 2;
   const height = narrow ? 200 : 240;
-  const card = (mode: ChartMode, title: string, caption: string) => <section className="matchday-chart" aria-label={title}>
+  const card = (mode: ChartMode, title: string) => <section className="matchday-chart" aria-label={title}>
     <h3 className="matchday-chart-title">{title}</h3>
     {ready
       ? <ArchiveChart option={chartOption(dark, mode, match.left.manager, match.right!.manager, history, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}.`} height={height} />
@@ -247,13 +247,10 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
       <p className="chance-edge"><span style={{ background: theme.palette[0] }} />{match.left.manager}</p>
       <p className="chance-edge"><span style={{ background: theme.palette[1] }} />{match.right!.manager}</p>
     </div>
-    <p className="matchday-chart-caption">{caption}</p>
   </section>;
   return <div className="matchday-charts">
-    {card('chance', 'Win chance', `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.`)}
-    {card('score', 'Score', history.length >= 2 && scoreChartScale(history[0].t * 1000, history[history.length - 1].t * 1000, outlook.end).compressed
-      ? 'The dashed line continues from the score to the projected finish. Later hours are shortened so the score stays readable.'
-      : 'The dashed line continues from the score to the projected finish. The shade is the range around it.')}
+    {card('chance', 'Win chance')}
+    {card('score', 'Score')}
   </div>;
 }
 

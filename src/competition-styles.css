@@ -788,7 +788,6 @@ a:hover .league-ink.jffl,
 .chance-edge { display: flex; align-items: center; gap: 6px; margin: 0; font-size: .78rem; font-weight: 650; min-width: 0; }
 .chance-edge span { width: 8px; height: 8px; border-radius: 99px; flex: none; }
 .matchday-empty { margin: 28px 0; color: var(--muted); text-align: center; font-size: .84rem; }
-.matchday-chart-caption { margin: 6px 0 0; color: var(--muted); font-size: .75rem; }
 .matchday-insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
 .matchday-insight { display: grid; align-content: start; gap: 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); }
 .matchday-insight .eyebrow { margin: 0; }
