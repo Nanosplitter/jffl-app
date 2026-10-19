@@ -489,8 +489,8 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
   .header-tools { margin-left: auto; }
   .theme-toggle { width: 44px; height: 44px; }
   .account-button { min-height: 44px; }
-  .header-inner nav { order: 3; flex-basis: 100%; margin: 0; justify-content: space-between; gap: 4px; }
-  .header-inner nav a { font-size: .75rem; padding: 14px 8px 13px; }
+  .header-inner nav { order: 3; flex: 1 1 100%; min-width: 0; margin: 0; justify-content: space-between; gap: 0; }
+  .header-inner nav a { flex: 1 1 0; min-width: 0; text-align: center; font-size: .68rem; padding: 14px 1px 13px; white-space: nowrap; }
   .league-strip > div { padding: 0 14px; justify-content: space-between; gap: 4px; }
   .league-strip a { font-size: .63rem; padding: 14px 6px 12px; }
   main { padding: 32px 18px 44px; }
@@ -507,6 +507,10 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
   .home-league .mini-matchups > .matchup { flex-basis: 100%; width: 100%; max-width: none; }
   .player-headshot, .nfl-portrait { width: 30px; height: 30px; flex-basis: 30px; }
   .league-title h1 { font-size: 3rem; }
+}
+@media(max-width:400px) {
+  .header-inner { padding-left: 8px; padding-right: 8px; }
+  .header-inner nav a { font-size: .62rem; letter-spacing: -.01em; }
   .league-intro { flex-wrap: wrap; }
   .team-metrics { grid-template-columns: repeat(2,1fr); }
   .metric { padding: 18px 0; }
