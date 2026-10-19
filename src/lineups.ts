@@ -1,4 +1,4 @@
-import type { RosteredPlayer, WeekLineup } from './types';
+import type { LiveGame, RosteredPlayer, WeekLineup } from './types';
 
 const SLOT_ORDER = ['QB', 'RB', 'WR', 'TE', 'RB/WR/TE', 'FLEX', 'D/ST', 'K'];
 
@@ -48,12 +48,22 @@ export function historicalStarters(lineups: WeekLineup[] | undefined, teamId: st
   })).sort(compareByLineup);
 }
 
-/** Points still projected for starters who have not played. Null when this snapshot has no starters for the team. */
-export function pointsStillToPlay(players: readonly RosteredPlayer[] | null | undefined, teamId: string | null): number | null {
+/** Points still projected for starters who have not finished. A live game keeps the rest of the projection. Null when this snapshot has no starters for the team. */
+export function pointsStillToPlay(players: readonly RosteredPlayer[] | null | undefined, teamId: string | null, games?: Record<string, LiveGame> | null): number | null {
   if (!players || !teamId) return null;
   const starters = players.filter(player => player.teamId === teamId && player.group === 'starter');
   if (!starters.length) return null;
-  return starters.reduce((sum, player) => sum + (player.weekPoints == null && player.projectedPoints != null ? player.projectedPoints : 0), 0);
+  return starters.reduce((sum, player) => {
+    const projected = player.projectedPoints;
+    if (projected == null || !Number.isFinite(projected)) return sum;
+    const game = player.proTeam ? games?.[player.proTeam] : undefined;
+    if (game?.state === 'post') return sum;
+    if (game?.state === 'in') {
+      const progress = Math.min(1, Math.max(0, game.progress));
+      return progress >= 1 ? sum : sum + projected * (1 - progress);
+    }
+    return player.weekPoints == null ? sum + projected : sum;
+  }, 0);
 }
 
 /** The trailer can still take the lead, or a tie still has a starter left. Unknown lineups stay open. */

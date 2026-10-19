@@ -93,6 +93,10 @@ test('the closest game that can still flip beats a tighter game whose lineups ar
   const players = [played('home', 10), played('away', 12), waiting('trail', 9), played('lead', 20)];
   assert.equal(pointsStillToPlay(players, 'away'), 0);
   assert.equal(pointsStillToPlay(players, 'trail'), 9);
+  const liveZero: RosteredPlayer = { ...played('live', 0), proTeam: 'GB', projectedPoints: 8, weekPoints: 0 };
+  const halfway = { GB: { kickoff: '2026-10-18T17:00:00Z', state: 'in' as const, detail: 'Q3', progress: 0.5 } };
+  assert.equal(pointsStillToPlay([liveZero], 'live', halfway), 4);
+  assert.equal(canStillSwing(67, 66, 0, pointsStillToPlay([liveZero], 'live', halfway)), true);
   assert.equal(pointsStillToPlay(players, 'missing'), null);
   assert.equal(canStillSwing(80, 82, 0, 0), false);
   assert.equal(canStillSwing(70, 76, 9, 0), true);
