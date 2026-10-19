@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { gameProgress, liveWinChance, sideVariance, winChanceSeries, withNow, type OddsStarter } from '../src/liveOdds.ts';
+import { gameProgress, liveWinChance, scoreChartScale, sideVariance, winChanceSeries, withNow, type OddsStarter } from '../src/liveOdds.ts';
 import type { LiveGame } from '../src/types.ts';
 
 const kickoff = '2026-10-18T17:00:00Z';
@@ -9,6 +9,20 @@ const gameMs = 3.25 * 60 * 60 * 1000;
 
 const starter = (partial: Partial<OddsStarter>): OddsStarter => ({
   name: 'Pat', position: 'QB', proTeam: 'KC', weekPoints: null, projectedPoints: 18, previousPoints: [], kickoff, ...partial,
+});
+
+test('a finish a day away does not outgrow the recorded score', () => {
+  const startMs = Date.parse('2026-10-18T22:00:00Z');
+  const nowMs = startMs + 2 * 60 * 60 * 1000;
+  const endMs = nowMs + 24 * 60 * 60 * 1000;
+  const scale = scoreChartScale(startMs, nowMs, endMs);
+  assert.equal(scale.compressed, true);
+  assert.equal(scale.max - scale.toX(nowMs), scale.toX(nowMs) - scale.min);
+  assert.equal(scale.fromX(scale.toX(endMs)), endMs);
+  assert.equal(scale.toX(startMs), startMs);
+  const soon = scoreChartScale(startMs, nowMs, nowMs + 60 * 60 * 1000);
+  assert.equal(soon.compressed, false);
+  assert.equal(soon.toX(nowMs + 60 * 60 * 1000), nowMs + 60 * 60 * 1000);
 });
 
 test('game progress uses the live slate now and kickoff otherwise', () => {

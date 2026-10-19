@@ -7,7 +7,7 @@ import { chartTheme } from './history/archiveCharts';
 import { baseOption, esc } from './history/chartKit';
 import { useLive, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
-import { forecastEnd, liveMatchChance, openVariance, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
+import { forecastEnd, liveMatchChance, openVariance, scoreChartScale, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
 import { matchdayMatches, matchFacts, matchTotal, playerBoard, pointSpan, pointsStillOut, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
 import { PlayerIdentity } from './PlayerIdentity';
 import { MANAGERS, leagueInk, managerFor } from './reference';
@@ -20,6 +20,7 @@ type SideFilter = 'left' | 'right' | 'both';
 type ChartMode = 'chance' | 'score';
 
 const clockFormat = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: '2-digit' });
+const axisClock = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric' });
 
 function useNarrow(query: string) {
   const [on, setOn] = useState(() => typeof window !== 'undefined' && window.matchMedia(query).matches);
@@ -103,26 +104,28 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
     const last = pointsIn[pointsIn.length - 1];
     const nowMs = last.t * 1000;
     const endMs = outlook && outlook.end > nowMs + 60_000 ? outlook.end : nowMs;
+    const scale = scoreChartScale(pointsIn[0].t * 1000, nowMs, endMs);
+    const plot = (time: number) => scale.compressed ? scale.toX(time) : time;
     const quiet = { axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false } };
     const scored = (name: string, color: string, value: (point: typeof pointsIn[number]) => number | null) => ({
       name, type: 'line' as const, showSymbol: false, connectNulls: false, color, z: 3,
       lineStyle: { width: 2.5 },
       data: pointsIn.flatMap(point => {
         const score = value(point);
-        return score == null ? [] : [{ value: [point.t * 1000, score] as [number, number] }];
+        return score == null ? [] : [{ value: [plot(point.t * 1000), score] as [number, number] }];
       }),
     });
     const projected = (name: string, color: string, score: number | null, finish: number | null) => score == null || finish == null || endMs <= nowMs ? [] : [{
       name: `${name} projected`, type: 'line' as const, showSymbol: false, color, z: 2,
       lineStyle: { width: 1.5, type: 'dashed' as const },
-      data: [{ value: [nowMs, score] as [number, number] }, { value: [endMs, finish] as [number, number] }],
+      data: [{ value: [plot(nowMs), score] as [number, number] }, { value: [plot(endMs), finish] as [number, number] }],
     }];
     const cone = (stack: string, color: string, score: number | null, finish: number | null, sd: number) => {
       if (score == null || finish == null || sd < 0.5 || endMs <= nowMs) return [];
       const hidden = { symbol: 'none' as const, silent: true, legendHoverLink: false, lineStyle: { opacity: 0 }, tooltip: { show: false }, emphasis: { disabled: true } };
       return [
-        { ...hidden, name: `${stack} low`, type: 'line' as const, stack, data: [[nowMs, score], [endMs, finish - sd]], areaStyle: { opacity: 0 } },
-        { ...hidden, name: `${stack} span`, type: 'line' as const, stack, data: [[nowMs, 0], [endMs, sd * 2]], areaStyle: { color, opacity: 0.35 } },
+        { ...hidden, name: `${stack} low`, type: 'line' as const, stack, data: [[plot(nowMs), score], [plot(endMs), finish - sd]], areaStyle: { opacity: 0 } },
+        { ...hidden, name: `${stack} span`, type: 'line' as const, stack, data: [[plot(nowMs), 0], [plot(endMs), sd * 2]], areaStyle: { color, opacity: 0.35 } },
       ];
     };
     const base = baseOption(theme, { top: 8 });
@@ -131,9 +134,10 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
       legend: undefined,
       grid: { ...base.grid, top: 8, bottom: 4 },
       tooltip: { ...base.tooltip, trigger: 'axis' as const, axisPointer: { type: 'line' as const, lineStyle: { color: theme.muted, type: 'dashed' as const } }, formatter: (params: { axisValue?: number; data?: { value?: [number, number] } | [number, number]; seriesName?: string; marker?: string }[]) => {
-        const time = params.map(item => item.axisValue).find(value => value != null);
-        if (time == null) return '';
-        const future = time > nowMs;
+        const axisTime = params.map(item => item.axisValue).find(value => value != null);
+        if (axisTime == null) return '';
+        const time = scale.compressed ? scale.fromX(axisTime) : axisTime;
+        const future = time > nowMs + 30_000;
         if (future) {
           const bands = [
             { name: leftName, color: leftColor, score: last.scoreLeft, finish: last.projectedLeft, sd: outlook?.leftSd ?? 0 },
@@ -162,7 +166,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
           return `${item.marker ?? ''} ${esc(item.seriesName)} ${esc(value)}`;
         }));
       } },
-      xAxis: { type: 'time' as const, axisLabel: { color: theme.muted, hideOverlap: true }, ...quiet },
+      xAxis: { type: 'time' as const, ...(scale.compressed ? { min: scale.min, max: scale.max } : {}), axisLabel: { color: theme.muted, hideOverlap: true, ...(scale.compressed ? { formatter: (value: number) => axisClock.format(scale.fromX(value)) } : {}) }, ...quiet },
       yAxis: { type: 'value' as const, scale: true, axisLabel: { color: theme.muted }, ...quiet },
       series: [
         ...cone('left-range', leftColor, last.scoreLeft, last.projectedLeft, outlook?.leftSd ?? 0),
@@ -247,7 +251,9 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
   </section>;
   return <div className="matchday-charts">
     {card('chance', 'Win chance', `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.`)}
-    {card('score', 'Score', 'The dashed line continues from the score to the projected finish. The shade is the range around it.')}
+    {card('score', 'Score', history.length >= 2 && scoreChartScale(history[0].t * 1000, history[history.length - 1].t * 1000, outlook.end).compressed
+      ? 'The dashed line continues from the score to the projected finish. Later hours are shortened so the score stays readable.'
+      : 'The dashed line continues from the score to the projected finish. The shade is the range around it.')}
   </div>;
 }
 

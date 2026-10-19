@@ -61,6 +61,21 @@ function stillOpen(player: OddsStarter, games: Record<string, LiveGame> | null |
   return progress < 1;
 }
 
+/**
+ * Chart scale for a score forecast. A finish that is farther away than the
+ * scores already recorded is squeezed so the cone never outgrows that history.
+ */
+export function scoreChartScale(startMs: number, nowMs: number, endMs: number) {
+  const past = Math.max(nowMs - startMs, 0);
+  const future = Math.max(endMs - nowMs, 0);
+  const pastWeight = Math.max(past, 30 * 60 * 1000);
+  const futureWeight = Math.min(future, pastWeight);
+  const compressed = future - futureWeight > 60_000;
+  const toX = (time: number) => compressed && time > nowMs ? nowMs + ((time - nowMs) / future) * futureWeight : time;
+  const fromX = (x: number) => compressed && x > nowMs ? nowMs + ((x - nowMs) / futureWeight) * future : x;
+  return { compressed, min: nowMs - pastWeight, max: nowMs + futureWeight, toX, fromX };
+}
+
 /** When the last starter still on the field should be done. */
 export function forecastEnd(starters: readonly OddsStarter[], games: Record<string, LiveGame> | null | undefined, now: number, week: number): number {
   let end = now;
