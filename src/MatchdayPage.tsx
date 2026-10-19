@@ -274,15 +274,18 @@ function RangeBar({ span, quiet }: { span: { low: number; high: number; center: 
   </span>;
 }
 
-function BoardColumn({ rows }: { rows: BoardRow[] }) {
+function BoardColumn({ rows, name }: { rows: BoardRow[]; name: string }) {
   if (!rows.length) return <span />;
-  return <ul className="matchday-players">{rows.map(row => <PlayerLine key={row.player.id} row={row} />)}</ul>;
+  return <div className="matchday-column">
+    <p className="matchday-column-name">{name}</p>
+    <ul className="matchday-players">{rows.map(row => <PlayerLine key={row.player.id} row={row} />)}</ul>
+  </div>;
 }
 
-function PlayerColumns({ left, right, showLeft, showRight }: { left: BoardRow[]; right: BoardRow[]; showLeft: boolean; showRight: boolean }) {
+function PlayerColumns({ left, right, showLeft, showRight, leftName, rightName }: { left: BoardRow[]; right: BoardRow[]; showLeft: boolean; showRight: boolean; leftName: string; rightName: string }) {
   return <div className={`matchday-pair${showLeft && showRight ? '' : ' single'}`}>
-    {showLeft && <BoardColumn rows={left} />}
-    {showRight && <BoardColumn rows={right} />}
+    {showLeft && <BoardColumn rows={left} name={leftName} />}
+    {showRight && <BoardColumn rows={right} name={rightName} />}
   </div>;
 }
 
@@ -306,15 +309,15 @@ function Board({ left, right, showLeft, showRight, leftName, rightName }: {
     { title: 'Missed their projection', left: finished(left.below, -1), right: finished(other.below, -1) },
   ];
   const block = (section: { title: string; left: BoardRow[]; right: BoardRow[] }) => (section.left.length || section.right.length)
-    ? <section key={section.title}><h3>{section.title}</h3><PlayerColumns left={section.left} right={section.right} showLeft={showLeft} showRight={showRight} /></section>
+    ? <section key={section.title}><h3>{section.title}</h3><PlayerColumns left={section.left} right={section.right} showLeft={showLeft} showRight={showRight} leftName={leftName} rightName={rightName} /></section>
     : null;
   return <div className="matchday-board">
     <div className={`matchday-pair matchday-board-names${both ? '' : ' single'}`}><span className={showLeft ? '' : 'matchday-hidden'}>{leftName}</span><span className={showRight ? '' : 'matchday-hidden'}>{rightName}</span></div>
     {block(playing)}
-    {yetWindows.length > 0 && <section><h3>Yet to play</h3>{yetWindows.map(window => <div key={window}><p className="matchday-window">{window}</p><PlayerColumns left={left.yet.find(group => group.window === window)?.players ?? []} right={other.yet.find(group => group.window === window)?.players ?? []} showLeft={showLeft} showRight={showRight} /></div>)}</section>}
+    {yetWindows.length > 0 && <section><h3>Yet to play</h3>{yetWindows.map(window => <div key={window}><p className="matchday-window">{window}</p><PlayerColumns left={left.yet.find(group => group.window === window)?.players ?? []} right={other.yet.find(group => group.window === window)?.players ?? []} showLeft={showLeft} showRight={showRight} leftName={leftName} rightName={rightName} /></div>)}</section>}
     {later.map(block)}
-    {(left.bye.length || other.bye.length) > 0 && <section><h3>Bye</h3><PlayerColumns left={left.bye} right={other.bye} showLeft={showLeft} showRight={showRight} /></section>}
-    {(close(left).length || close(other).length) > 0 && <section><h3>Finished near projection</h3><PlayerColumns left={close(left)} right={close(other)} showLeft={showLeft} showRight={showRight} /></section>}
+    {(left.bye.length || other.bye.length) > 0 && <section><h3>Bye</h3><PlayerColumns left={left.bye} right={other.bye} showLeft={showLeft} showRight={showRight} leftName={leftName} rightName={rightName} /></section>}
+    {(close(left).length || close(other).length) > 0 && <section><h3>On pace</h3><PlayerColumns left={close(left)} right={close(other)} showLeft={showLeft} showRight={showRight} leftName={leftName} rightName={rightName} /></section>}
   </div>;
 }
 

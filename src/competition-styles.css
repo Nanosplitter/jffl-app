@@ -763,8 +763,9 @@ a:hover .league-ink.jffl,
 .matchday-strip strong { font-size: 1.05rem; }
 .matchday-jumps { display: flex; flex-wrap: wrap; gap: 8px; }
 .matchday-jumps a { padding: 6px 10px; border: 1px solid var(--line); background: var(--surface); color: inherit; text-decoration: none; font-size: .75rem; }
-.matchday-toggle { display: inline-flex; border: 1px solid var(--line); }
+.matchday-toggle { display: inline-flex; border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); overflow: hidden; }
 .matchday-toggle button { background: transparent; border: 0; color: var(--muted); padding: 7px 12px; font-size: .72rem; font-weight: 650; }
+.matchday-toggle button + button { box-shadow: inset 1px 0 0 var(--line); }
 .matchday-toggle button[aria-pressed=true] { background: var(--accent); color: #fff; }
 .matchday-match { scroll-margin-top: 72px; display: grid; gap: 12px; }
 .matchday-match-head h2 { margin: 0; font-size: 1.35rem; }
@@ -806,6 +807,8 @@ a:hover .league-ink.jffl,
 .matchday-board-names { font-size: .84rem; font-weight: 650; color: var(--text); }
 .matchday-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .matchday-pair.single { grid-template-columns: 1fr; }
+.matchday-column { min-width: 0; }
+.matchday-column-name { display: none; margin: 0 0 6px; font-size: .78rem; font-weight: 650; }
 .matchday-window { margin: 8px 0 4px; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .matchday-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .matchday-player { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; background: var(--surface-muted); border: 1px solid var(--line); border-radius: var(--panel-radius, 0); }
@@ -826,6 +829,16 @@ a:hover .league-ink.jffl,
 @media (max-width: 720px) {
   .matchday-chart-head { grid-template-columns: 1fr; }
   .chance-edge.right { justify-content: flex-start; }
+  .matchday-chart .matchday-toggle,
+  .matchday > .matchday-toggle { width: 100%; }
+  .matchday-toggle button { flex: 1; min-height: 40px; padding: 8px 10px; font-size: .8rem; }
   .matchday-proj { font-size: .68rem; }
   .match-board .match-center-score { font-size: 2.2rem; }
+}
+@media (max-width: 540px) {
+  .matchday-board-names { display: none; }
+  .matchday-pair { grid-template-columns: 1fr; gap: 16px; }
+  .matchday-column-name { display: block; }
+  .matchday-player { padding: 10px; }
+  .matchday-player .player-meta { flex-wrap: nowrap; }
 }
