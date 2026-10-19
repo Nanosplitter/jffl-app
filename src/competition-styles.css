@@ -810,8 +810,8 @@ a:hover .league-ink.jffl,
 .matchday-pair.single { grid-template-columns: 1fr; }
 .matchday-column { min-width: 0; }
 .matchday-column-name { display: none; margin: 0 0 6px; font-size: .84rem; font-weight: 650; }
-.matchday-column.side-left .matchday-player { background: color-mix(in srgb, #4aa8dd 18%, var(--surface-muted)); border-color: color-mix(in srgb, #4aa8dd 42%, var(--line)); }
-.matchday-column.side-right .matchday-player { background: color-mix(in srgb, #f0a155 18%, var(--surface-muted)); border-color: color-mix(in srgb, #f0a155 42%, var(--line)); }
+.matchday-column.side-left .matchday-player { background: color-mix(in srgb, #4aa8dd 8%, var(--surface-muted)); border-color: color-mix(in srgb, #4aa8dd 22%, var(--line)); }
+.matchday-column.side-right .matchday-player { background: color-mix(in srgb, #f0a155 8%, var(--surface-muted)); border-color: color-mix(in srgb, #f0a155 22%, var(--line)); }
 .matchday-board-names .side-left::before,
 .matchday-board-names .side-right::before,
 .matchday-column-name::before { content: ""; width: 8px; height: 8px; border-radius: 99px; flex: none; }
