@@ -135,7 +135,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
         `${esc(rightName)} ${point.scoreRight ?? '—'} · proj ${point.projectedRight ?? '—'}`,
       ]);
     } },
-    visualMap: { show: false, type: 'piecewise' as const, seriesIndex: 0, dimension: 1, pieces: [{ gt: 50, color: leftColor }, { lte: 50, color: rightColor }] },
+    visualMap: { show: false, type: 'piecewise' as const, seriesIndex: 0, dimension: 1, pieces: [{ min: 50, max: 100, color: leftColor }, { min: 0, max: 50, color: rightColor }] },
     xAxis: { type: 'time' as const, axisLabel: { color: theme.muted, hideOverlap: true } },
     yAxis: { type: 'value' as const, min: 0, max: 100, interval: 25, axisLabel: { color: theme.muted, formatter: '{value}%' } },
     series: [{

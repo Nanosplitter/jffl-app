@@ -76,7 +76,7 @@ export function ArchiveChart({ option, summary, height = 380, onSelect }: { opti
 
   useEffect(() => {
     if (!ready || !chartRef.current) return;
-    chartRef.current.setOption(option as never, true);
+    try { chartRef.current.setOption(option as never, true); } catch { /* A bad option must not take down the page. */ }
   }, [ready, option]);
 
   return <figure className="score-chart">
