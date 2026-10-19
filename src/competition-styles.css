@@ -780,7 +780,7 @@ a:hover .league-ink.jffl,
 .matchday-remaining strong { display: block; font-size: .92rem; }
 .matchday-remaining small, .matchday-remaining .cup-odds-note { color: var(--muted); }
 .matchday-remaining .is-right { text-align: right; }
-.matchday-chart { background: var(--surface); border: 1px solid var(--line); padding: 12px 12px 4px; min-width: 0; }
+.matchday-chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); padding: 12px 12px 4px; min-width: 0; }
 .matchday-chart-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
 .chance-edge { display: flex; align-items: center; gap: 6px; margin: 0; font-size: .78rem; font-weight: 650; min-width: 0; }
 .chance-edge.right { justify-content: flex-end; }
@@ -788,12 +788,15 @@ a:hover .league-ink.jffl,
 .matchday-empty { margin: 28px 0; color: var(--muted); text-align: center; font-size: .84rem; }
 .matchday-chart-caption { margin: 8px 0 0; color: var(--muted); font-size: .75rem; }
 .matchday-insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
-.matchday-insight { display: grid; align-content: start; gap: 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); }
+.matchday-insight { display: grid; align-content: start; gap: 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); }
 .matchday-insight .eyebrow { margin: 0; }
 .matchday-insight strong { font-size: 1.2rem; }
 .matchday-insight p { margin: 0; color: var(--muted); font-size: .75rem; line-height: 1.4; }
 .matchday-range { display: grid; grid-template-columns: auto minmax(40px, 1fr) auto; align-items: center; gap: 8px; color: var(--muted); font-size: .75rem; font-variant-numeric: tabular-nums; }
 .matchday-range .track { height: 4px; background: linear-gradient(90deg, var(--danger), var(--line) 50%, var(--accent)); }
+.matchday-range .track-col { display: grid; gap: 2px; justify-items: center; min-width: 0; }
+.matchday-range .track-col .track { width: 100%; }
+.matchday-range-mid { color: var(--muted); font-size: .68rem; line-height: 1; }
 .matchday-bench { display: flex; justify-content: space-between; gap: 12px; }
 .matchday-bench span { display: grid; gap: 2px; color: var(--muted); font-size: .75rem; }
 .matchday-bench strong { font-size: 1.2rem; color: var(--text); }

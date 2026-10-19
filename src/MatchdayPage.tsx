@@ -130,10 +130,31 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
       ...base,
       legend: undefined,
       grid: { ...base.grid, top: 8, bottom: 4 },
-      tooltip: { ...base.tooltip, trigger: 'axis' as const, axisPointer: { type: 'line' as const, lineStyle: { color: theme.muted, type: 'dashed' as const } }, formatter: (params: { data?: { value?: [number, number] } | [number, number]; seriesName?: string; marker?: string }[]) => {
-        const rows = params.filter(item => item.seriesName && !item.seriesName.includes('range') && item.data);
-        const time = rows.map(item => Array.isArray(item.data) ? item.data[0] : item.data?.value?.[0]).find(value => value != null);
+      tooltip: { ...base.tooltip, trigger: 'axis' as const, axisPointer: { type: 'line' as const, lineStyle: { color: theme.muted, type: 'dashed' as const } }, formatter: (params: { axisValue?: number; data?: { value?: [number, number] } | [number, number]; seriesName?: string; marker?: string }[]) => {
+        const time = params.map(item => item.axisValue).find(value => value != null);
         if (time == null) return '';
+        const future = time > nowMs;
+        if (future) {
+          const bands = [
+            { name: leftName, score: last.scoreLeft, finish: last.projectedLeft, sd: outlook?.leftSd ?? 0 },
+            { name: rightName, score: last.scoreRight, finish: last.projectedRight, sd: outlook?.rightSd ?? 0 },
+          ];
+          const span = Math.max(endMs - nowMs, 1);
+          const place = Math.min(1, Math.max(0, (time - nowMs) / span));
+          const shown = (value: number) => {
+            const rounded = Math.round(value * 10) / 10;
+            return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+          };
+          return tip(time, bands.flatMap(band => {
+            if (band.score == null || band.finish == null || band.sd < 0.5) return [];
+            const at = (end: number) => band.score! + (end - band.score!) * place;
+            return [
+              `${esc(band.name)} projected ${shown(at(band.finish))}`,
+              `Low ${shown(at(band.finish - band.sd))} · High ${shown(at(band.finish + band.sd))}`,
+            ];
+          }));
+        }
+        const rows = params.filter(item => item.seriesName && !item.seriesName.includes('range') && !item.seriesName.endsWith(' projected') && item.data);
         return tip(time, rows.map(item => {
           const value = Array.isArray(item.data) ? item.data[1] : item.data?.value?.[1];
           return `${item.marker ?? ''} ${esc(item.seriesName)} ${esc(value)}`;
@@ -240,12 +261,14 @@ function PlayerLine({ row }: { row: BoardRow }) {
   </li>;
 }
 
-function RangeBar({ span, quiet }: { span: { low: number; high: number } | null; quiet?: boolean }) {
+function RangeBar({ span, quiet }: { span: { low: number; high: number; center: number } | null; quiet?: boolean }) {
   if (!span) return null;
   const low = points(span.low);
   const high = points(span.high);
-  return <span className={`matchday-range compact${quiet ? ' quiet' : ''}`} title={quiet ? 'Usual weekly points' : 'Where this player can still finish'} aria-label={`${quiet ? 'Usual points' : 'Can finish'} from ${low} to ${high}`}>
-    <span>{low}</span><span className="track" /><span>{high}</span>
+  return <span className={`matchday-range compact${quiet ? ' quiet' : ''}`} title={quiet ? 'Usual weekly points' : 'Where this player can still finish'} aria-label={`${quiet ? 'Usual points' : 'Can finish'} from ${low} to ${high}, expected ${points(span.center)}`}>
+    <span>{low}</span>
+    <span className="track-col"><span className="track" /><span className="matchday-range-mid">{points(span.center)}</span></span>
+    <span>{high}</span>
   </span>;
 }
 
@@ -275,15 +298,19 @@ function Board({ left, right, showLeft, showRight, leftName, rightName }: {
   const finished = (rows: BoardRow[], direction: number) => rows.filter(row => row.status === 'done' && row.gap != null && Math.sign(row.gap) === direction);
   const close = (board: PlayerBoard) => board.done.filter(row => row.gap == null || Math.abs(row.gap) < 1);
   const yetWindows = [...new Set([...left.yet.map(group => group.window), ...other.yet.map(group => group.window)])];
-  const sections: { title: string; left: BoardRow[]; right: BoardRow[] }[] = [
-    { title: 'Playing now', left: left.playing, right: other.playing },
+  const playing = { title: 'Playing now', left: left.playing, right: other.playing };
+  const later: { title: string; left: BoardRow[]; right: BoardRow[] }[] = [
     { title: 'Beat their projection', left: finished(left.above, 1), right: finished(other.above, 1) },
     { title: 'Missed their projection', left: finished(left.below, -1), right: finished(other.below, -1) },
   ];
+  const block = (section: { title: string; left: BoardRow[]; right: BoardRow[] }) => (section.left.length || section.right.length)
+    ? <section key={section.title}><h3>{section.title}</h3><PlayerColumns left={section.left} right={section.right} showLeft={showLeft} showRight={showRight} /></section>
+    : null;
   return <div className="matchday-board">
     <div className={`matchday-pair matchday-board-names${both ? '' : ' single'}`}><span className={showLeft ? '' : 'matchday-hidden'}>{leftName}</span><span className={showRight ? '' : 'matchday-hidden'}>{rightName}</span></div>
-    {sections.map(section => (section.left.length || section.right.length) ? <section key={section.title}><h3>{section.title}</h3><PlayerColumns left={section.left} right={section.right} showLeft={showLeft} showRight={showRight} /></section> : null)}
+    {block(playing)}
     {yetWindows.length > 0 && <section><h3>Yet to play</h3>{yetWindows.map(window => <div key={window}><p className="matchday-window">{window}</p><PlayerColumns left={left.yet.find(group => group.window === window)?.players ?? []} right={other.yet.find(group => group.window === window)?.players ?? []} showLeft={showLeft} showRight={showRight} /></div>)}</section>}
+    {later.map(block)}
     {(left.bye.length || other.bye.length) > 0 && <section><h3>Bye</h3><PlayerColumns left={left.bye} right={other.bye} showLeft={showLeft} showRight={showRight} /></section>}
     {(close(left).length || close(other).length) > 0 && <section><h3>Finished near projection</h3><PlayerColumns left={close(left)} right={close(other)} showLeft={showLeft} showRight={showRight} /></section>}
   </div>;

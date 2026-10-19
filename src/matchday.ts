@@ -227,7 +227,7 @@ function rounded(value: number) {
 }
 
 /** Low and high finish for one starter. Playing and yet-to-play use the range still left. */
-export function pointSpan(row: BoardRow): { low: number; high: number } | null {
+export function pointSpan(row: BoardRow): { low: number; high: number; center: number } | null {
   const open = row.status === 'playing' || row.status === 'yet';
   const progress = row.status === 'yet' ? 0 : row.progress;
   const width = row.spread * (open ? Math.sqrt(Math.max(0, 1 - progress)) : 1);
@@ -238,7 +238,7 @@ export function pointSpan(row: BoardRow): { low: number; high: number } | null {
     ? projected == null && scored == null ? null : (scored ?? 0) + (projected ?? 0) * (1 - progress)
     : projected ?? scored;
   if (center == null) return null;
-  return { low: rounded(center - width), high: rounded(center + width) };
+  return { low: rounded(center - width), high: rounded(center + width), center: rounded(center) };
 }
 
 /** Points still to come, as a low and a high around the projection. */

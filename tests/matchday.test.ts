@@ -114,7 +114,7 @@ test('a player range is a low and a high score, and points left use the same spa
     player({ id: '2', name: 'Later', proTeam: 'BUF', projectedPoints: 12, kickoff: '2026-10-20T00:15:00Z' }),
   ], games, now, 6);
   const live = pointSpan(board.playing[0]);
-  assert.equal(live && Math.round(((live.low + live.high) / 2) * 100) / 100, 9);
+  assert.equal(live?.center, 9);
   assert.ok(live && live.low < 9 && live.high > 9);
   const waiting = pointSpan(board.yet[0].players[0]);
   assert.equal(waiting?.low, 12 - board.yet[0].players[0].spread);
