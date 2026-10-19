@@ -37,6 +37,8 @@ export interface BoardRow {
   status: BoardStatus;
   gap: number | null;
   progress: number;
+  /** Usual weekly scoring range for this player. */
+  spread: number;
   detail: string;
   window: string;
 }
@@ -183,7 +185,9 @@ export function playerBoard(starters: readonly RosteredPlayer[], games: Record<s
       ? player.weekPoints - player.projectedPoints * pace
       : null;
     const window = status === 'bye' ? 'Bye' : kickoffWindow(player.kickoff ?? game?.kickoff) ?? 'Time TBD';
-    return { player, status, gap, progress, detail: rowDetail(status, game, player.kickoff ?? game?.kickoff), window };
+    const starter = toOddsStarter(player, week);
+    const spread = playerSpread(starter.position, starter.previousPoints);
+    return { player, status, gap, progress, spread, detail: rowDetail(status, game, player.kickoff ?? game?.kickoff), window };
   });
   const byGap = (direction: number) => rows
     .filter(row => row.gap != null && Math.abs(row.gap) >= PACE_GAP && Math.sign(row.gap) === direction)

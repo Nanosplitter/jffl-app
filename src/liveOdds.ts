@@ -53,6 +53,40 @@ export function gameProgress(game: LiveGame | null | undefined, kickoff: string 
   return (at - start) / (finish - start);
 }
 
+function stillOpen(player: OddsStarter, games: Record<string, LiveGame> | null | undefined, now: number, week: number) {
+  if (byeWeek(player.proTeam) === week) return false;
+  const game = player.proTeam ? games?.[player.proTeam] : undefined;
+  if (game?.state === 'post') return false;
+  const progress = gameProgress(game, player.kickoff ?? game?.kickoff ?? null, now, now);
+  return progress < 1;
+}
+
+/** When the last starter still on the field should be done. */
+export function forecastEnd(starters: readonly OddsStarter[], games: Record<string, LiveGame> | null | undefined, now: number, week: number): number {
+  let end = now;
+  for (const player of starters) {
+    if (!stillOpen(player, games, now, week)) continue;
+    const game = player.proTeam ? games?.[player.proTeam] : undefined;
+    const start = parsed(player.kickoff ?? game?.kickoff);
+    const finish = Number.isFinite(start) ? start + GAME_MS : NaN;
+    if (Number.isFinite(finish) && finish > end) end = finish;
+  }
+  return end;
+}
+
+/** Variance still left for starters whose games are not final. A posted score does not close it. */
+export function openVariance(starters: readonly OddsStarter[], games: Record<string, LiveGame> | null | undefined, now: number, week: number): number {
+  let variance = 0;
+  for (const player of starters) {
+    if (!stillOpen(player, games, now, week)) continue;
+    const game = player.proTeam ? games?.[player.proTeam] : undefined;
+    const progress = gameProgress(game, player.kickoff ?? game?.kickoff ?? null, now, now);
+    const spread = playerSpread(player.position, player.previousPoints) * Math.sqrt(1 - progress);
+    variance += spread * spread;
+  }
+  return variance;
+}
+
 /** Remaining uncertainty. A scored or bye starter adds none. Variance shrinks with game progress. */
 export function sideVariance(starters: readonly OddsStarter[], games: Record<string, LiveGame> | null | undefined, at: number, now: number, week: number): number {
   let variance = 0;

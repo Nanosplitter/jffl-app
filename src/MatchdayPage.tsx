@@ -7,7 +7,7 @@ import { chartTheme } from './history/archiveCharts';
 import { baseOption, esc } from './history/chartKit';
 import { useLive, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
-import { liveMatchChance, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
+import { forecastEnd, liveMatchChance, openVariance, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
 import { matchdayMatches, matchFacts, matchTotal, playerBoard, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
 import { PlayerIdentity } from './PlayerIdentity';
 import { MANAGERS, leagueInk, managerFor } from './reference';
@@ -108,35 +108,59 @@ function RemainingSide({ out, align }: { out: { count: number; points: number | 
   </span>;
 }
 
-function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName: string, pointsIn: { t: number; chance: number; scoreLeft: number | null; scoreRight: number | null; projectedLeft: number | null; projectedRight: number | null }[], markers: { label: string; at: number }[]) {
+function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName: string, pointsIn: { t: number; chance: number; scoreLeft: number | null; scoreRight: number | null; projectedLeft: number | null; projectedRight: number | null }[], markers: { label: string; at: number }[], outlook: { end: number; leftSd: number; rightSd: number } | null) {
   const { theme } = chartTheme(dark);
   const leftColor = theme.palette[0];
   const rightColor = theme.palette[1];
   const marker = markers.map(item => ({ xAxis: item.at, label: { formatter: item.label, color: theme.muted, fontSize: 10 } }));
   const tip = (time: number, rows: string[]) => `<div>${esc(clockFormat.format(time))}</div>${rows.map(row => `<div>${row}</div>`).join('')}`;
   if (mode === 'score') {
-    const line = (name: string, color: string, dashed: boolean, value: (point: typeof pointsIn[number]) => number | null) => ({
-      name, type: 'line' as const, showSymbol: false, connectNulls: false, color,
-      lineStyle: { width: dashed ? 1.5 : 2, type: dashed ? 'dashed' as const : 'solid' as const },
-      data: pointsIn.map(point => {
-        const score = value(point);
-        return score == null ? null : { value: [point.t * 1000, score] };
-      }),
+    const last = pointsIn[pointsIn.length - 1];
+    const nowMs = last.t * 1000;
+    const endMs = outlook && outlook.end > nowMs + 60_000 ? outlook.end : nowMs;
+    const line = (name: string, color: string, dashed: boolean, value: (point: typeof pointsIn[number]) => number | null, future: number | null) => ({
+      name, type: 'line' as const, showSymbol: false, connectNulls: false, color, z: 3,
+      lineStyle: { width: dashed ? 1.5 : 2.5, type: dashed ? 'dashed' as const : 'solid' as const },
+      data: [
+        ...pointsIn.flatMap(point => {
+          const score = value(point);
+          return score == null ? [] : [{ value: [point.t * 1000, score] as [number, number] }];
+        }),
+        ...(dashed && future != null && endMs > nowMs ? [{ value: [endMs, future] as [number, number] }] : []),
+      ],
     });
+    const cone = (stack: string, color: string, score: number | null, projected: number | null, sd: number) => {
+      if (score == null || projected == null || sd < 0.5 || endMs <= nowMs) return [];
+      const hidden = { symbol: 'none' as const, silent: true, legendHoverLink: false, lineStyle: { opacity: 0 }, tooltip: { show: false }, emphasis: { disabled: true } };
+      return [
+        { ...hidden, name: `${stack} low`, type: 'line' as const, stack, data: [[nowMs, score], [endMs, projected - sd]], areaStyle: { opacity: 0 } },
+        { ...hidden, name: `${stack} span`, type: 'line' as const, stack, data: [[nowMs, 0], [endMs, sd * 2]], areaStyle: { color, opacity: 0.42 } },
+      ];
+    };
+    const names = [leftName, rightName, `${leftName} projected`, `${rightName} projected`];
+    const base = baseOption(theme, { legend: true, top: 12 });
     return {
-      ...baseOption(theme, { legend: true, top: 36 }),
-      tooltip: { ...baseOption(theme).tooltip, trigger: 'axis' as const, formatter: (params: { axisValue?: number; data?: { value?: [number, number] }; seriesName?: string; marker?: string }[]) => {
-        const time = params.find(item => item.data?.value)?.data?.value?.[0];
+      ...base,
+      grid: { ...base.grid, top: 12, bottom: 64 },
+      legend: { ...base.legend, top: undefined, bottom: 0, data: names },
+      tooltip: { ...baseOption(theme).tooltip, trigger: 'axis' as const, formatter: (params: { axisValue?: number; data?: { value?: [number, number] } | [number, number]; seriesName?: string; marker?: string }[]) => {
+        const rows = params.filter(item => item.seriesName && item.data);
+        const time = rows.map(item => Array.isArray(item.data) ? item.data[0] : item.data?.value?.[0]).find(value => value != null);
         if (time == null) return '';
-        return tip(time, params.filter(item => item.data?.value).map(item => `${item.marker ?? ''} ${esc(item.seriesName)} ${esc(item.data?.value?.[1])}`));
+        return tip(time, rows.map(item => {
+          const value = Array.isArray(item.data) ? item.data[1] : item.data?.value?.[1];
+          return `${item.marker ?? ''} ${esc(item.seriesName)} ${esc(value)}`;
+        }));
       } },
       xAxis: { type: 'time' as const, axisLabel: { color: theme.muted, hideOverlap: true } },
       yAxis: { type: 'value' as const, scale: true, axisLabel: { color: theme.muted } },
       series: [
-        line(leftName, leftColor, false, point => point.scoreLeft),
-        line(rightName, rightColor, false, point => point.scoreRight),
-        line(`${leftName} proj`, leftColor, true, point => point.projectedLeft),
-        line(`${rightName} proj`, rightColor, true, point => point.projectedRight),
+        ...cone('left-range', leftColor, last.scoreLeft, last.projectedLeft, outlook?.leftSd ?? 0),
+        ...cone('right-range', rightColor, last.scoreRight, last.projectedRight, outlook?.rightSd ?? 0),
+        line(leftName, leftColor, false, point => point.scoreLeft, null),
+        line(rightName, rightColor, false, point => point.scoreRight, null),
+        line(`${leftName} projected`, leftColor, true, point => point.projectedLeft, last.projectedLeft),
+        line(`${rightName} projected`, rightColor, true, point => point.projectedRight, last.projectedRight),
       ],
     };
   }
@@ -192,9 +216,14 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
       right: sideVariance(rightStarters, games, at, now, match.week),
     }), match.left.offset, match.right?.offset ?? 0);
   }, [games, leftStarters, match, now, rightStarters, seriesLeft, seriesRight]);
+  const outlook = useMemo(() => ({
+    end: Math.max(forecastEnd(leftStarters, games, now, match.week), forecastEnd(rightStarters, games, now, match.week)),
+    leftSd: Math.sqrt(openVariance(leftStarters, games, now, match.week)),
+    rightSd: Math.sqrt(openVariance(rightStarters, games, now, match.week)),
+  }), [games, leftStarters, match.week, now, rightStarters]);
   const { theme } = chartTheme(dark);
   if (!match.right) return null;
-  const option = history.length >= 2 ? chartOption(dark, mode, match.left.manager, match.right.manager, history, markers) : null;
+  const option = history.length >= 2 ? chartOption(dark, mode, match.left.manager, match.right.manager, history, markers, outlook) : null;
   return <section className="matchday-chart" aria-label="Win chance over time">
     <div className="matchday-chart-head">
       <p className="chance-edge"><span style={{ background: theme.palette[0] }} />{match.left.manager}</p>
@@ -204,7 +233,7 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
       </div>
       <p className="chance-edge right"><span style={{ background: theme.palette[1] }} />{match.right.manager}</p>
     </div>
-    <p className="matchday-chart-caption">{mode === 'chance' ? `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.` : 'Solid lines are points scored. Dashed lines are the live projection.'}</p>
+    <p className="matchday-chart-caption">{mode === 'chance' ? `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.` : 'Solid lines are points so far. Dashed lines run out to the projected finish. The shade is about one usual range either side.'}</p>
     {option ? <ArchiveChart option={option} summary={`${match.left.manager} win chance against ${match.right.manager} this week.`} height={narrow ? 220 : 280} /> : <p className="matchday-empty">History starts with the next update.</p>}
   </section>;
 }
@@ -220,7 +249,16 @@ function PlayerLine({ row }: { row: BoardRow }) {
       <small className={gap == null ? '' : gap > 0 ? 'up' : 'down'}>{waiting ? 'projected' : pace ?? (row.status === 'done' ? 'on pace' : '')}</small>
     </span>
     {row.detail && <span className="matchday-chip">{row.detail}</span>}
+    {row.spread > 0 && <RangeBar value={row.status === 'playing' || row.status === 'yet' ? row.spread * Math.sqrt(1 - row.progress) : row.spread} quiet={row.status === 'done' || row.status === 'bye'} />}
   </li>;
+}
+
+function RangeBar({ value, quiet }: { value: number; quiet?: boolean }) {
+  if (value < 0.5) return null;
+  const label = points(value);
+  return <span className={`matchday-range compact${quiet ? ' quiet' : ''}`} title={quiet ? 'Usual weekly scoring range' : 'Range still left in this game'} aria-label={`${quiet ? 'Usual range' : 'Range still left'} plus or minus ${label} points`}>
+    <span>−{label}</span><span className="track" /><span>+{label}</span>
+  </span>;
 }
 
 function BoardColumn({ rows }: { rows: BoardRow[] }) {

@@ -797,16 +797,20 @@ a:hover .league-ink.jffl,
 .matchday-bench { display: flex; justify-content: space-between; gap: 12px; }
 .matchday-bench span { display: grid; gap: 2px; color: var(--muted); font-size: .75rem; }
 .matchday-bench strong { font-size: 1.2rem; color: var(--text); }
-.matchday-board { display: grid; gap: 18px; min-width: 0; }
+.matchday-board { display: grid; gap: 22px; min-width: 0; }
+.matchday-board > section { display: grid; gap: 8px; }
 .matchday-board h3 { margin: 0 0 4px; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .matchday-board-names { font-size: .84rem; font-weight: 650; color: var(--text); }
 .matchday-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .matchday-pair.single { grid-template-columns: 1fr; }
 .matchday-window { margin: 8px 0 4px; font-size: .68rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.matchday-players { list-style: none; margin: 0; padding: 0; }
-.matchday-player { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
-.matchday-player:last-child { border-bottom: 0; }
+.matchday-players { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.matchday-player { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px; background: var(--surface-muted); border: 1px solid var(--line); border-radius: var(--panel-radius, 0); }
 .matchday-chip { grid-column: 1; color: var(--muted); font-size: .68rem; }
+.matchday-player .matchday-range { grid-column: 1 / -1; }
+.matchday-range.compact { font-size: .68rem; }
+.matchday-range.quiet { opacity: .55; }
+.matchday-range.quiet .track { background: var(--line); }
 .matchday-player-score { grid-column: 2; grid-row: 1 / span 2; display: grid; justify-items: end; align-content: center; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .matchday-player-score strong { font-size: 1rem; }
 .matchday-player-score small { color: var(--muted); font-size: .68rem; }
