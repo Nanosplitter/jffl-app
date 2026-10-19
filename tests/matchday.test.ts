@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { benchPoints, kickoffWindow, matchdayMatches, matchNotes, matchTotal, playerBoard, priorLegOffset } from '../src/matchday.ts';
+import { benchPoints, kickoffWindow, matchdayMatches, matchNotes, matchTotal, playerBoard, pointSpan, pointsStillOut, priorLegOffset } from '../src/matchday.ts';
 import type { LeagueSummary, RosteredPlayer } from '../src/types.ts';
 
 const player = (partial: Partial<RosteredPlayer> & Pick<RosteredPlayer, 'id' | 'name'>): RosteredPlayer => ({
@@ -106,6 +106,22 @@ test('notes cover the projection gap, the swing left, the bench, and a lineup th
     'Bench: Jason 14, Donna —.',
     'Starting Started instead of Sat would have won.',
   ]);
+});
+
+test('a player range is a low and a high score, and points left use the same span', () => {
+  const board = playerBoard([
+    player({ id: '1', name: 'Live', weekPoints: 4, projectedPoints: 10, kickoff: '2026-10-18T17:00:00Z' }),
+    player({ id: '2', name: 'Later', proTeam: 'BUF', projectedPoints: 12, kickoff: '2026-10-20T00:15:00Z' }),
+  ], games, now, 6);
+  const live = pointSpan(board.playing[0]);
+  assert.equal(live && Math.round(((live.low + live.high) / 2) * 100) / 100, 9);
+  assert.ok(live && live.low < 9 && live.high > 9);
+  const waiting = pointSpan(board.yet[0].players[0]);
+  assert.equal(waiting?.low, 12 - board.yet[0].players[0].spread);
+  assert.equal(waiting?.high, 12 + board.yet[0].players[0].spread);
+  const left = pointsStillOut(board);
+  assert.equal(left.count, 2);
+  assert.ok(left.low != null && left.high != null && left.low < left.high);
 });
 
 test('bench points ignore a player who has not scored', () => {

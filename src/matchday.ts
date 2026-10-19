@@ -2,7 +2,7 @@ import { byeWeek } from './byeWeeks.ts';
 import { currentCupMatchesForTeam, scoreFor, type SummaryMap } from './competitions.ts';
 import { kickoffLabel } from './kickoff.ts';
 import { lineupWouldWin, type LineupCandidate } from './lineups.ts';
-import { gameProgress, toOddsStarter, type OddsStarter } from './liveOdds.ts';
+import { gameProgress, toOddsStarter } from './liveOdds.ts';
 import { playerSpread } from './cupOdds.ts';
 import { managerFor, type ManagerReference } from './reference.ts';
 import type { LeagueSlug, LiveGame, RosteredPlayer } from './types.ts';
@@ -222,6 +222,44 @@ export function windowMarkers(players: readonly { kickoff?: string | null }[]): 
   return [...first.entries()].map(([label, at]) => ({ label, at })).sort((a, b) => a.at - b.at);
 }
 
+function rounded(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
+/** Low and high finish for one starter. Playing and yet-to-play use the range still left. */
+export function pointSpan(row: BoardRow): { low: number; high: number } | null {
+  const open = row.status === 'playing' || row.status === 'yet';
+  const progress = row.status === 'yet' ? 0 : row.progress;
+  const width = row.spread * (open ? Math.sqrt(Math.max(0, 1 - progress)) : 1);
+  if (width < 0.5) return null;
+  const projected = row.player.projectedPoints;
+  const scored = row.player.weekPoints;
+  const center = open
+    ? projected == null && scored == null ? null : (scored ?? 0) + (projected ?? 0) * (1 - progress)
+    : projected ?? scored;
+  if (center == null) return null;
+  return { low: rounded(center - width), high: rounded(center + width) };
+}
+
+/** Points still to come, as a low and a high around the projection. */
+export function pointsStillOut(board: PlayerBoard): { count: number; low: number | null; high: number | null } {
+  const open = [...board.playing, ...board.yet.flatMap(group => group.players)];
+  let total = 0;
+  let variance = 0;
+  let any = false;
+  for (const row of open) {
+    if (row.player.projectedPoints == null) continue;
+    any = true;
+    const progress = row.status === 'yet' ? 0 : row.progress;
+    total += row.player.projectedPoints * (1 - progress);
+    const spread = row.spread * Math.sqrt(Math.max(0, 1 - progress));
+    variance += spread * spread;
+  }
+  if (!any) return { count: open.length, low: null, high: null };
+  const sd = Math.sqrt(variance);
+  return { count: open.length, low: rounded(total - sd), high: rounded(total + sd) };
+}
+
 export function benchPoints(players: readonly RosteredPlayer[], teamId: string): number | null {
   const scored = players.filter(player => player.teamId === teamId && player.group === 'bench' && player.weekPoints != null && Number.isFinite(player.weekPoints));
   if (!scored.length) return null;
@@ -238,22 +276,9 @@ function candidates(players: readonly RosteredPlayer[], teamId: string): LineupC
   }));
 }
 
-function swingLeft(players: readonly RosteredPlayer[], games: Record<string, LiveGame> | null | undefined, now: number, week: number): OddsStarter | null {
-  const board = playerBoard(players.filter(player => player.group === 'starter'), games, now, week);
-  const open = [...board.playing, ...board.yet.flatMap(group => group.players)];
-  let best: OddsStarter | null = null;
-  let bestSpread = -1;
-  for (const row of open) {
-    const starter = toOddsStarter(row.player, week);
-    const spread = playerSpread(starter.position, starter.previousPoints);
-    if (spread > bestSpread) { best = starter; bestSpread = spread; }
-  }
-  return best;
-}
-
 export interface MatchFacts {
   catchup: { name: string; amount: number } | 'level' | null;
-  swing: { name: string; spread: number } | null;
+  swing: { name: string; spread: number; low: number; high: number } | null;
   bench: { leftName: string; rightName: string; left: number | null; right: number | null } | null;
   lineup: string | null;
 }
@@ -283,10 +308,14 @@ export function matchFacts(input: {
     else if (gap > 0) catchup = { name: input.leftName, amount: gap };
     else catchup = { name: input.rightName, amount: -gap };
   }
-  const leftSwing = swingLeft(input.leftPlayers, input.games, input.now, input.week);
-  const rightSwing = input.rightTeamId ? swingLeft(input.rightPlayers, input.games, input.now, input.week) : null;
-  const swingStarter = [leftSwing, rightSwing].filter((starter): starter is OddsStarter => !!starter).sort((a, b) => playerSpread(b.position, b.previousPoints) - playerSpread(a.position, a.previousPoints))[0] ?? null;
-  const swing = swingStarter ? { name: swingStarter.name, spread: playerSpread(swingStarter.position, swingStarter.previousPoints) } : null;
+  const openRows = (players: readonly RosteredPlayer[]) => {
+    const board = playerBoard(players.filter(player => player.group === 'starter'), input.games, input.now, input.week);
+    return [...board.playing, ...board.yet.flatMap(group => group.players)];
+  };
+  const swingRow = [...openRows(input.leftPlayers), ...(input.rightTeamId ? openRows(input.rightPlayers) : [])]
+    .sort((a, b) => b.spread - a.spread)[0];
+  const swingSpan = swingRow ? pointSpan(swingRow) : null;
+  const swing = swingRow && swingSpan ? { name: swingRow.player.name, spread: swingRow.spread, low: swingSpan.low, high: swingSpan.high } : null;
   const leftBench = benchPoints(input.leftPlayers, input.leftTeamId);
   const rightBench = input.rightTeamId ? benchPoints(input.rightPlayers, input.rightTeamId) : null;
   const bench = leftBench != null || rightBench != null ? { leftName: input.leftName, rightName: input.rightName, left: leftBench, right: rightBench } : null;
