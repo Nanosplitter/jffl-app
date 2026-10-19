@@ -781,13 +781,14 @@ a:hover .league-ink.jffl,
 .matchday-remaining strong { display: block; font-size: .92rem; }
 .matchday-remaining small, .matchday-remaining .cup-odds-note { color: var(--muted); }
 .matchday-remaining .is-right { text-align: right; }
-.matchday-chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); padding: 12px 12px 4px; min-width: 0; }
-.matchday-chart-head { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.matchday-charts { display: grid; gap: 12px; min-width: 0; }
+.matchday-chart { background: var(--surface); border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); padding: 12px; min-width: 0; }
+.matchday-chart-title { margin: 0 0 8px; font-size: .84rem; font-weight: 650; }
+.matchday-chart-names { display: flex; justify-content: space-between; gap: 12px; margin: 6px 0 0; }
 .chance-edge { display: flex; align-items: center; gap: 6px; margin: 0; font-size: .78rem; font-weight: 650; min-width: 0; }
-.chance-edge.right { justify-content: flex-end; }
 .chance-edge span { width: 8px; height: 8px; border-radius: 99px; flex: none; }
 .matchday-empty { margin: 28px 0; color: var(--muted); text-align: center; font-size: .84rem; }
-.matchday-chart-caption { margin: 8px 0 0; color: var(--muted); font-size: .75rem; }
+.matchday-chart-caption { margin: 6px 0 0; color: var(--muted); font-size: .75rem; }
 .matchday-insights { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
 .matchday-insight { display: grid; align-content: start; gap: 4px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); }
 .matchday-insight .eyebrow { margin: 0; }
@@ -810,8 +811,8 @@ a:hover .league-ink.jffl,
 .matchday-pair.single { grid-template-columns: 1fr; }
 .matchday-column { min-width: 0; }
 .matchday-column-name { display: none; margin: 0 0 6px; font-size: .84rem; font-weight: 650; }
-.matchday-column.side-left .matchday-player { background: color-mix(in srgb, #4aa8dd 8%, var(--surface-muted)); border-color: color-mix(in srgb, #4aa8dd 22%, var(--line)); }
-.matchday-column.side-right .matchday-player { background: color-mix(in srgb, #f0a155 8%, var(--surface-muted)); border-color: color-mix(in srgb, #f0a155 22%, var(--line)); }
+.matchday-column.side-left .matchday-player { background: color-mix(in srgb, #4aa8dd 3%, var(--surface-muted)); border-color: color-mix(in srgb, #4aa8dd 72%, var(--line)); border-width: 1.5px; }
+.matchday-column.side-right .matchday-player { background: color-mix(in srgb, #f0a155 3%, var(--surface-muted)); border-color: color-mix(in srgb, #f0a155 72%, var(--line)); border-width: 1.5px; }
 .matchday-board-names .side-left::before,
 .matchday-board-names .side-right::before,
 .matchday-column-name::before { content: ""; width: 8px; height: 8px; border-radius: 99px; flex: none; }
@@ -837,9 +838,6 @@ a:hover .league-ink.jffl,
   .matchday-layout { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
-  .matchday-chart-head { grid-template-columns: 1fr; }
-  .chance-edge.right { justify-content: flex-start; }
-  .matchday-chart .matchday-toggle,
   .matchday > .matchday-toggle { width: 100%; }
   .matchday-toggle button { flex: 1; min-height: 40px; padding: 8px 10px; font-size: .8rem; }
   .matchday-proj { font-size: .68rem; }

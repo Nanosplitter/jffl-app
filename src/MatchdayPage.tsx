@@ -217,7 +217,6 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
 }) {
   const dark = useDarkMode();
   const narrow = useNarrow('(max-width: 720px)');
-  const [mode, setMode] = useState<ChartMode>('chance');
   const history = useMemo(() => {
     const left = withNow(seriesLeft, Math.floor(now / 1000), match.left.score, match.left.projected);
     const right = match.right ? withNow(seriesRight, Math.floor(now / 1000), match.right.score, match.right.projected) : null;
@@ -233,19 +232,23 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
   }), [games, leftStarters, match.week, now, rightStarters]);
   const { theme } = chartTheme(dark);
   if (!match.right) return null;
-  const option = history.length >= 2 ? chartOption(dark, mode, match.left.manager, match.right.manager, history, markers, outlook) : null;
-  return <section className="matchday-chart" aria-label="Win chance over time">
-    <div className="matchday-chart-head">
+  const ready = history.length >= 2;
+  const height = narrow ? 200 : 240;
+  const card = (mode: ChartMode, title: string, caption: string) => <section className="matchday-chart" aria-label={title}>
+    <h3 className="matchday-chart-title">{title}</h3>
+    {ready
+      ? <ArchiveChart option={chartOption(dark, mode, match.left.manager, match.right!.manager, history, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}.`} height={height} />
+      : <p className="matchday-empty">History starts with the next update.</p>}
+    <div className="matchday-chart-names">
       <p className="chance-edge"><span style={{ background: theme.palette[0] }} />{match.left.manager}</p>
-      <div className="matchday-toggle" role="group" aria-label="Chart">
-        <button type="button" aria-pressed={mode === 'chance'} onClick={() => setMode('chance')}>Win chance</button>
-        <button type="button" aria-pressed={mode === 'score'} onClick={() => setMode('score')}>Score</button>
-      </div>
-      <p className="chance-edge right"><span style={{ background: theme.palette[1] }} />{match.right.manager}</p>
+      <p className="chance-edge"><span style={{ background: theme.palette[1] }} />{match.right!.manager}</p>
     </div>
-    <p className="matchday-chart-caption">{mode === 'chance' ? `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.` : 'The dashed line continues from the score to the projected finish. The shade is the range around it.'}</p>
-    {option ? <ArchiveChart option={option} summary={`${match.left.manager} win chance against ${match.right.manager} this week.`} height={narrow ? 220 : 280} /> : <p className="matchday-empty">History starts with the next update.</p>}
+    <p className="matchday-chart-caption">{caption}</p>
   </section>;
+  return <div className="matchday-charts">
+    {card('chance', 'Win chance', `${match.left.manager}'s chance to win. Above the Even line, ${match.left.manager} is favored.`)}
+    {card('score', 'Score', 'The dashed line continues from the score to the projected finish. The shade is the range around it.')}
+  </div>;
 }
 
 function PlayerLine({ row }: { row: BoardRow }) {
