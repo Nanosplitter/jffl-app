@@ -761,8 +761,8 @@ a:hover .league-ink.jffl,
 .matchday-directory { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
 .matchday-directory section { display: grid; gap: 8px; }
 .matchday-directory h2 { margin: 0; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; }
-.matchday-directory ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.matchday-directory a { display: flex; align-items: center; min-height: 40px; padding: 8px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); color: inherit; text-decoration: none; font-weight: 650; }
+.matchday-directory ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.matchday-directory a { display: inline-flex; align-items: center; min-height: 40px; padding: 6px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--panel-radius, 12px); color: inherit; text-decoration: none; font-weight: 650; }
 .matchday-directory a:hover { text-decoration: none; border-color: var(--accent); }
 .matchday-directory a.is-you { border-color: color-mix(in srgb, var(--follow, var(--accent)) 72%, var(--line)); }
 .matchday-strip { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; padding: 12px 14px; background: var(--surface); border: 1px solid var(--line); color: inherit; text-decoration: none; }
