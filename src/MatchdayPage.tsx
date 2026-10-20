@@ -7,7 +7,7 @@ import { chartTheme } from './history/archiveCharts';
 import { baseOption, esc } from './history/chartKit';
 import { useLive, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
-import { forecastEnd, liveMatchChance, openVariance, scoreChartScale, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
+import { collapseGaps, forecastEnd, liveMatchChance, openVariance, scoreChartScale, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
 import { matchdayMatches, matchFacts, matchTotal, playerBoard, pointSpan, pointsStillOut, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
 import { PlayerIdentity } from './PlayerIdentity';
 import { MANAGERS, leagueInk, managerFor } from './reference';
@@ -98,14 +98,17 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
   const { theme } = chartTheme(dark);
   const leftColor = theme.palette[0];
   const rightColor = theme.palette[1];
-  const marker = markers.map(item => ({ xAxis: item.at, label: { formatter: item.label, color: theme.muted, fontSize: 10 } }));
+  const warp = collapseGaps(pointsIn.map(point => point.t * 1000));
+  const marker = markers.map(item => ({ xAxis: warp.toX(item.at), label: { formatter: item.label, color: theme.muted, fontSize: 10 } }));
   const tip = (time: number, rows: string[]) => `<div>${esc(clockFormat.format(time))}</div>${rows.map(row => `<div>${row}</div>`).join('')}`;
   if (mode === 'score') {
     const last = pointsIn[pointsIn.length - 1];
     const nowMs = last.t * 1000;
     const endMs = outlook && outlook.end > nowMs + 60_000 ? outlook.end : nowMs;
-    const scale = scoreChartScale(pointsIn[0].t * 1000, nowMs, endMs);
-    const plot = (time: number) => scale.compressed ? scale.toX(time) : time;
+    const nowW = warp.toX(nowMs);
+    const scale = scoreChartScale(warp.toX(pointsIn[0].t * 1000), nowW, nowW + (endMs - nowMs));
+    const plot = (time: number) => scale.toX(warp.toX(time));
+    const real = (x: number) => warp.fromX(scale.fromX(x));
     const quiet = { axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: false } };
     const scored = (name: string, color: string, value: (point: typeof pointsIn[number]) => number | null) => ({
       name, type: 'line' as const, showSymbol: false, connectNulls: false, color, z: 3,
@@ -136,7 +139,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
       tooltip: { ...base.tooltip, trigger: 'axis' as const, axisPointer: { type: 'line' as const, lineStyle: { color: theme.muted, type: 'dashed' as const } }, formatter: (params: { axisValue?: number; data?: { value?: [number, number] } | [number, number]; seriesName?: string; marker?: string }[]) => {
         const axisTime = params.map(item => item.axisValue).find(value => value != null);
         if (axisTime == null) return '';
-        const time = scale.compressed ? scale.fromX(axisTime) : axisTime;
+        const time = real(axisTime);
         const future = time > nowMs + 30_000;
         if (future) {
           const bands = [
@@ -166,7 +169,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
           return `${item.marker ?? ''} ${esc(item.seriesName)} ${esc(value)}`;
         }));
       } },
-      xAxis: { type: 'time' as const, ...(scale.compressed ? { min: scale.min, max: scale.max } : {}), axisLabel: { color: theme.muted, hideOverlap: true, ...(scale.compressed ? { formatter: (value: number) => axisClock.format(scale.fromX(value)) } : {}) }, ...quiet },
+      xAxis: { type: 'time' as const, ...(scale.compressed ? { min: scale.min, max: scale.max } : {}), axisLabel: { color: theme.muted, hideOverlap: true, formatter: (value: number) => axisClock.format(real(value)) }, ...quiet },
       yAxis: { type: 'value' as const, scale: true, axisLabel: { color: theme.muted }, ...quiet },
       series: [
         ...cone('left-range', leftColor, last.scoreLeft, last.projectedLeft, outlook?.leftSd ?? 0),
@@ -181,7 +184,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
   const last = pointsIn[pointsIn.length - 1];
   const spanStart = pointsIn[0].t * 1000;
   const spanEnd = last.t * 1000;
-  const inWindow = marker.filter(item => item.xAxis >= spanStart && item.xAxis <= spanEnd);
+  const inWindow = marker.filter(item => item.xAxis >= warp.toX(spanStart) && item.xAxis <= warp.toX(spanEnd));
   return {
     ...baseOption(theme, { top: 28 }),
     legend: undefined,
@@ -196,15 +199,15 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
         `Projected ${point.projectedLeft ?? '—'}–${point.projectedRight ?? '—'}`,
       ]);
     } },
-    xAxis: { type: 'time' as const, axisLabel: { color: theme.muted, hideOverlap: true } },
+    xAxis: { type: 'time' as const, axisLabel: { color: theme.muted, hideOverlap: true, formatter: (value: number) => axisClock.format(warp.fromX(value)) } },
     yAxis: { type: 'value' as const, min: 0, max: 100, interval: 50, axisLabel: { color: theme.muted, formatter: '{value}%' }, splitLine: { show: false }, axisTick: { show: false } },
     series: [{
       name: leftName, type: 'line' as const, showSymbol: false, smooth: 0.2, color: leftColor,
       lineStyle: { width: 2.5, color: leftColor },
       areaStyle: { color: leftColor, opacity: 0.14 },
       markLine: { silent: true, symbol: 'none', lineStyle: { type: 'dashed' as const, color: theme.line }, label: { color: theme.muted, fontSize: 10 }, data: [{ yAxis: 50, label: { formatter: 'Even' } }, ...inWindow] },
-      markPoint: { symbol: 'circle', symbolSize: 8, itemStyle: { color: leftColor }, label: { formatter: `${last.chance}%`, color: theme.text, fontWeight: 650, position: 'bottom' as const }, data: [{ coord: [spanEnd, last.chance] }] },
-      data: pointsIn.map(point => ({ value: [point.t * 1000, point.chance], point })),
+      markPoint: { symbol: 'circle', symbolSize: 8, itemStyle: { color: leftColor }, label: { formatter: `${last.chance}%`, color: theme.text, fontWeight: 650, position: 'bottom' as const }, data: [{ coord: [warp.toX(spanEnd), last.chance] }] },
+      data: pointsIn.map(point => ({ value: [warp.toX(point.t * 1000), point.chance], point })),
     }],
   };
 }
