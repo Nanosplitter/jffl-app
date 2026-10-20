@@ -94,6 +94,21 @@ function RemainingSide({ out, align }: { out: { count: number; low: number | nul
   </span>;
 }
 
+const GAME_WINDOW_MS = 3.25 * 60 * 60 * 1000;
+const QUARTER_MS = GAME_WINDOW_MS / 4;
+
+/** Axis label as game quarter and clock for the kickoff window the time falls in. Falls back to the weekday and hour. */
+function gameClockLabel(time: number, markers: { label: string; at: number }[]) {
+  let window: { label: string; at: number } | null = null;
+  for (const item of markers) if (item.at <= time) window = item;
+  const elapsed = window ? time - window.at : -1;
+  if (!window || elapsed < 0 || elapsed >= GAME_WINDOW_MS) return axisClock.format(time);
+  const quarter = Math.min(4, Math.floor(elapsed / QUARTER_MS) + 1);
+  const left = Math.max(0, Math.round((1 - (elapsed % QUARTER_MS) / QUARTER_MS) * 15 * 60));
+  const clock = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')}`;
+  return `${window.label} Q${quarter} ${clock}`;
+}
+
 function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName: string, pointsIn: { t: number; chance: number; scoreLeft: number | null; scoreRight: number | null; projectedLeft: number | null; projectedRight: number | null }[], markers: { label: string; at: number }[], outlook: { end: number; leftSd: number; rightSd: number } | null) {
   const { theme } = chartTheme(dark);
   const leftColor = theme.palette[0];
@@ -169,7 +184,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
           return `${item.marker ?? ''} ${esc(item.seriesName)} ${esc(value)}`;
         }));
       } },
-      xAxis: { type: 'time' as const, ...(scale.compressed ? { min: scale.min, max: scale.max } : {}), axisLabel: { color: theme.muted, hideOverlap: true, formatter: (value: number) => axisClock.format(real(value)) }, ...quiet },
+      xAxis: { type: 'time' as const, ...(scale.compressed ? { min: scale.min, max: scale.max } : {}), axisLabel: { color: theme.muted, hideOverlap: true, formatter: (value: number) => gameClockLabel(real(value), markers) }, ...quiet },
       yAxis: { type: 'value' as const, scale: true, axisLabel: { color: theme.muted }, ...quiet },
       series: [
         ...cone('left-range', leftColor, last.scoreLeft, last.projectedLeft, outlook?.leftSd ?? 0),
@@ -199,7 +214,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
         `Projected ${point.projectedLeft ?? '—'}–${point.projectedRight ?? '—'}`,
       ]);
     } },
-    xAxis: { type: 'time' as const, axisLabel: { color: theme.muted, hideOverlap: true, formatter: (value: number) => axisClock.format(warp.fromX(value)) } },
+    xAxis: { type: 'time' as const, axisLabel: { color: theme.muted, hideOverlap: true, formatter: (value: number) => gameClockLabel(warp.fromX(value), markers) } },
     yAxis: { type: 'value' as const, min: 0, max: 100, interval: 50, axisLabel: { color: theme.muted, formatter: '{value}%' }, splitLine: { show: false }, axisTick: { show: false } },
     series: [{
       name: leftName, type: 'line' as const, showSymbol: false, smooth: 0.2, color: leftColor,
