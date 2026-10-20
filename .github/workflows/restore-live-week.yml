@@ -1,0 +1,53 @@
+name: Restore live week
+
+on:
+  workflow_dispatch:
+    inputs:
+      at:
+        description: Read time (ISO, within the last 7 days), late in the week to recover
+        required: true
+      week:
+        description: Week number to recover
+        required: true
+      write:
+        description: Write the result to publicLiveWeeks (otherwise a dry run)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: restore-live-week
+  cancel-in-progress: false
+
+jobs:
+  restore:
+    name: Restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/datastore
+
+      - name: Recover the week
+        env:
+          FIRESTORE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
+          READ_AT: ${{ inputs.at }}
+          WEEK: ${{ inputs.week }}
+          WRITE: ${{ inputs.write }}
+        run: |
+          flag=""
+          if [ "$WRITE" = "true" ]; then flag="--write"; fi
+          node scripts/restore-live-week.cjs --at "$READ_AT" --week "$WEEK" $flag
