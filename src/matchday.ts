@@ -111,17 +111,18 @@ function weekLine(data: SummaryMap, participant: ManagerReference, week: number)
 }
 
 /** League matchup for this week, then any cup tie that scores this week. The followed side is on the left. */
-export function matchdayMatches(data: SummaryMap, slug: LeagueSlug, teamId: string): MatchdayMatch[] {
+export function matchdayMatches(data: SummaryMap, slug: LeagueSlug, teamId: string, requestedWeek?: number): MatchdayMatch[] {
   const summary = data[slug];
   if (!summary) return [];
-  const week = summary.week;
+  const week = requestedWeek != null && requestedWeek >= 1 && requestedWeek < summary.week ? requestedWeek : summary.week;
+  const past = week < summary.week;
   const matches: MatchdayMatch[] = [];
   const weekly = summary.weeklyMatchups?.find(item => item.week === week && (item.homeTeamId === teamId || item.awayTeamId === teamId));
-  const board = summary.matchups.find(item => item.homeTeamId === teamId || item.awayTeamId === teamId);
+  const board = past ? undefined : summary.matchups.find(item => item.homeTeamId === teamId || item.awayTeamId === teamId);
   const source = weekly ?? board;
   if (source) {
     const home = source.homeTeamId === teamId;
-    const status = weekly?.status === 'final' ? 'final' : weekly?.status === 'pending' ? 'upcoming' : 'live';
+    const status = weekly?.status === 'final' || past ? 'final' : weekly?.status === 'pending' ? 'upcoming' : 'live';
     matches.push({
       id: `league-${source.id}`,
       kind: 'league',
@@ -133,7 +134,7 @@ export function matchdayMatches(data: SummaryMap, slug: LeagueSlug, teamId: stri
       right: side(slug, home ? source.awayTeamId : source.homeTeamId, 0, home ? source.awayScore : source.homeScore, home ? source.awayProjected : source.homeProjected),
     });
   }
-  for (const item of currentCupMatchesForTeam(data, slug, teamId)) {
+  for (const item of currentCupMatchesForTeam(data, slug, teamId, past ? week : undefined)) {
     if (!item.weeks.includes(week) || item.match.status === 'bye') continue;
     const onA = item.match.a.participant?.slug === slug && item.match.a.participant.teamId === teamId;
     const mine = onA ? item.match.a : item.match.b;
@@ -145,7 +146,7 @@ export function matchdayMatches(data: SummaryMap, slug: LeagueSlug, teamId: stri
       if (!participant) return 0;
       return priorLegOffset(item.weeks, legs, week, item.weeks.map(legWeek => legWeek < week && scoreFor(data, participant, legWeek).final));
     };
-    const status = item.match.status === 'final' || item.match.status === 'tied' ? 'final' : item.match.status === 'live' ? 'live' : 'upcoming';
+    const status = past || item.match.status === 'final' || item.match.status === 'tied' ? 'final' : item.match.status === 'live' ? 'live' : 'upcoming';
     matches.push({
       id: item.match.id,
       kind: 'cup',

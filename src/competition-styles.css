@@ -756,6 +756,7 @@ a:hover .league-ink.jffl,
 }
 
 .matchday { display: grid; gap: 18px; }
+.matchday-selectors { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: flex-end; }
 .matchday-switch { display: grid; gap: 6px; justify-items: end; margin: 0; font-size: .72rem; color: var(--muted); }
 .matchday-switch select { min-width: 12rem; min-height: 40px; }
 .matchday-directory { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
@@ -848,6 +849,8 @@ a:hover .league-ink.jffl,
 }
 @media (max-width: 720px) {
   .matchday-switch { justify-items: stretch; }
+  .matchday-selectors { justify-content: stretch; }
+  .matchday-selectors .matchday-switch { flex: 1 1 8rem; }
   .matchday-switch select { width: 100%; }
   .matchday > .matchday-toggle { width: 100%; }
   .matchday-toggle button { flex: 1; min-height: 40px; padding: 8px 10px; font-size: .8rem; }

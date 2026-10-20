@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAccount, useFollowed } from './account';
 import { usePageLabel } from './BackLink';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
@@ -7,12 +7,13 @@ import { chartTheme } from './history/archiveCharts';
 import { baseOption, esc } from './history/chartKit';
 import { useLive, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
+import { historicalStarters } from './lineups';
 import { collapseGaps, forecastEnd, liveMatchChance, openVariance, scoreChartScale, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
 import { matchdayMatches, matchFacts, matchTotal, playerBoard, pointSpan, pointsStillOut, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
 import { PlayerIdentity } from './PlayerIdentity';
 import { MANAGERS, leagueInk, managerFor } from './reference';
 import { RankMark } from './RankMark';
-import { LEAGUES, type LeagueSlug, type LiveGame, type RosteredPlayer, type Team } from './types';
+import { LEAGUES, type LeagueSlug, type LiveGame, type RosteredPlayer, type Team, type WeekLineup } from './types';
 import { Fresh, points } from './ui';
 import type { SummaryMap } from './competitions';
 
@@ -368,8 +369,21 @@ function MatchInsights({ facts }: { facts: MatchFacts }) {
   </div>;
 }
 
-function MatchSection({ match, players, games, liveSeries, now, filter, narrow, teamFor }: {
+function pastBoard(starters: RosteredPlayer[]): PlayerBoard {
+  const done = starters.map(player => ({ player, status: 'done' as const, gap: null, progress: 1, spread: 0, detail: 'Final', window: '' }));
+  return { playing: [], above: [], below: [], yet: [], bye: [], done };
+}
+
+function PastBoardView({ left, right, showLeft, showRight, leftName, rightName }: { left: BoardRow[]; right: BoardRow[]; showLeft: boolean; showRight: boolean; leftName: string; rightName: string }) {
+  return <div className="matchday-board">
+    <div className={`matchday-pair matchday-board-names${showLeft && showRight ? '' : ' single'}`}><span className={showLeft ? 'side-left' : 'matchday-hidden'}>{leftName}</span><span className={showRight ? 'side-right' : 'matchday-hidden'}>{rightName}</span></div>
+    <section><h3>Final lineups</h3>{left.length || right.length ? <PlayerColumns left={left} right={right} showLeft={showLeft} showRight={showRight} leftName={leftName} rightName={rightName} /> : <p className="matchday-empty">Lineups for this week are not published yet.</p>}</section>
+  </div>;
+}
+
+function MatchSection({ match, players, games, liveSeries, now, filter, narrow, teamFor, lineups }: {
   match: MatchdayMatch;
+  lineups?: Partial<Record<LeagueSlug, WeekLineup[] | undefined>> | null;
   players: Partial<Record<LeagueSlug, RosteredPlayer[]>>;
   games: Record<string, LiveGame>;
   liveSeries: (slug: LeagueSlug, teamId: string) => { t: number[]; s: (number | null)[]; p: (number | null)[] } | null;
@@ -379,6 +393,22 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
   teamFor: (slug: LeagueSlug, teamId: string) => Team | null;
 }) {
   const leftTeam = teamFor(match.left.slug, match.left.teamId);
+  if (lineups) {
+    const startersFor = (slug: LeagueSlug, teamId: string) => historicalStarters(lineups[slug], teamId, match.week) ?? [];
+    const rightSide = match.right;
+    const leftStarters = startersFor(match.left.slug, match.left.teamId);
+    const rightStarters = rightSide ? startersFor(rightSide.slug, rightSide.teamId) : [];
+    const noOut = { count: 0, low: null, high: null };
+    return <section className="matchday-match" id={`matchday-${match.id}`}>
+      <header className="matchday-match-head"><p className="eyebrow">FINAL <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{rightSide ? ` vs ${rightSide.manager}` : ' · Bye'}</p></header>
+      <div className="matchday-layout">
+        <div className="matchday-main">
+          <Scoreboard match={{ ...match, left: { ...match.left, projected: null }, right: rightSide && { ...rightSide, projected: null } }} chance={null} leftRank={leftTeam?.rank ?? null} rightRank={(rightSide ? teamFor(rightSide.slug, rightSide.teamId) : null)?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightSide ? teamFor(rightSide.slug, rightSide.teamId)?.logoUrl : null} leftOut={noOut} rightOut={noOut} />
+        </div>
+        <PastBoardView left={pastBoard(leftStarters).done} right={pastBoard(rightStarters).done} showLeft={!narrow || filter !== 'right'} showRight={(!narrow || filter !== 'left') && !!rightSide} leftName={match.left.manager} rightName={rightSide?.manager ?? 'Bye'} />
+      </div>
+    </section>;
+  }
   const rightTeam = match.right ? teamFor(match.right.slug, match.right.teamId) : null;
   const leftPlayers = (players[match.left.slug] ?? []).filter(player => player.teamId === match.left.teamId);
   const rightPlayers = match.right ? (players[match.right.slug] ?? []).filter(player => player.teamId === match.right!.teamId) : [];
@@ -460,7 +490,12 @@ export function MatchdayPage() {
     const summary = summaries[meta.slug].data;
     if (summary) data[meta.slug] = summary;
   }
-  const matches = manager ? matchdayMatches(data, manager.slug, manager.teamId) : [];
+  const [search, setSearch] = useSearchParams();
+  const currentWeek = manager ? data[manager.slug]?.week ?? 0 : 0;
+  const asked = Number(search.get('week'));
+  const selected = Number.isInteger(asked) && asked >= 1 && asked < currentWeek ? asked : currentWeek;
+  const past = currentWeek > 0 && selected < currentWeek;
+  const matches = manager ? matchdayMatches(data, manager.slug, manager.teamId, selected) : [];
   const slugs = [...new Set(matches.flatMap(match => [match.left.slug, match.right?.slug].filter((slug): slug is LeagueSlug => !!slug)))];
   const watch = slugs.length ? slugs : manager ? [manager.slug] : [];
   const rosters = useRosters(watch);
@@ -472,6 +507,7 @@ export function MatchdayPage() {
   usePageLabel(manager ? `${manager.manager} matchday` : 'Matchday');
   const players = Object.fromEntries(watch.map(slug => [slug, rosters[slug]?.data?.players ?? []])) as Partial<Record<LeagueSlug, RosteredPlayer[]>>;
   const games = Object.assign({}, ...watch.map(slug => live[slug]?.data?.games ?? {})) as Record<string, LiveGame>;
+  const lineups = past ? Object.fromEntries(watch.map(slug => [slug, rosters[slug]?.data?.weeklyLineups])) as Partial<Record<LeagueSlug, WeekLineup[] | undefined>> : null;
   const summary = manager ? summaries[manager.slug] : undefined;
 
   if (routed && !manager) return <p className="notice">Manager not found. <Link to="/matchday">All managers</Link></p>;
@@ -483,15 +519,19 @@ export function MatchdayPage() {
   const you = isFollowedTeam(followed, manager.slug, manager.teamId);
   const teamFor = (slug: LeagueSlug, id: string) => data[slug]?.teams.find(team => team.id === id) ?? null;
   return <div className="matchday">
-    <section className="page-intro"><div><p className="eyebrow">{summary.data.leagueName.toUpperCase()} <span>/</span> WEEK {summary.data.week}</p><h1>{manager.manager}</h1><p className="intro-copy">Every match this week. <Link to={`/league/${manager.slug}/team/${manager.teamId}`}>Team page</Link></p></div><ManagerSwitch slug={manager.slug} teamId={manager.teamId} /></section>
-    {summary?.data && <p className="competition-updates"><Fresh data={summary.data} error={summary.error} /></p>}
+    <section className="page-intro"><div><p className="eyebrow">{summary.data.leagueName.toUpperCase()} <span>/</span> WEEK {selected}</p><h1>{manager.manager}</h1><p className="intro-copy">Every match {past ? `in week ${selected}` : 'this week'}. <Link to={`/league/${manager.slug}/team/${manager.teamId}`}>Team page</Link></p></div><div className="matchday-selectors"><ManagerSwitch slug={manager.slug} teamId={manager.teamId} /><label className="matchday-switch">Week
+      <select value={selected} onChange={event => { const next = Number(event.target.value); setSearch(next >= currentWeek ? {} : { week: String(next) }); }}>
+        {Array.from({ length: currentWeek }, (_, index) => currentWeek - index).map(week => <option key={week} value={week}>{week === currentWeek ? `Week ${week} (current)` : `Week ${week}`}</option>)}
+      </select>
+    </label></div></section>
+    {summary?.data && !past && <p className="competition-updates"><Fresh data={summary.data} error={summary.error} /></p>}
     {matches.length > 1 && <nav className="matchday-jumps" aria-label="Matches">{matches.map(match => <a key={match.id} href={`#matchday-${match.id}`}>{match.label}</a>)}</nav>}
     {narrow && matches.some(match => match.right) && <div className="matchday-toggle" role="group" aria-label="Which lineup">
       <button type="button" aria-pressed={filter === 'left'} onClick={() => setFilter('left')}>{you ? 'You' : manager.manager}</button>
       <button type="button" aria-pressed={filter === 'right'} onClick={() => setFilter('right')}>Opponent</button>
       <button type="button" aria-pressed={filter === 'both'} onClick={() => setFilter('both')}>Both</button>
     </div>}
-    {matches.length ? matches.map(match => <MatchSection key={match.id} match={match} players={players} games={games} liveSeries={(slug, teamId) => live[slug]?.data?.series?.[teamId] ?? null} now={now} filter={filter} narrow={narrow} teamFor={teamFor} />) : <p className="notice">No matchup is scheduled for this week.</p>}
-    <p className="source-note">Win chance uses ESPN’s live projection. Each starter still playing keeps a share of their usual weekly range. Scores refresh about every three minutes.</p>
+    {matches.length ? matches.map(match => <MatchSection key={match.id} match={match} players={players} games={games} liveSeries={(slug, teamId) => live[slug]?.data?.series?.[teamId] ?? null} now={now} filter={filter} narrow={narrow} teamFor={teamFor} lineups={lineups} />) : <p className="notice">No matchup is scheduled for this week.</p>}
+    {!past && <p className="source-note">Win chance uses ESPN’s live projection. Each starter still playing keeps a share of their usual weekly range. Scores refresh about every three minutes.</p>}
   </div>;
 }

@@ -92,9 +92,15 @@ export function roundScoreAverage(round: CupRound) {
 }
 
 /** Furthest JFFL and league-cup ties that still list this team as a participant. */
-export function currentCupMatchesForTeam(data: SummaryMap, slug: LeagueSlug, teamId: string) {
+export function currentCupMatchesForTeam(data: SummaryMap, slug: LeagueSlug, teamId: string, week?: number) {
   return (['jffl', slug] as CupId[]).flatMap(cupId => {
     const cup = buildCup(cupId, data);
+    if (week != null) {
+      return cup.rounds.flatMap(round => round.matches.flatMap((match, matchIndex) => {
+        const inMatch = [match.a.participant, match.b.participant].some(participant => participant?.slug === slug && participant.teamId === teamId);
+        return inMatch && match.weeks.includes(week) ? [{ cupId, cupName: cup.name, roundName: round.name, weeks: match.weeks, match, matchIndex }] : [];
+      }));
+    }
     let best: { cupId: CupId; cupName: string; roundName: string; weeks: number[]; match: CupMatch; matchIndex: number } | null = null;
     for (const round of cup.rounds) {
       for (const [matchIndex, match] of round.matches.entries()) {
