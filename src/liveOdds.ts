@@ -62,6 +62,38 @@ function stillOpen(player: OddsStarter, games: Record<string, LiveGame> | null |
 }
 
 /**
+ * Time warp that shrinks long quiet stretches between recorded points (for
+ * example overnight or between game windows) so lines do not run flat and
+ * then jump. Times outside the recorded span keep their real spacing.
+ */
+export function collapseGaps(times: readonly number[], gapMs = 90 * 60 * 1000, keepMs = 10 * 60 * 1000) {
+  const sorted = [...times].filter(Number.isFinite).sort((a, b) => a - b);
+  const real: number[] = [];
+  const warped: number[] = [];
+  sorted.forEach((time, index) => {
+    if (index === 0) { real.push(time); warped.push(time); return; }
+    const gap = time - real[index - 1];
+    real.push(time);
+    warped.push(warped[index - 1] + (gap > gapMs ? keepMs : gap));
+  });
+  const map = (value: number, from: number[], to: number[]) => {
+    if (!from.length) return value;
+    if (value <= from[0]) return to[0] + (value - from[0]);
+    const last = from.length - 1;
+    if (value >= from[last]) return to[last] + (value - from[last]);
+    let lo = 0;
+    let hi = last;
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (from[mid] <= value) lo = mid; else hi = mid;
+    }
+    const span = from[hi] - from[lo];
+    return span <= 0 ? to[lo] : to[lo] + ((value - from[lo]) / span) * (to[hi] - to[lo]);
+  };
+  return { toX: (time: number) => map(time, real, warped), fromX: (x: number) => map(x, warped, real) };
+}
+
+/**
  * Chart scale for a score forecast. A finish that is farther away than the
  * scores already recorded is squeezed so the cone never outgrows that history.
  */
