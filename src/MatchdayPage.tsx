@@ -5,7 +5,7 @@ import { usePageLabel } from './BackLink';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
 import { chartTheme } from './history/archiveCharts';
 import { baseOption, esc } from './history/chartKit';
-import { useLive, useRosters, useSummaries } from './data';
+import { useLive, useLiveWeek, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
 import { historicalStarters } from './lineups';
 import { collapseGaps, forecastEnd, liveMatchChance, openVariance, scoreChartScale, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
@@ -228,7 +228,8 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
   };
 }
 
-function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarters, games, now, markers }: {
+function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarters, games, now, markers, final }: {
+  final?: boolean;
   match: MatchdayMatch;
   seriesLeft: { t: number[]; s: (number | null)[]; p: (number | null)[] } | null;
   seriesRight: { t: number[]; s: (number | null)[]; p: (number | null)[] } | null;
@@ -241,18 +242,18 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
   const dark = useDarkMode();
   const narrow = useNarrow('(max-width: 720px)');
   const history = useMemo(() => {
-    const left = withNow(seriesLeft, Math.floor(now / 1000), match.left.score, match.left.projected);
-    const right = match.right ? withNow(seriesRight, Math.floor(now / 1000), match.right.score, match.right.projected) : null;
+    const left = final ? seriesLeft : withNow(seriesLeft, Math.floor(now / 1000), match.left.score, match.left.projected);
+    const right = match.right ? final ? seriesRight : withNow(seriesRight, Math.floor(now / 1000), match.right.score, match.right.projected) : null;
     return winChanceSeries(left, right, at => ({
       left: sideVariance(leftStarters, games, at, now, match.week),
       right: sideVariance(rightStarters, games, at, now, match.week),
     }), match.left.offset, match.right?.offset ?? 0);
-  }, [games, leftStarters, match, now, rightStarters, seriesLeft, seriesRight]);
-  const outlook = useMemo(() => ({
+  }, [final, games, leftStarters, match, now, rightStarters, seriesLeft, seriesRight]);
+  const outlook = useMemo(() => final ? null : ({
     end: Math.max(forecastEnd(leftStarters, games, now, match.week), forecastEnd(rightStarters, games, now, match.week)),
     leftSd: Math.sqrt(openVariance(leftStarters, games, now, match.week)),
     rightSd: Math.sqrt(openVariance(rightStarters, games, now, match.week)),
-  }), [games, leftStarters, match.week, now, rightStarters]);
+  }), [final, games, leftStarters, match.week, now, rightStarters]);
   const { theme } = chartTheme(dark);
   if (!match.right) return null;
   const ready = history.length >= 2;
@@ -261,7 +262,7 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
     <h3 className="matchday-chart-title">{title}</h3>
     {ready
       ? <ArchiveChart option={chartOption(dark, mode, match.left.manager, match.right!.manager, history, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}.`} height={height} />
-      : <p className="matchday-empty">History starts with the next update.</p>}
+      : <p className="matchday-empty">{final ? 'No score history was recorded for this week.' : 'History starts with the next update.'}</p>}
     <div className="matchday-chart-names">
       <p className="chance-edge"><span style={{ background: theme.palette[0] }} />{match.left.manager}</p>
       <p className="chance-edge"><span style={{ background: theme.palette[1] }} />{match.right!.manager}</p>
@@ -399,11 +400,14 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
     const leftStarters = startersFor(match.left.slug, match.left.teamId);
     const rightStarters = rightSide ? startersFor(rightSide.slug, rightSide.teamId) : [];
     const noOut = { count: 0, low: null, high: null };
+    const unscored = (rows: RosteredPlayer[]) => rows.map(row => toOddsStarter({ ...row, weekPoints: null }, match.week));
+    const pastMarkers = windowMarkers([...leftStarters, ...rightStarters].map(player => ({ kickoff: games[player.proTeam]?.kickoff })));
     return <section className="matchday-match" id={`matchday-${match.id}`}>
       <header className="matchday-match-head"><p className="eyebrow">FINAL <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{rightSide ? ` vs ${rightSide.manager}` : ' · Bye'}</p></header>
       <div className="matchday-layout">
         <div className="matchday-main">
           <Scoreboard match={{ ...match, left: { ...match.left, projected: null }, right: rightSide && { ...rightSide, projected: null } }} chance={null} leftRank={leftTeam?.rank ?? null} rightRank={(rightSide ? teamFor(rightSide.slug, rightSide.teamId) : null)?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightSide ? teamFor(rightSide.slug, rightSide.teamId)?.logoUrl : null} leftOut={noOut} rightOut={noOut} />
+          <ChanceChart final match={match} seriesLeft={liveSeries(match.left.slug, match.left.teamId)} seriesRight={rightSide ? liveSeries(rightSide.slug, rightSide.teamId) : null} leftStarters={unscored(leftStarters)} rightStarters={unscored(rightStarters)} games={games} now={now} markers={pastMarkers} />
         </div>
         <PastBoardView left={pastBoard(leftStarters).done} right={pastBoard(rightStarters).done} showLeft={!narrow || filter !== 'right'} showRight={(!narrow || filter !== 'left') && !!rightSide} leftName={match.left.manager} rightName={rightSide?.manager ?? 'Bye'} />
       </div>
@@ -500,13 +504,15 @@ export function MatchdayPage() {
   const watch = slugs.length ? slugs : manager ? [manager.slug] : [];
   const rosters = useRosters(watch);
   const live = useLive(watch);
+  const liveWeek = useLiveWeek(watch, past ? selected : null);
   const narrow = useNarrow('(max-width: 720px)');
   const [filter, setFilter] = useState<SideFilter>('both');
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => window.clearInterval(timer); }, []);
   usePageLabel(manager ? `${manager.manager} matchday` : 'Matchday');
   const players = Object.fromEntries(watch.map(slug => [slug, rosters[slug]?.data?.players ?? []])) as Partial<Record<LeagueSlug, RosteredPlayer[]>>;
-  const games = Object.assign({}, ...watch.map(slug => live[slug]?.data?.games ?? {})) as Record<string, LiveGame>;
+  const timeline = past ? liveWeek : live;
+  const games = Object.assign({}, ...watch.map(slug => timeline[slug]?.data?.games ?? {})) as Record<string, LiveGame>;
   const lineups = past ? Object.fromEntries(watch.map(slug => [slug, rosters[slug]?.data?.weeklyLineups])) as Partial<Record<LeagueSlug, WeekLineup[] | undefined>> : null;
   const summary = manager ? summaries[manager.slug] : undefined;
 
@@ -531,7 +537,7 @@ export function MatchdayPage() {
       <button type="button" aria-pressed={filter === 'right'} onClick={() => setFilter('right')}>Opponent</button>
       <button type="button" aria-pressed={filter === 'both'} onClick={() => setFilter('both')}>Both</button>
     </div>}
-    {matches.length ? matches.map(match => <MatchSection key={match.id} match={match} players={players} games={games} liveSeries={(slug, teamId) => live[slug]?.data?.series?.[teamId] ?? null} now={now} filter={filter} narrow={narrow} teamFor={teamFor} lineups={lineups} />) : <p className="notice">No matchup is scheduled for this week.</p>}
+    {matches.length ? matches.map(match => <MatchSection key={match.id} match={match} players={players} games={games} liveSeries={(slug, teamId) => timeline[slug]?.data?.series?.[teamId] ?? null} now={now} filter={filter} narrow={narrow} teamFor={teamFor} lineups={lineups} />) : <p className="notice">No matchup is scheduled for this week.</p>}
     {!past && <p className="source-note">Win chance uses ESPN’s live projection. Each starter still playing keeps a share of their usual weekly range. Scores refresh about every three minutes.</p>}
   </div>;
 }

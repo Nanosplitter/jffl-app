@@ -43,7 +43,13 @@ def _record_live(store, summary, games_for, cache):
         except Exception as error:
             logging.error("JFFL scoreboard unavailable (%s)", type(error).__name__)
             cache[week] = None
-    folded = fold_live(latest(slug), summary, cache[week], datetime.now(timezone.utc))
+    previous = latest(slug)
+    archive = getattr(store, "publish_live_week", None)
+    if archive and isinstance(previous, dict) and previous.get("slug") == slug and previous.get("season") == summary.get("season"):
+        finished = previous.get("week")
+        if isinstance(finished, int) and not isinstance(finished, bool) and 1 <= finished < week:
+            archive(slug, finished, previous)
+    folded = fold_live(previous, summary, cache[week], datetime.now(timezone.utc))
     if folded:
         publish(slug, folded)
 
