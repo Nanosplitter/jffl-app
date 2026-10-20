@@ -14,7 +14,7 @@ const base = `https://firestore.googleapis.com/v1/projects/${project}/databases/
 async function call(method, url, body) {
   const response = await fetch(url, {
     method,
-    headers: { Authorization: `****** 'Content-Type': 'application/json' },
+    headers: { Authorization: 'Bearer ' + process.env.FIRESTORE_ACCESS_TOKEN, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined,
   });
   const json = await response.json().catch(() => ({}));
