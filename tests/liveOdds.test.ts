@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { collapseGaps, gameProgress, liveWinChance, scoreChartScale, sideVariance, winChanceSeries, withNow, type OddsStarter } from '../src/liveOdds.ts';
+import { collapseGaps, gameProgress, liveWinChance, recordedProjection, scoreChartScale, scoreLine, sideVariance, winChanceSeries, withNow, type OddsStarter } from '../src/liveOdds.ts';
 import type { LiveGame } from '../src/types.ts';
 
 const kickoff = '2026-10-18T17:00:00Z';
@@ -90,6 +90,16 @@ test('a win-chance series holds the other side and keeps a null score', () => {
   assert.equal(points[0].scoreRight, null);
   assert.equal(points[1].scoreRight, 5);
   assert.deepEqual(winChanceSeries({ t: [1], s: [null], p: [null] }, { t: [1], s: [0], p: [10] }, () => ({ left: 0, right: 0 })), []);
+});
+
+test('a replayed score line draws without a live projection', () => {
+  const left = { t: [10, 20], s: [0, 12], p: [null, null] };
+  const right = { t: [15, 20], s: [0, 9], p: [null, null] };
+  assert.equal(recordedProjection(left), false);
+  assert.equal(recordedProjection({ t: [10], s: [4], p: [18] }), true);
+  assert.equal(winChanceSeries(left, right, () => ({ left: 0, right: 0 })).length, 0);
+  const line = scoreLine(left, right, 3, 0);
+  assert.deepEqual(line.map(point => [point.t, point.scoreLeft, point.scoreRight]), [[10, 3, null], [15, 3, 0], [20, 15, 9]]);
 });
 
 test('the current sample is added only when the score or projection changed', () => {

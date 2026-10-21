@@ -215,6 +215,36 @@ export function winChanceSeries(
   return points;
 }
 
+/** True when this series was sampled from ESPN's live projection, which a play-by-play replay does not have. */
+export function recordedProjection(series: ScoreSeries | null | undefined): boolean {
+  return !!series && series.p.some(value => typeof value === 'number' && Number.isFinite(value));
+}
+
+/** Score samples for a finished week, including a replay whose projections are empty. */
+export function scoreLine(
+  left: ScoreSeries | null | undefined,
+  right: ScoreSeries | null | undefined,
+  offsetLeft = 0,
+  offsetRight = 0,
+): ChancePoint[] {
+  const times = [...new Set([...(left?.t ?? []), ...(right?.t ?? [])])].filter(time => Number.isFinite(time)).sort((a, b) => a - b);
+  const points: ChancePoint[] = [];
+  for (const time of times) {
+    const scoreLeft = plus(held(left, 's', time), offsetLeft) ?? null;
+    const scoreRight = plus(held(right, 's', time), offsetRight) ?? null;
+    if (scoreLeft == null && scoreRight == null) continue;
+    points.push({
+      t: time,
+      chance: 50,
+      scoreLeft,
+      scoreRight,
+      projectedLeft: plus(held(left, 'p', time), offsetLeft) ?? null,
+      projectedRight: plus(held(right, 'p', time), offsetRight) ?? null,
+    });
+  }
+  return points;
+}
+
 export function withNow(series: ScoreSeries | null | undefined, nowSec: number, score: number | null, projected: number | null): ScoreSeries | null {
   if (!series && score == null && projected == null) return null;
   const base = series ?? { t: [], s: [], p: [] };

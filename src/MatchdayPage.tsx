@@ -8,7 +8,7 @@ import { baseOption, esc } from './history/chartKit';
 import { useLive, useLiveWeek, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
 import { historicalStarters } from './lineups';
-import { collapseGaps, forecastEnd, liveMatchChance, openVariance, scoreChartScale, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
+import { collapseGaps, forecastEnd, liveMatchChance, openVariance, recordedProjection, scoreChartScale, scoreLine, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
 import { matchdayMatches, matchFacts, matchTotal, playerBoard, pointSpan, pointsStillOut, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
 import { PlayerIdentity } from './PlayerIdentity';
 import { MANAGERS, leagueInk, managerFor } from './reference';
@@ -226,6 +226,7 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
 }) {
   const dark = useDarkMode();
   const narrow = useNarrow('(max-width: 720px)');
+  const replay = final && !recordedProjection(seriesLeft) && !recordedProjection(seriesRight);
   const history = useMemo(() => {
     const left = final ? seriesLeft : withNow(seriesLeft, Math.floor(now / 1000), match.left.score, match.left.projected);
     const right = match.right ? final ? seriesRight : withNow(seriesRight, Math.floor(now / 1000), match.right.score, match.right.projected) : null;
@@ -234,6 +235,10 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
       right: sideVariance(rightStarters, games, at, now, match.week),
     }), match.left.offset, match.right?.offset ?? 0);
   }, [final, games, leftStarters, match, now, rightStarters, seriesLeft, seriesRight]);
+  const scores = useMemo(
+    () => scoreLine(seriesLeft, seriesRight, match.left.offset, match.right?.offset ?? 0),
+    [match.left.offset, match.right, seriesLeft, seriesRight],
+  );
   const outlook = useMemo(() => final ? null : ({
     end: Math.max(forecastEnd(leftStarters, games, now, match.week), forecastEnd(rightStarters, games, now, match.week)),
     leftSd: Math.sqrt(openVariance(leftStarters, games, now, match.week)),
@@ -241,21 +246,24 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
   }), [final, games, leftStarters, match.week, now, rightStarters]);
   const { theme } = chartTheme(dark);
   if (!match.right) return null;
-  const ready = history.length >= 2;
+  const chanceReady = history.length >= 2;
+  const scoreReady = (replay ? scores : history).length >= 2;
   const height = narrow ? 200 : 240;
-  const card = (mode: ChartMode, title: string) => <section className="matchday-chart" aria-label={title}>
+  const empty = final ? 'No score history was recorded for this week.' : 'History starts with the next update.';
+  const card = (mode: ChartMode, title: string, ready: boolean, points: typeof history) => <section className="matchday-chart" aria-label={title}>
     <h3 className="matchday-chart-title">{title}</h3>
     {ready
-      ? <ArchiveChart option={chartOption(dark, mode, match.left.manager, match.right!.manager, history, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}.`} height={height} />
-      : <p className="matchday-empty">{final ? 'No score history was recorded for this week.' : 'History starts with the next update.'}</p>}
+      ? <ArchiveChart option={chartOption(dark, mode, match.left.manager, match.right!.manager, points, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}.`} height={height} />
+      : <p className="matchday-empty">{mode === 'chance' && replay && scoreReady ? 'Win chance wasn\u2019t recorded for this week.' : empty}</p>}
+    {mode === 'score' && replay && ready && <p className="source-note">Rebuilt from the play-by-play. The line ends on the official score.</p>}
     <div className="matchday-chart-names">
       <p className="chance-edge"><span style={{ background: theme.palette[0] }} />{match.left.manager}</p>
       <p className="chance-edge"><span style={{ background: theme.palette[1] }} />{match.right!.manager}</p>
     </div>
   </section>;
   return <div className="matchday-charts">
-    {card('chance', 'Win chance')}
-    {card('score', 'Score')}
+    {card('chance', 'Win chance', chanceReady, history)}
+    {card('score', 'Score', scoreReady, replay ? scores : history)}
   </div>;
 }
 
@@ -526,5 +534,6 @@ export function MatchdayPage() {
     </div>}
     {matches.length ? matches.map(match => <MatchSection key={match.id} match={match} players={players} games={games} liveSeries={(slug, teamId) => timeline[slug]?.data?.series?.[teamId] ?? null} now={now} filter={filter} narrow={narrow} teamFor={teamFor} lineups={lineups} />) : <p className="notice">No matchup is scheduled for this week.</p>}
     {!past && <p className="source-note">Win chance uses ESPN’s live projection. Each starter still playing keeps a share of their usual weekly range. Scores refresh about every three minutes.</p>}
+    {past && <p className="source-note">A week that was recorded live keeps its win chance. A week that was not shows a score line rebuilt from the NFL play-by-play, ending on the official total.</p>}
   </div>;
 }
