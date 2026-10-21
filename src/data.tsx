@@ -94,21 +94,24 @@ export function useLive(slugs: LeagueSlug[]) {
   return states;
 }
 
-/** Score history archived when a week ended. Absent for weeks that were never recorded. */
-export function useLiveWeek(slugs: LeagueSlug[], week: number | null) {
-  const key = week == null ? '' : slugs.join(',');
+/** Score history kept for one season week. Absent for weeks that were never recorded. */
+export function useLiveWeek(slugs: LeagueSlug[], season: number | null, week: number | null) {
+  const key = season == null || week == null ? '' : `${season}:${slugs.join(',')}`;
   const [states, setStates] = useState<Partial<Record<LeagueSlug, State<LeagueLiveSnapshot | null>>>>({});
   useEffect(() => {
-    const selected = key.split(',').filter(Boolean) as LeagueSlug[];
+    const selected = (key.split(':')[1] ?? '').split(',').filter(Boolean) as LeagueSlug[];
     const stops = selected.map(slug => {
       setStates(previous => ({ ...previous, [slug]: empty() }));
-      const receive = (value: unknown) => setStates(previous => ({ ...previous, [slug]: { data: liveOk(value, slug) && (value as LeagueLiveSnapshot).week === week ? value as LeagueLiveSnapshot : null, loading: false, error: false } }));
-      if (db) return onSnapshot(doc(db, 'publicLiveWeeks', `${slug}-${week}`), snapshot => receive(snapshot.exists() ? snapshot.data() : null), () => receive(null));
+      const receive = (value: unknown) => {
+        const live = liveOk(value, slug) ? value : null;
+        setStates(previous => ({ ...previous, [slug]: { data: live && live.season === season && live.week === week ? live : null, loading: false, error: false } }));
+      };
+      if (db && season != null && week != null) return onSnapshot(doc(db, 'publicLiveWeeks', `${season}-${slug}-${week}`), snapshot => receive(snapshot.exists() ? snapshot.data() : null), () => receive(null));
       receive(null);
       return () => {};
     });
     return () => stops.forEach(stop => stop());
-  }, [key, week]);
+  }, [key, season, week]);
   return states;
 }
 

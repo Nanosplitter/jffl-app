@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       at:
-        description: Read time (ISO, within the last 7 days), late in the week to recover
+        description: ISO read time that still has that week's publicLive document. This database keeps versions for one hour, and point-in-time recovery is off, so an overwritten week cannot be restored.
         required: true
       week:
         description: Week number to recover

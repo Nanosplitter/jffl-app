@@ -43,7 +43,7 @@ service cloud.firestore {
       allow list, write: if false;
     }
     match /publicLiveWeeks/{id} {
-      allow get: if id.matches('^(premier|championship|league-one)-[0-9]{1,2}$');
+      allow get: if id.matches('^20[2-9][0-9]-(premier|championship|league-one)-([1-9]|1[0-8])$');
       allow list, write: if false;
     }
     match /publicHistory/{season} {

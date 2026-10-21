@@ -34,8 +34,8 @@ class FirestoreStore:
     def publish_live(self, slug, document):
         self.db.collection("publicLive").document(slug).set(document)
 
-    def publish_live_week(self, slug, week, document):
-        self.db.collection("publicLiveWeeks").document(f"{slug}-{week}").set(document)
+    def publish_live_week(self, season, slug, week, document):
+        self.db.collection("publicLiveWeeks").document(f"{season}-{slug}-{week}").set(document)
 
     def fold_history(self, summary):
         season = summary.get("season")

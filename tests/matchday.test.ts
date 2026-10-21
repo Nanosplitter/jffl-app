@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { historicalStarters } from '../src/lineups.ts';
 import { benchPoints, kickoffWindow, matchdayMatches, matchNotes, matchTotal, playerBoard, pointSpan, pointsStillOut, priorLegOffset } from '../src/matchday.ts';
 import type { LeagueSummary, RosteredPlayer } from '../src/types.ts';
 
@@ -62,6 +63,26 @@ function league(matchup: LeagueSummary['matchups'][number]): LeagueSummary {
     weeklyMatchups: [{ ...matchup, week: 6, status: 'live' }],
   };
 }
+
+test('a past matchday uses that week’s saved score and lineup, not the live roster', () => {
+  const current = league({ id: '7-0', homeTeamId: '16', awayTeamId: '34', homeScore: 4, awayScore: 0, homeProjected: 110, awayProjected: 105 });
+  current.week = 7;
+  current.weeklyMatchups = [
+    { id: '6-0', week: 6, status: 'final', homeTeamId: '16', awayTeamId: '34', homeScore: 121.4, awayScore: 98.2, homeProjected: 108, awayProjected: 101 },
+    { ...current.matchups[0], week: 7, status: 'live' },
+  ];
+  const match = matchdayMatches({ premier: current }, 'premier', '16', 6).find(item => item.kind === 'league');
+  assert.equal(match?.week, 6);
+  assert.equal(match?.status, 'final');
+  assert.equal(match?.left.score, 121.4);
+  assert.equal(match?.right?.score, 98.2);
+  const starters = historicalStarters([
+    { week: 6, teamId: '16', players: [{ id: '1', name: 'Week Six Starter', position: 'WR', proTeam: 'KC', slot: 'WR', points: 18.5 }] },
+    { week: 7, teamId: '16', players: [{ id: '2', name: 'Current Starter', position: 'RB', proTeam: 'DET', slot: 'RB', points: 4 }] },
+  ], '16', 6);
+  assert.deepEqual(starters?.map(player => player.name), ['Week Six Starter']);
+  assert.equal(starters?.[0].weekPoints, 18.5);
+});
 
 test('matchday lists the league game with the chosen manager on the left', () => {
   const matches = matchdayMatches({ premier: league({ id: '6-0', homeTeamId: '16', awayTeamId: '34', homeScore: 80, awayScore: 70, homeProjected: 110, awayProjected: 105 }) }, 'premier', '16');

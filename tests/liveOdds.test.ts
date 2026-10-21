@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { gameProgress, liveWinChance, scoreChartScale, sideVariance, winChanceSeries, withNow, type OddsStarter } from '../src/liveOdds.ts';
+import { collapseGaps, gameProgress, liveWinChance, scoreChartScale, sideVariance, winChanceSeries, withNow, type OddsStarter } from '../src/liveOdds.ts';
 import type { LiveGame } from '../src/types.ts';
 
 const kickoff = '2026-10-18T17:00:00Z';
@@ -9,6 +9,17 @@ const gameMs = 3.25 * 60 * 60 * 1000;
 
 const starter = (partial: Partial<OddsStarter>): OddsStarter => ({
   name: 'Pat', position: 'QB', proTeam: 'KC', weekPoints: null, projectedPoints: 18, previousPoints: [], kickoff, ...partial,
+});
+
+test('a long quiet stretch collapses and still maps back to real time', () => {
+  const start = Date.parse('2026-10-16T00:15:00Z');
+  const later = start + 30 * 60 * 1000;
+  const sunday = later + 40 * 60 * 60 * 1000;
+  const warp = collapseGaps([sunday, start, later]);
+  assert.equal(warp.toX(later) - warp.toX(start), 30 * 60 * 1000);
+  assert.equal(warp.toX(sunday) - warp.toX(later), 10 * 60 * 1000);
+  assert.equal(warp.fromX(warp.toX(sunday)), sunday);
+  assert.equal(warp.fromX(warp.toX(start)), start);
 });
 
 test('a finish a day away does not outgrow the recorded score', () => {

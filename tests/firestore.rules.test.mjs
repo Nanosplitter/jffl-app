@@ -19,7 +19,7 @@ before(async () => {
       setDoc(doc(db, '_sync', 'lease'), { token: 'private' }),
       setDoc(doc(db, 'publicHistory', '2026'), { schemaVersion: 1, season: 2026 }),
       setDoc(doc(db, 'publicLive', 'premier'), { schemaVersion: 1, slug: 'premier' }),
-      setDoc(doc(db, 'publicLiveWeeks', 'premier-3'), { schemaVersion: 1, slug: 'premier', week: 3 }),
+      setDoc(doc(db, 'publicLiveWeeks', '2026-premier-3'), { schemaVersion: 1, slug: 'premier', week: 3 }),
     ]);
   });
 });
@@ -57,10 +57,12 @@ test('a live timeline is readable by id and cannot be listed or written', async 
 });
 test('a finished week timeline is readable by id and cannot be listed or written', async () => {
   const anon = environment.unauthenticatedContext().firestore();
-  await assertSucceeds(getDoc(doc(anon, 'publicLiveWeeks', 'premier-3')));
-  await assertFails(getDoc(doc(anon, 'publicLiveWeeks', 'other-3')));
+  await assertSucceeds(getDoc(doc(anon, 'publicLiveWeeks', '2026-premier-3')));
+  await assertFails(getDoc(doc(anon, 'publicLiveWeeks', 'premier-3')));
+  await assertFails(getDoc(doc(anon, 'publicLiveWeeks', '2026-other-3')));
+  await assertFails(getDoc(doc(anon, 'publicLiveWeeks', '2026-premier-19')));
   await assertFails(getDocs(collection(anon, 'publicLiveWeeks')));
-  await assertFails(setDoc(doc(anon, 'publicLiveWeeks', 'premier-4'), { week: 4 }));
+  await assertFails(setDoc(doc(anon, 'publicLiveWeeks', '2026-premier-4'), { week: 4 }));
 });
 test('a saved season is publicly readable and not writable', async () => {
   const db = environment.unauthenticatedContext().firestore();

@@ -110,6 +110,47 @@ def test_live_timeline_does_not_block_a_publish():
     assert store.live["premier"]["series"]["1"]["s"] == [10]
 
 
+def test_each_live_week_is_kept_when_the_next_week_publishes():
+    class WeekStore(MemoryStore):
+        def __init__(self):
+            super().__init__()
+            self.live = {}
+            self.weeks = {}
+
+        def latest_live(self, slug):
+            return copy.deepcopy(self.live.get(slug))
+
+        def publish_live(self, slug, document):
+            self.live[slug] = copy.deepcopy(document)
+
+        def publish_live_week(self, season, slug, week, document):
+            self.weeks[f"{season}-{slug}-{week}"] = copy.deepcopy(document)
+
+    store = WeekStore()
+
+    def fetch(week, score):
+        def load(slug):
+            return {
+                "slug": slug, "season": 2026, "week": week, "updatedAt": "t",
+                "teams": [{"id": "1"}],
+                "matchups": [{
+                    "homeTeamId": "1", "awayTeamId": "2",
+                    "homeScore": score, "awayScore": 3, "homeProjected": 80, "awayProjected": 70,
+                }],
+            }, {"players": []}
+        return load
+
+    assert sync_leagues(store, fetch(6, 10), lambda week: {})["premier"] == "ok"
+    assert store.weeks["2026-premier-6"]["series"]["1"]["s"] == [10]
+    assert sync_leagues(store, fetch(6, 10), lambda week: {})["premier"] == "ok"
+    assert store.weeks["2026-premier-6"]["week"] == 6
+    assert sync_leagues(store, fetch(7, 1), lambda week: {})["premier"] == "ok"
+    assert store.weeks["2026-premier-6"]["series"]["1"]["s"] == [10]
+    assert store.weeks["2026-premier-6"]["week"] == 6
+    assert store.weeks["2026-premier-7"]["series"]["1"]["s"] == [1]
+    assert store.live["premier"]["week"] == 7
+
+
 def test_failure_to_record_error_does_not_stop_other_leagues():
     class FailingMetadataStore(MemoryStore):
         def mark_failed(self, slug, stamp):

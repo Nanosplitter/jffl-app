@@ -28,6 +28,19 @@ def retain_projections(previous, summary):
                 row[side] = prior[side]
 
 
+def _archive_live(store, document):
+    """Keep one document per season, league, and week. A later week never replaces it."""
+    archive = getattr(store, "publish_live_week", None)
+    if archive is None or not isinstance(document, dict):
+        return
+    slug, season, week = document.get("slug"), document.get("season"), document.get("week")
+    if not isinstance(slug, str) or isinstance(season, bool) or not isinstance(season, int):
+        return
+    if isinstance(week, bool) or not isinstance(week, int) or not 1 <= week <= 18:
+        return
+    archive(season, slug, week, document)
+
+
 def _record_live(store, summary, games_for, cache):
     latest = getattr(store, "latest_live", None)
     publish = getattr(store, "publish_live", None)
@@ -35,6 +48,7 @@ def _record_live(store, summary, games_for, cache):
         return
     week = summary.get("week")
     slug = summary.get("slug")
+    season = summary.get("season")
     if isinstance(week, bool) or not isinstance(week, int) or not isinstance(slug, str):
         return
     if week not in cache:
@@ -44,14 +58,16 @@ def _record_live(store, summary, games_for, cache):
             logging.error("JFFL scoreboard unavailable (%s)", type(error).__name__)
             cache[week] = None
     previous = latest(slug)
-    archive = getattr(store, "publish_live_week", None)
-    if archive and isinstance(previous, dict) and previous.get("slug") == slug and previous.get("season") == summary.get("season"):
-        finished = previous.get("week")
-        if isinstance(finished, int) and not isinstance(finished, bool) and 1 <= finished < week:
-            archive(slug, finished, previous)
+    same_league = isinstance(previous, dict) and previous.get("slug") == slug and previous.get("season") == season
+    finished = previous.get("week") if same_league else None
+    if isinstance(finished, int) and not isinstance(finished, bool) and 1 <= finished < week:
+        _archive_live(store, previous)
     folded = fold_live(previous, summary, cache[week], datetime.now(timezone.utc))
     if folded:
         publish(slug, folded)
+        _archive_live(store, folded)
+    elif same_league and finished == week:
+        _archive_live(store, previous)
 
 
 def sync_leagues(store, fetch=fetch_league, games_for=None):

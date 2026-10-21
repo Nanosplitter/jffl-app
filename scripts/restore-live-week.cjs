@@ -1,8 +1,8 @@
-// Recover a finished week's score history from Firestore point-in-time recovery.
-// Reads publicLive/{slug} as it was at --at, and copies it to publicLiveWeeks/{slug}-{week}.
-// Dry run unless --write is given. Needs PITR enabled and a read time inside the last 7 days.
-// Needs FIRESTORE_ACCESS_TOKEN (an OAuth access token). The restore-live-week workflow supplies it.
-// Usage: node scripts/restore-live-week.cjs --at 2026-10-14T12:00:00Z --week 6 [--write]
+// Read publicLive/{slug} as it was at --at and copy it to publicLiveWeeks/{season}-{slug}-{week}.
+// jffl-live-colin keeps document versions for one hour. Point-in-time recovery is off, so a week
+// already replaced in publicLive cannot be read back. Do not expect this to restore week 6 of 2026.
+// Dry run unless --write is given. Needs FIRESTORE_ACCESS_TOKEN (an OAuth access token).
+// Usage: node scripts/restore-live-week.cjs --at 2026-10-20T02:00:00Z --week 7 [--write]
 const project = 'jffl-live-colin';
 const arg = name => { const index = process.argv.indexOf(`--${name}`); return index === -1 ? null : process.argv[index + 1]; };
 const at = arg('at');
@@ -36,13 +36,15 @@ async function call(method, url, body) {
     }
     const fields = found.fields ?? {};
     const docWeek = Number(fields.week?.integerValue);
+    const season = Number(fields.season?.integerValue);
     const teams = Object.keys(fields.series?.mapValue?.fields ?? {}).length;
-    if (docWeek !== week) { console.log(`${slug}: document held week ${docWeek}, not ${week}; skipped`); continue; }
+    if (docWeek !== week || !Number.isInteger(season)) { console.log(`${slug}: document held week ${docWeek}, season ${fields.season?.integerValue ?? 'missing'}; skipped`); continue; }
+    const id = `${season}-${slug}-${week}`;
     console.log(`${slug}: week ${docWeek}, ${teams} teams, updated ${fields.updatedAt?.stringValue}`);
     if (!write) continue;
     try {
-      await call('PATCH', `${base}/publicLiveWeeks/${slug}-${week}?currentDocument.exists=false`, { fields });
-      console.log(`${slug}: restored to publicLiveWeeks/${slug}-${week}`);
+      await call('PATCH', `${base}/publicLiveWeeks/${id}?currentDocument.exists=false`, { fields });
+      console.log(`${slug}: restored to publicLiveWeeks/${id}`);
     } catch (error) {
       console.log(`${slug}: not written (${error.message})`);
     }
