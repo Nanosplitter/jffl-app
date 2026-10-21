@@ -267,7 +267,7 @@ function PlayerLine({ row }: { row: BoardRow }) {
     <PlayerIdentity player={row.player} injury={row.player.injuryStatus} />
     <span className="matchday-player-score">
       <strong>{waiting ? points(row.player.projectedPoints) : points(row.player.weekPoints)}</strong>
-      <small className={gap == null ? '' : gap > 0 ? 'up' : 'down'}>{waiting ? 'projected' : pace ?? (row.status === 'done' ? 'on pace' : '')}</small>
+      <small className={gap == null ? '' : gap > 0 ? 'up' : 'down'}>{waiting ? 'projected' : pace ?? (row.status === 'done' && row.player.projectedPoints != null ? 'on pace' : '')}</small>
     </span>
     {row.detail && <span className="matchday-chip">{row.detail}</span>}
     <RangeBar span={pointSpan(row)} quiet={row.status === 'done' || row.status === 'bye'} />
