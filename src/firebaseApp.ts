@@ -9,11 +9,13 @@ let app: FirebaseApp | null = null;
 /** One shared Firebase app for Firestore and the assistant. Returns null when the site has no Firebase config (local snapshot mode). */
 export function getFirebaseApp(): FirebaseApp | null {
   if (!firebaseConfigured) return null;
+  const measurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
   app ??= getApps()[0] ?? initializeApp({
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: authDomainForHost(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN, typeof window === 'undefined' ? undefined : window.location.hostname),
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    ...(measurementId ? { measurementId } : {}),
   });
   return app;
 }

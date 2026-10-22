@@ -2,7 +2,9 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { readFile } from 'node:fs/promises';
 
-export default defineConfig({ plugins: [react(), {
+export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(process.env.npm_package_version || '1.0.0') },
+  plugins: [react(), {
   name: 'live-local-snapshot',
   configureServer(server) {
     server.middlewares.use('/__local-data', async (_req, res) => {

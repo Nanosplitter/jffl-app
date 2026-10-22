@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState, type R
 import { Link } from 'react-router-dom';
 import { getAuth, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signInWithPopup, signInWithRedirect, signOut, type User } from 'firebase/auth';
 import { deleteDoc, doc, getFirestore, onSnapshot, setDoc } from 'firebase/firestore';
+import { identifyUser, setFollowedLeague, trackFollow, trackSignIn } from './analytics';
 import { getFirebaseApp } from './firebaseApp';
 import { parseFollowed, type FollowedManager } from './follow';
 import { MANAGERS } from './reference';
@@ -84,9 +85,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         setUser(null);
         setFollowedState(null);
         writeCache(null, null);
+        identifyUser(null);
+        setFollowedLeague(null);
         setReady(true);
         return;
       }
+      identifyUser(next.uid);
       const account = { uid: next.uid, name: accountName(next) };
       setUser(account);
       setFollowedState(readCache(next.uid));
@@ -96,10 +100,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         const data = snapshot.data();
         const saved = snapshot.exists() ? parseFollowed(data?.followedKey, data?.followedName) : null;
         setFollowedState(saved);
+        setFollowedLeague(saved?.key ?? null);
         writeCache(next.uid, saved);
       }, () => { /* A failed profile read leaves the cached highlight in place until sign-out. */ });
     });
-    void getRedirectResult(auth).catch(reason => {
+    void getRedirectResult(auth).then(result => {
+      if (result?.user) trackSignIn(result.user.uid);
+    }).catch(reason => {
       const message = authMessage(reason);
       if (message) setError(message);
     });
@@ -120,7 +127,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches;
       try {
         if (narrow) await signInWithRedirect(auth, provider);
-        else await signInWithPopup(auth, provider);
+        else {
+          const result = await signInWithPopup(auth, provider);
+          trackSignIn(result.user.uid);
+        }
       } catch (reason) {
         const message = authMessage(reason);
         if (message) setError(message);
@@ -141,6 +151,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       try {
         if (!next) await deleteDoc(doc(db, 'users', uid));
         else await setDoc(doc(db, 'users', uid), { followedKey: next.key, followedName: next.name });
+        trackFollow(next?.key ?? null);
         writeStorage(typeof localStorage === 'undefined' ? undefined : localStorage, `${SKIP_PREFIX}${uid}`, null);
       } catch {
         setError('Could not save that manager.');

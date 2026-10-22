@@ -63,6 +63,34 @@ from the live snapshots. Promotion bands are provisional because Jason's
 trophy-based exceptions determine final allocations. Raw emails, PDF files,
 contact information, and mail metadata are not published.
 
+## Visits
+
+The site sends usage to Google Analytics on the `jffl-live-colin` web app
+(`JFFL Web`, measurement id `G-5S4ET93X25`). Reports:
+
+https://console.firebase.google.com/project/jffl-live-colin/analytics/overview
+
+Each screen sends a page view named for that screen (Premier League, Team ·
+Premier League · 3, Week 4, Saved chat, and so on), with the section and league
+attached. The browser, device, country, referrer, and site version are included
+on those hits. Clicks, outbound links such as ESPN, filters, searches, and
+90% scrolls are events. Signing in the first time on a browser is a sign-up;
+later sign-ins are logins. Following or unfollowing a manager, asking the
+archive, and sharing an answer are events too. Signed-in visitors are tied to
+their Firebase user id, and the theme and followed league are user properties.
+
+Question text, email addresses, and display names are not sent. Ad blockers
+and browsers that reject analytics cookies are missing from the counts.
+Realtime shows a visit within a few minutes. Overview, retention, and
+demographic charts lag, and demographics stay hidden until Google has enough
+visitors to clear its threshold. There is no revenue, so the monetization
+report stays empty. DebugView stays empty unless the Google Analytics Debugger
+extension is on.
+
+`VITE_FIREBASE_MEASUREMENT_ID` is that public `G-` id. Leave it empty to let the
+SDK load the id registered on the web app. Add it to `PRODUCTION_ENV` before
+the next hosting deploy.
+
 ## Ask the archive (AI assistant)
 
 `/archive/ask` lets visitors ask questions about the 2002 to 2025 archive and the
@@ -317,7 +345,8 @@ Two repository secrets are required:
   Service Account User, and Cloud Build Editor. Artifact Registry Writer is also
   required when a functions deploy builds a container.
 - `PRODUCTION_ENV`: the public Vite settings from `.env.example` (`VITE_FIREBASE_*`,
-  `VITE_AI_FIREBASE_*`, and `VITE_RECAPTCHA_SITE_KEY`). Leave out
+  including `VITE_FIREBASE_MEASUREMENT_ID`, `VITE_AI_FIREBASE_*`, and
+  `VITE_RECAPTCHA_SITE_KEY`). Leave out
   `VITE_APPCHECK_DEBUG_TOKEN`, `VITE_ASK_MOCK`, and `VITE_USE_EMULATORS`. The
   workflow drops those three if they are present.
 

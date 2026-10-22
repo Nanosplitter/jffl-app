@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search, Shield, Sun, Moon } from 'lucide-react';
 import { AccountButton, FollowedNote, FollowPrompt, useFollowed } from './account';
+import { setAnalyticsTheme, startAnalytics, trackPage } from './analytics';
 import { localPreview, useLive, useRosters, useSummaries } from './data';
 import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type LiveGame, type Matchup, type RosteredPlayer, type Team } from './types';
@@ -509,7 +510,10 @@ export default function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? 'dark' : 'light';
     try { localStorage.setItem('jffl-theme', dark ? 'dark' : 'light'); } catch { /* Theme works without storage. */ }
+    setAnalyticsTheme(dark);
   }, [dark]);
+  useEffect(() => { startAnalytics(); }, []);
+  useEffect(() => { trackPage(location.pathname, location.search); }, [location.pathname, location.search]);
   useEffect(() => {
     window.scrollTo(0, 0);
     const playerSegment = location.pathname.split('/')[2] ?? '';

@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Keybo
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAccount, useFollowed } from './account';
 import { Check, Copy, RotateCcw, Send, Share, Square, X } from 'lucide-react';
+import { trackAsk, trackShare } from './analytics';
 import { ArchiveNav } from './ArchiveNav';
 import { usePageLabel } from './BackLink';
 import { AskCardList } from './AskCards';
@@ -295,6 +296,7 @@ export function AskPage() {
     const daily = readDaily(read(typeof localStorage === 'undefined' ? undefined : localStorage, DAILY_KEY), now);
     const check = checkLimits({ input: text, now, lastSentAt: lastSent.current, turns: turnCount(contents.current), todayCount: daily.count, busy: busyRef.current });
     if (!check.ok) { setNotice(check.reason); return; }
+    trackAsk();
     setNotice(null);
     setShareLink(null);
     restored.current = true;
@@ -405,6 +407,7 @@ export function AskPage() {
         const id = await publishShare(account.user.uid, freezeMessage(question, withControls, session));
         const url = `${window.location.origin}/archive/ask/s/${id}`;
         setShareLink({ id: message.id, url, frozen: true });
+        trackShare();
         await copyLink(url);
         return;
       }
@@ -415,6 +418,7 @@ export function AskPage() {
       const encoded = await encodeShare({ v: 1, a: archiveStamp(session.ctx.archive), ...live, q: question.slice(0, 300), t: message.text.slice(0, 1200), c: charts, ...(cards.length ? { k: cards } : {}) });
       const url = shareUrl(window.location.origin, encoded);
       setShareLink({ id: message.id, url });
+      trackShare();
       await copyLink(url);
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Could not make a link.');
@@ -431,6 +435,7 @@ export function AskPage() {
       const id = await publishShare(account.user.uid, freezeMessage(question, message, session));
       const url = `${window.location.origin}/archive/ask/s/${id}`;
       setShareLink({ id: message.id, url, frozen: true });
+      trackShare();
       await copyLink(url);
     } catch (error) {
       setToast(error instanceof Error ? error.message : 'Could not make a link.');
