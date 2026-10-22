@@ -33,6 +33,7 @@ test('an earlier week uses the weekly result and the opponent is checked', () =>
   const card = resolved({ kind: 'matchup', manager: 'Jason', week: 1, opponent: 'Chris' });
   assert.equal(card.text.url, '/league/premier/match/1-4');
   assert.match(card.text.facts, /\(final\)/);
+  assert.match(card.text.facts, /Jason leads 13–11 in all competitions, but Chris won the 2016 Premier Superbowl, 128–104\./);
   const wrong = resolveCard(summaries, { kind: 'matchup', manager: 'Jason', week: 1, opponent: 'Donna' });
   assert.equal(wrong.ok, false);
   assert.match((wrong as { error: string }).error, /plays Chris/);
@@ -82,7 +83,8 @@ test('the schedule tool lists upcoming league games and cup ties for a manager',
   assert.equal(outcome.title, '2026 schedule, weeks 3-5');
   const league = outcome.rows.filter(row => row.type === 'Season').map(row => [row.week, row.status, row.score]);
   assert.deepEqual(league, [['3', 'live', 79], ['4', 'scheduled', null], ['5', 'scheduled', null]]);
-  assert.ok(outcome.rows.some(row => row.type === 'Cup' && row.round === 'Premier League Cup Quarterfinals' && row.opponent === 'Ryan'));
+  assert.ok(outcome.rows.some(row => row.type === 'Cup' && row.round === 'Premier League Cup Quarterfinals' && row.opponent === 'Ryan' && row.finals == null));
+  assert.match(String(outcome.rows.find(row => row.week === '3' && row.type === 'Season')?.finals), /Donna leads 15–8 in all competitions, but Jason won the 2010 Combined Superbowl, 96–33\./);
   assert.ok(outcome.caveats.some(text => /Scores are null/.test(text)));
   const cupsOnly = runDataTool(ctx, 'schedule', { league: 'JFFL', fromWeek: 6, toWeek: 7 });
   assert.ok(cupsOnly.ok && 'rows' in cupsOnly && cupsOnly.rows.length > 0 && cupsOnly.rows.every(row => row.league === 'JFFL' && row.week === '6-7'));
