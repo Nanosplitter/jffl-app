@@ -7,6 +7,7 @@ import { cupMatchView, matchupView, teamUrl, type CardItem, type CardSpec } from
 import { projectedWinChance } from './projections';
 import { leagueInk, managerFor } from './reference';
 import { cupSeed } from './RankMark';
+import { finalsNote } from './finalsRematch';
 import { pointShare, TeamMatchSheet, type SheetSide } from './TeamMatchSheet';
 import { LEAGUES, type LeagueSlug } from './types';
 import { points, record } from './ui';
@@ -29,10 +30,9 @@ function MatchupCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 
     const note = !team ? '' : !decided && chance && projected != null ? `${record(team)} · Proj ${points(projected)}` : result ? `${record(team)} · ${result}` : record(team);
     return { key: teamId ?? 'bye', logoUrl: team?.logoUrl, name: team ? managerFor(spec.league, team.id)?.manager ?? team.name : 'Bye', mark: team?.rank, league: team ? spec.league : null, detail: team?.name ?? 'Bye', score: team ? points(score) : '—', note, winner: result === 'Won' };
   };
-  return <TeamMatchSheet label={`${shortLeague(spec.league)} · Week ${spec.week}`} status={decided ? 'Final' : status === 'live' ? 'Live' : 'Not started'} to={view.url} bar={bar} sides={[
-    side(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore),
-    side(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected, matchup.awayScore),
-  ]} />;
+  const away = side(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore);
+  const home = side(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected, matchup.awayScore);
+  return <TeamMatchSheet label={`${shortLeague(spec.league)} · Week ${spec.week}`} status={decided ? 'Final' : status === 'live' ? 'Live' : 'Not started'} to={view.url} bar={bar} history={finalsNote(away.name, home.name)} sides={[away, home]} />;
 }
 
 function CupMatchCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 'cup_match' }>; summaries: SummaryMap }) {
@@ -57,6 +57,7 @@ function CupMatchCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind:
   };
   return <TeamMatchSheet label={`${view.cup.name} · ${view.roundName}`} status={status} to={view.url}
     bar={share ? { ...share, label: `${match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null}
+    history={finalsNote(match.a.participant?.manager ?? '', match.b.participant?.manager ?? '')}
     sides={[side(match.a), side(match.b)]} />;
 }
 

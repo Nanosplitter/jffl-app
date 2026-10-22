@@ -23,6 +23,7 @@ import { compareByLineup, historicalStarters, lineupWouldWin, rosterForWeek, typ
 import { usePageLabel } from './BackLink';
 import { copyEmail } from './history/emailCopy';
 import { renderWeeklyEmail, type EmailGame, type EmailSection, type WeeklyEmail } from './weeklyEmail';
+import { finalsNote } from './finalsRematch';
 import { roundSlug } from './sharePaths';
 import { weeklyWeek } from './weeklyPath';
 
@@ -393,6 +394,7 @@ export function LeagueMatchPage() {
   const homePrior = prior(home.teamId);
   const priorLabel = awayPrior && homePrior && awayPrior.week === homePrior.week ? `Week ${awayPrior.week}` : 'Last week';
   const heading = `${away.manager} vs ${home.manager}`;
+  const history = finalsNote(away.manager, home.manager, 'all');
   const liveDoc = meta ? liveStates[meta.slug]?.data ?? null : null;
   const oddsFor = (teamId: string | null) => teamId && roster?.data ? roster.data.players.filter(player => player.teamId === teamId && player.group === 'starter').map(player => toOddsStarter(player, week)) : [];
   const fromLive = !decided && !upcoming && liveDoc ? liveMatchChance({ left: { projected: away.projected, starters: oddsFor(away.teamId), week }, right: { projected: home.projected, starters: oddsFor(home.teamId), week }, games: liveDoc.games }) : null;
@@ -441,6 +443,7 @@ export function LeagueMatchPage() {
         <div className="win-bar" role="img" aria-label={bar.label}><span className={bar.left > bar.right ? 'favored' : ''} style={{ width: `${bar.left}%` }} /><span className={bar.right > bar.left ? 'favored' : ''} style={{ width: `${bar.right}%` }} /></div>
         {chance && <p className="cup-odds-note">{fromLive ? 'From the starters still playing and ESPN’s live projection.' : 'From the gap in ESPN projected totals.'}</p>}
       </div>}
+      {history && <Link className="finals-note" to={history.href}>{history.text}</Link>}
     </article>
     <section className="match-stats" aria-label="Score and season comparison">
       <CompareDuel rows={[

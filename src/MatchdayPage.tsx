@@ -7,6 +7,7 @@ import { chartTheme } from './history/archiveCharts';
 import { baseOption, esc } from './history/chartKit';
 import { useLive, useLiveWeek, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
+import { finalsNote } from './finalsRematch';
 import { historicalStarters } from './lineups';
 import { collapseGaps, forecastEnd, liveMatchChance, openVariance, recordedProjection, scoreChartScale, scoreLine, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
 import { matchdayMatches, matchFacts, matchTotal, playerBoard, pointSpan, pointsStillOut, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
@@ -387,6 +388,7 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
   teamFor: (slug: LeagueSlug, teamId: string) => Team | null;
 }) {
   const leftTeam = teamFor(match.left.slug, match.left.teamId);
+  const history = match.right ? finalsNote(match.left.manager, match.right.manager) : null;
   if (lineups) {
     const startersFor = (slug: LeagueSlug, teamId: string) => historicalStarters(lineups[slug], teamId, match.week) ?? [];
     const rightSide = match.right;
@@ -396,7 +398,7 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
     const unscored = (rows: RosteredPlayer[]) => rows.map(row => toOddsStarter({ ...row, weekPoints: null }, match.week));
     const pastMarkers = windowMarkers([...leftStarters, ...rightStarters].map(player => ({ kickoff: games[player.proTeam]?.kickoff })));
     return <section className="matchday-match" id={`matchday-${match.id}`}>
-      <header className="matchday-match-head"><p className="eyebrow">FINAL <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{rightSide ? ` vs ${rightSide.manager}` : ' · Bye'}</p></header>
+      <header className="matchday-match-head"><p className="eyebrow">FINAL <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{rightSide ? ` vs ${rightSide.manager}` : ' · Bye'}</p>{history && <Link className="finals-note" to={history.href}>{history.text}</Link>}</header>
       <div className="matchday-layout">
         <div className="matchday-main">
           <Scoreboard match={{ ...match, left: { ...match.left, projected: null }, right: rightSide && { ...rightSide, projected: null } }} chance={null} leftRank={leftTeam?.rank ?? null} rightRank={(rightSide ? teamFor(rightSide.slug, rightSide.teamId) : null)?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightSide ? teamFor(rightSide.slug, rightSide.teamId)?.logoUrl : null} leftOut={noOut} rightOut={noOut} />
@@ -435,7 +437,7 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
   const showRight = !narrow || filter !== 'left';
   const markers = windowMarkers([...leftStarters, ...rightStarters].map(player => ({ kickoff: player.kickoff ?? games[player.proTeam]?.kickoff })));
   return <section className="matchday-match" id={`matchday-${match.id}`}>
-    <header className="matchday-match-head"><p className="eyebrow">{match.status === 'final' ? 'FINAL' : match.status === 'upcoming' ? 'UPCOMING' : 'LIVE'} <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{match.right ? ` vs ${match.right.manager}` : ' · Bye'}</p></header>
+    <header className="matchday-match-head"><p className="eyebrow">{match.status === 'final' ? 'FINAL' : match.status === 'upcoming' ? 'UPCOMING' : 'LIVE'} <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{match.right ? ` vs ${match.right.manager}` : ' · Bye'}</p>{history && <Link className="finals-note" to={history.href}>{history.text}</Link>}</header>
     <div className="matchday-layout">
       <div className="matchday-main">
         <Scoreboard match={match} chance={chance} leftRank={leftTeam?.rank ?? null} rightRank={rightTeam?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightTeam?.logoUrl} leftOut={pointsStillOut(leftBoard)} rightOut={pointsStillOut(rightBoard ?? { playing: [], above: [], below: [], yet: [], bye: [], done: [] })} />

@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { FollowedNote, useFollowed } from './account';
+import type { FinalsNote } from './finalsRematch';
 import { isFollowedName } from './follow';
 import { RankMark } from './RankMark';
 import { leagueInk } from './reference';
@@ -13,13 +14,14 @@ export function pointShare(left: number | null, right: number | null) {
   return { left: share, right: 100 - share };
 }
 
-export function TeamMatchSheet({ label, status, to, sides, bar, note }: {
+export function TeamMatchSheet({ label, status, to, sides, bar, note, history }: {
   label: string;
   status?: string;
   to?: string;
   sides: SheetSide[];
   bar: SheetBar | null;
   note?: string;
+  history?: FinalsNote | null;
 }) {
   const followed = useFollowed();
   const face = <>
@@ -43,5 +45,7 @@ export function TeamMatchSheet({ label, status, to, sides, bar, note }: {
     </div>
     {note && <p className="team-sheet-odds">{note}</p>}
   </>;
-  return to ? <Link className="team-sheet" to={to}>{face}</Link> : <article className="team-sheet">{face}</article>;
+  const rematch = history ? <Link className="finals-note" to={history.href}>{history.text}</Link> : null;
+  if (!rematch) return to ? <Link className="team-sheet" to={to}>{face}</Link> : <article className="team-sheet">{face}</article>;
+  return <article className="team-sheet">{to ? <Link className="team-sheet-body" to={to}>{face}</Link> : face}{rematch}</article>;
 }

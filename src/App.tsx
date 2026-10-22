@@ -27,6 +27,7 @@ import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from 
 import { projectedWinChance } from './projections';
 import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
+import { finalsNote } from './finalsRematch';
 import { pointShare, TeamMatchSheet } from './TeamMatchSheet';
 import { PlayerIdentity, injuryLabel, injuryName } from './PlayerIdentity';
 import { byeWeek } from './byeWeeks';
@@ -103,8 +104,10 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
     {chance && <div className="win-bar" role="img" aria-label={`From ESPN projected totals. ${sideName(away, matchup.awayTeamId)} ${chance.away} percent. ${sideName(home, matchup.homeTeamId)} ${chance.home} percent.`}><span className={chance.away > chance.home ? 'favored' : ''} style={{ width: `${chance.away}%` }} /><span className={chance.home > chance.away ? 'favored' : ''} style={{ width: `${chance.home}%` }} /></div>}
   </>;
   const mine = isFollowedTeam(followed, data.slug, matchup.homeTeamId) || isFollowedTeam(followed, data.slug, matchup.awayTeamId);
+  const history = finalsNote(sideName(sides[0][0], sides[0][1]), sideName(sides[1][0], sides[1][1]));
   return <article className={`matchup ${compact ? 'compact' : ''} ${expanded ? 'open' : ''} ${mine ? 'followed' : ''} ${className}`}>
     {to ? <Link className="matchup-link" to={to}>{face}</Link> : face}
+    {history && <Link className="finals-note" to={history.href}>{history.text}</Link>}
     {onToggle && <button className="matchup-toggle" aria-expanded={expanded} aria-controls={panelId} onClick={onToggle}>{expanded ? 'Hide starters' : 'Show starters'}<span className="sr-only"> for {sideName(away, matchup.awayTeamId)} versus {sideName(home, matchup.homeTeamId)}</span></button>}
     {expanded && <div id={panelId} className="matchup-lineup">{!lineup || (lineup.loading && !lineup.players) ? <p className="empty-inline">Loading starters…</p> : lineup.error && !lineup.players ? <p className="empty-inline">Starters are temporarily unavailable.</p> : <div className="lineup-sides"><Lineup slug={data.slug} teamId={matchup.awayTeamId} players={lineup.players ?? []} week={data.week} /><Lineup slug={data.slug} teamId={matchup.homeTeamId} players={lineup.players ?? []} week={data.week} /></div>}</div>}
   </article>;
@@ -312,10 +315,9 @@ function TeamPage() {
               const note = !sideTeam ? '' : !decided && projected != null ? `${record(sideTeam)} · Proj ${points(projected)}` : result ? `${record(sideTeam)} · ${result}` : record(sideTeam);
               return { key: teamId ?? 'bye', logoUrl: sideTeam?.logoUrl, name: manager, mark: sideTeam?.rank, league: sideTeam ? meta.slug : null, detail: sideTeam?.name ?? 'Bye', score: sideTeam ? points(score) : '—', note };
             };
-            return <TeamMatchSheet label={`Week ${data.week} · League`} status={decided ? 'Final' : undefined} to={`/league/${meta.slug}/match/${matchup.id}`} bar={bar} sides={[
-              leagueSide(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore),
-              leagueSide(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected, matchup.awayScore),
-            ]} />;
+            const awaySide = leagueSide(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore);
+            const homeSide = leagueSide(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected, matchup.awayScore);
+            return <TeamMatchSheet label={`Week ${data.week} · League`} status={decided ? 'Final' : undefined} to={`/league/${meta.slug}/match/${matchup.id}`} bar={bar} history={finalsNote(awaySide.name, homeSide.name)} sides={[awaySide, homeSide]} />;
           })()}
           {cupMatches.map(item => {
             const status = item.match.status === 'tied' ? 'Old fashioned duel' : item.match.status === 'live' && item.match.replay ? 'Replay week' : { bye: 'Bye', waiting: '', live: '', final: 'Final', unavailable: 'Scores pending' }[item.match.status];
@@ -343,7 +345,7 @@ function TeamPage() {
                 winner: !!participant && participant.key === item.match.winner?.key,
               };
             };
-            return <TeamMatchSheet key={`${item.cupId}-${item.match.id}`} label={`${item.cupName} · ${item.roundName}`} status={status || undefined} to={`/cups/${item.cupId}/match/${item.match.id}`} note={odds ? `${odds.left}% – ${odds.right}% chance to advance` : chance === 'level' ? 'Level, with both lineups done' : undefined} bar={odds ? { left: odds.left, right: odds.right, label: `${item.match.a.participant?.manager ?? 'Away'} has a ${odds.left} percent chance to advance. ${item.match.b.participant?.manager ?? 'Home'} has a ${odds.right} percent chance to advance.` } : share ? { ...share, label: `${item.match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${item.match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null} sides={[cupSide(item.match.a), cupSide(item.match.b)]} />;
+            return <TeamMatchSheet key={`${item.cupId}-${item.match.id}`} label={`${item.cupName} · ${item.roundName}`} status={status || undefined} to={`/cups/${item.cupId}/match/${item.match.id}`} note={odds ? `${odds.left}% – ${odds.right}% chance to advance` : chance === 'level' ? 'Level, with both lineups done' : undefined} history={finalsNote(item.match.a.participant?.manager ?? '', item.match.b.participant?.manager ?? '')} bar={odds ? { left: odds.left, right: odds.right, label: `${item.match.a.participant?.manager ?? 'Away'} has a ${odds.left} percent chance to advance. ${item.match.b.participant?.manager ?? 'Home'} has a ${odds.right} percent chance to advance.` } : share ? { ...share, label: `${item.match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${item.match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null} sides={[cupSide(item.match.a), cupSide(item.match.b)]} />;
           })}
         </div>
       </section>}
