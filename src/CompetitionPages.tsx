@@ -776,7 +776,7 @@ function ShameBoard({ groups, empty }: { groups: ShameGroup[] | null; empty: str
   const followed = useFollowed();
   return <section className="surface week-board shame-board">
     <div className="surface-heading"><h2>Wall of shame</h2></div>
-    <p className="could-note">A starter who was out or on injured reserve at that player’s kickoff, or still starting on a bye after the week’s last kickoff.</p>
+    <p className="could-note">Someone left a player who was out, on injured reserve, or on a bye in their starting lineup.</p>
     {groups?.length ? <ul className="shame-list">{groups.map(group => {
       const on = isFollowedTeam(followed, group.slug, group.teamId);
       return <li key={`${group.slug}-${group.teamId}`}>

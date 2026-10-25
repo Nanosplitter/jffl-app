@@ -159,8 +159,8 @@ export function renderWeeklyEmail(email: WeeklyEmail) {
   }
   html.push(heading('Wall of shame', ''));
   plain.push('Wall of shame');
-  html.push(`<p style="${small}">Starters who were out or on injured reserve at kickoff, or still starting on a bye after the week's last kickoff.</p>`);
-  plain.push('Starters who were out or on injured reserve at kickoff, or still starting on a bye after the week\'s last kickoff.');
+  html.push(`<p style="${small}">Someone left a player who was out, on injured reserve, or on a bye in their starting lineup.</p>`);
+  plain.push('Someone left a player who was out, on injured reserve, or on a bye in their starting lineup.');
   if (email.shameEmpty || !email.shame?.length) {
     const empty = email.shameEmpty ?? 'Clean sheet — no locked OUT, IR, or bye starters.';
     html.push(`<p style="${small}">${esc(empty)}</p>`);
