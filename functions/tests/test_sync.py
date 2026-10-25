@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, espn_image_url, kickoff_iso, normalize_player, validate_snapshot, week_lineups, weekly_matchups
 from history_archive import fold_public_history
-from sync_service import retain_projections, sync_leagues
+from sync_service import retain_lineup_locks, retain_projections, sync_leagues
 
 
 class MemoryStore:
@@ -16,6 +16,10 @@ class MemoryStore:
     def latest(self, slug):
         snapshot = self.snapshots.get(slug)
         return copy.deepcopy(snapshot[0]) if snapshot else None
+
+    def latest_roster(self, slug):
+        snapshot = self.snapshots.get(slug)
+        return copy.deepcopy(snapshot[1]) if snapshot else None
 
     def publish(self, slug, summary, roster):
         self.snapshots[slug] = (copy.deepcopy(summary), copy.deepcopy(roster))
@@ -427,3 +431,131 @@ def test_a_finished_score_stays_in_the_snapshot_and_the_season_archive():
     kept = {row["week"]: row for row in store.history[2026]["leagues"]["league-one"]["weeklyMatchups"]}
     assert kept[5]["homeScore"] == 158 and kept[5]["homeManager"] == "RonniColin"
     assert kept[6]["homeScore"] == 40 and kept[6]["awayScore"] is None
+
+
+KICK = "2026-10-18T17:00:00Z"
+BEFORE = datetime(2026, 10, 18, 16, 0, tzinfo=timezone.utc)
+AFTER = datetime(2026, 10, 18, 17, 0, tzinfo=timezone.utc)
+
+
+def _watch(status, kickoff=KICK, player_id="100", slot="WR", group="starter", points=0):
+    return {
+        "week": 7,
+        "updatedAt": "2026-10-18T16:00:00Z",
+        "players": [{
+            "id": player_id, "teamId": "16", "name": "Out Wide", "position": "WR", "proTeam": "BUF",
+            "slot": slot, "group": group, "injuryStatus": status, "kickoff": kickoff, "weekPoints": points,
+        }],
+        "weeklyLineups": [{"week": 7, "teamId": "16", "players": [
+            {"id": player_id, "name": "Out Wide", "position": "WR", "proTeam": "BUF", "slot": slot, "points": points},
+        ]}],
+    }
+
+
+def _only(roster):
+    return roster["weeklyLineups"][0]["players"][0]
+
+
+def test_an_out_starter_is_not_locked_before_kickoff():
+    roster = _watch("OUT", points=0)
+    retain_lineup_locks(None, roster, BEFORE)
+    player = _only(roster)
+    assert "locked" not in player
+    assert player["preKickoff"]["status"] == "OUT"
+    assert player["kickoff"] == KICK
+    assert player["points"] == 0
+
+
+def test_out_and_ir_lock_at_kickoff_and_other_statuses_do_not():
+    roster = _watch("OUT")
+    roster["players"].append({
+        "id": "9", "teamId": "16", "name": "Reserve", "position": "RB", "proTeam": "BUF",
+        "slot": "IR", "group": "ir", "injuryStatus": "INJURY_RESERVE", "kickoff": KICK,
+    })
+    retain_lineup_locks(None, roster, BEFORE)
+    previous = copy.deepcopy(roster)
+    roster["updatedAt"] = "2026-10-18T17:00:00Z"
+    retain_lineup_locks(previous, roster, AFTER)
+    assert _only(roster)["locked"] == {"reason": "out", "at": KICK}
+    assert "preKickoff" not in _only(roster)
+    assert [player["id"] for player in roster["weeklyLineups"][0]["players"]] == ["100"]
+
+    for status in ("QUESTIONABLE", "DOUBTFUL", "SUSPENSION", "out", None):
+        fresh = _watch(status)
+        retain_lineup_locks(None, fresh, BEFORE)
+        retain_lineup_locks(copy.deepcopy(fresh), fresh, AFTER)
+        assert "locked" not in _only(fresh)
+
+    reserved = _watch("INJURY_RESERVE")
+    retain_lineup_locks(None, reserved, BEFORE)
+    retain_lineup_locks(copy.deepcopy(reserved), reserved, AFTER)
+    assert _only(reserved)["locked"]["reason"] == "ir"
+
+
+def test_a_status_seen_only_after_kickoff_is_not_a_lock():
+    roster = _watch("OUT", points=0)
+    retain_lineup_locks(None, roster, AFTER)
+    assert "locked" not in _only(roster)
+    assert "preKickoff" not in _only(roster)
+
+
+def test_an_out_tag_cleared_before_kickoff_is_not_locked():
+    roster = _watch("OUT")
+    retain_lineup_locks(None, roster, BEFORE)
+    roster["players"][0]["injuryStatus"] = None
+    roster["updatedAt"] = "2026-10-18T16:30:00Z"
+    retain_lineup_locks(copy.deepcopy(roster), roster, datetime(2026, 10, 18, 16, 30, tzinfo=timezone.utc))
+    assert _only(roster)["preKickoff"]["status"] == "ACTIVE"
+    retain_lineup_locks(copy.deepcopy(roster), roster, AFTER)
+    assert "locked" not in _only(roster)
+
+
+def test_a_lock_survives_a_later_lineup_that_drops_the_player_and_the_week():
+    roster = _watch("OUT")
+    retain_lineup_locks(None, roster, BEFORE)
+    retain_lineup_locks(copy.deepcopy(roster), roster, AFTER)
+    locked = copy.deepcopy(roster)
+    roster["players"][0]["injuryStatus"] = "ACTIVE"
+    roster["weeklyLineups"][0]["players"] = []
+    retain_lineup_locks(locked, roster, AFTER)
+    assert _only(roster)["locked"]["reason"] == "out"
+
+    roster["week"] = 8
+    roster["weeklyLineups"] = [{"week": 8, "teamId": "16", "players": [
+        {"id": "200", "name": "Next", "position": "QB", "proTeam": "BUF", "slot": "QB", "points": None},
+    ]}]
+    retain_lineup_locks(copy.deepcopy(roster) | {"weeklyLineups": locked["weeklyLineups"]}, roster, AFTER)
+    weeks = {row["week"]: row for row in roster["weeklyLineups"]}
+    assert weeks[7]["players"][0]["locked"]["reason"] == "out"
+    assert "locked" not in weeks[8]["players"][0]
+
+
+def test_a_missing_kickoff_never_becomes_a_lock():
+    roster = _watch("OUT", kickoff=None)
+    retain_lineup_locks(None, roster, BEFORE)
+    assert _only(roster)["preKickoff"]["status"] == "OUT"
+    assert "kickoff" not in _only(roster)
+    roster["week"] = 8
+    retain_lineup_locks(copy.deepcopy(roster), roster, AFTER)
+    assert "locked" not in _only(roster)
+    assert "preKickoff" not in _only(roster)
+
+
+def test_sync_reads_the_previous_roster_when_it_locks_a_starter():
+    store = MemoryStore()
+    stage = {"roster": _watch("OUT"), "now": BEFORE}
+
+    def fetch(slug):
+        if slug != "premier":
+            return {"teams": [{"id": "1"}]}, {"players": []}
+        return {"teams": [{"id": "16"}], "weeklyMatchups": []}, copy.deepcopy(stage["roster"])
+
+    sync_leagues(store, fetch, now=stage["now"])
+    assert "locked" not in store.snapshots["premier"][1]["weeklyLineups"][0]["players"][0]
+    stage["now"] = AFTER
+    stage["roster"]["players"][0]["injuryStatus"] = "ACTIVE"
+    stage["roster"]["updatedAt"] = "2026-10-18T17:00:00Z"
+    sync_leagues(store, fetch, now=stage["now"])
+    locked = store.snapshots["premier"][1]["weeklyLineups"][0]["players"][0]
+    assert locked["locked"] == {"reason": "out", "at": KICK}
+    assert locked["points"] == 0

@@ -36,8 +36,14 @@ export interface RosteredPlayer {
   kickoff?: string | null;
   weeklyStats?: { week: number; points?: number | null; stats: Record<string, number> }[];
 }
+export interface LineupLock { reason: 'out' | 'ir'; at: string }
 export interface WeekLineupPlayer {
   id: string; name: string; position: string; proTeam: string; slot: string; points: number | null;
+  /** Present only until kickoff. Distinguishes a pre-kickoff absence from an injury during the game. */
+  kickoff?: string;
+  preKickoff?: { status: string; at: string };
+  /** Permanent once recorded. A later injury change does not remove it. */
+  locked?: LineupLock;
 }
 export interface WeekLineup { week: number; teamId: string; players: WeekLineupPlayer[] }
 export interface LeagueRosterSnapshot extends Freshness { players: RosteredPlayer[]; weeklyLineups?: WeekLineup[] }

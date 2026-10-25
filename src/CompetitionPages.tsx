@@ -19,7 +19,8 @@ import { cupLiveChance, liveMatchChance, toOddsStarter } from './liveOdds';
 import { cupMatchChance } from './cupOdds';
 import { TeamIdentity } from './TeamIdentity';
 import { PlayerIdentity, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
-import { compareByLineup, historicalStarters, lineupWouldWin, rosterForWeek, type LineupMove, type LineupSwing } from './lineups';
+import { compareByLineup, historicalStarters, lineupWouldWin, rosterForWeek, slotLabel, type LineupMove, type LineupSwing } from './lineups';
+import { shameLabel, shameWall, type ShameGroup } from './lineupShame';
 import { usePageLabel } from './BackLink';
 import { copyEmail } from './history/emailCopy';
 import { renderWeeklyEmail, type EmailGame, type EmailSection, type WeeklyEmail } from './weeklyEmail';
@@ -771,6 +772,25 @@ function emailGames(games: { upset: boolean; sides: { name: string; slug: string
   }));
 }
 
+function ShameBoard({ groups, empty }: { groups: ShameGroup[] | null; empty: string | null }) {
+  const followed = useFollowed();
+  return <section className="surface week-board shame-board">
+    <div className="surface-heading"><h2>Wall of shame</h2></div>
+    <p className="could-note">A starter who was out or on injured reserve at that player’s kickoff, or still starting on a bye after the week’s last kickoff.</p>
+    {groups?.length ? <ul className="shame-list">{groups.map(group => {
+      const on = isFollowedTeam(followed, group.slug, group.teamId);
+      return <li key={`${group.slug}-${group.teamId}`}>
+        <Link className={`shame-manager ${leagueInk(group.slug)} ${on ? 'followed-name' : ''}`} to={teamUrl(group.slug, group.teamId)}>{group.manager}<FollowedNote on={on} /></Link>
+        <ul className="shame-rows">{group.entries.map(entry => <li key={entry.id} className="shame-row">
+          <Link to={`/players/${encodeURIComponent(entry.id)}`}><PlayerIdentity player={entry} /></Link>
+          <span className="shame-slot">{slotLabel(entry.slot)}</span>
+          <span className="shame-badge">{shameLabel(entry.reason)}</span>
+        </li>)}</ul>
+      </li>;
+    })}</ul> : <p className="empty-inline">{empty}</p>}
+  </section>;
+}
+
 function emailSection(section: { title: string; slug: string; games: { upset: boolean; span: string | null; sides: { name: string; slug: string; mark: number | null; score: number | null; projected: number | null; miss: boolean; leading: boolean }[] }[]; empty: string }): EmailSection {
   const spans = [...new Set(section.games.map(game => game.span).filter((span): span is string => !!span))];
   return { title: section.title, ink: section.slug, span: spans.length === 1 ? spans[0] : null, games: emailGames(section.games), empty: section.empty };
@@ -787,6 +807,12 @@ export function WeeklyPage() {
   const [emailNote, setEmailNote] = useState('');
   useEffect(() => { setEmailNote(''); }, [week]);
   const states=useRosters(LEAGUES.map(meta=>meta.slug));
+  const live = useLive(LEAGUES.map(meta => meta.slug));
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(timer);
+  }, []);
   const matchups=LEAGUES.flatMap(meta=>(data[meta.slug]?.weeklyMatchups??[]).filter(item=>item.week===week).map(item=>({...item,slug:meta.slug})));
   const scores=matchups.flatMap(matchup=>[[matchup.homeTeamId,matchup.homeScore,matchup.awayScore],[matchup.awayTeamId,matchup.awayScore,matchup.homeScore]].filter(([id,score])=>id!==null&&score!==null).map(([id,score,opponent])=>({id:String(id),score:Number(score),opponent:opponent as number|null,slug:matchup.slug,final:matchup.status==='final'}))).sort((a,b)=>b.score-a.score);
   const margins=matchups.filter(matchup=>matchup.homeScore!==null&&matchup.awayScore!==null&&matchup.homeScore!==matchup.awayScore).map(matchup=>({...matchup,margin:Math.abs(matchup.homeScore!-matchup.awayScore!)})).sort((a,b)=>a.margin-b.margin);
@@ -803,6 +829,16 @@ export function WeeklyPage() {
   const rostersReady=LEAGUES.every(meta=>!!states[meta.slug]?.data);
   const lineupsReady=!past||LEAGUES.some(meta=>states[meta.slug]?.data?.weeklyLineups?.some(lineup=>lineup.week===week));
   const missingLineups='Lineups for this week aren\'t in the latest snapshot yet.';
+  const games = Object.assign({}, ...LEAGUES.flatMap(meta => {
+    const snapshot = live[meta.slug]?.data;
+    return snapshot && snapshot.week === week ? [snapshot.games] : [];
+  }));
+  const shameGroups = rostersReady && lineupsReady ? shameWall({
+    premier: states.premier?.data,
+    championship: states.championship?.data,
+    'league-one': states['league-one']?.data,
+  }, week, currentWeek, games, now) : null;
+  const shameEmpty = !rostersReady ? 'Loading lineups…' : !lineupsReady ? missingLineups : shameGroups?.length ? null : 'Clean sheet — no locked OUT, IR, or bye starters.';
   const leagueSlates=LEAGUES.map(meta=>({title:meta.name,slug:meta.slug,ink:leagueInk(meta.slug),games:leagueResultGames(data,meta.slug,week),empty:'No matchups this week.'}));
   const cupSlates=CUP_IDS.map(id=>({title:buildCup(id,data).name,slug:id,ink:leagueInk(id),games:cupResultGames(data,id,week),empty:'No matches this week.'}));
   const named=(slug: string, id: string)=>({name:managerFor(slug, id)?.manager??'Team', slug});
@@ -824,6 +860,10 @@ export function WeeklyPage() {
     cups:cupSlates.filter(slate=>slate.games.length>0).map(emailSection),
     idleCups:cupSlates.filter(slate=>slate.games.length===0).map(slate=>({title:slate.title, ink:slate.slug})),
     cupCount:cupSlates.length,
+    shame:shameGroups?shameGroups.flatMap(group=>group.entries.map(entry=>({
+      manager:named(group.slug, group.teamId), player:entry.name, slot:slotLabel(entry.slot), reason:shameLabel(entry.reason),
+    }))):null,
+    shameEmpty,
     couldHave:rostersReady&&lineupsReady?swings.map(swing=>({
       manager:named(swing.slug, swing.teamId), opponent:named(swing.slug, swing.opponentId),
       before:`${points(swing.score)}–${points(swing.opponentScore)}`, after:`${points(swing.wouldScore)}–${points(swing.opponentScore)}`,
@@ -877,6 +917,7 @@ export function WeeklyPage() {
       {cupSlates.some(slate => slate.games.length === 0) && <p className="result-note">{cupSlates.every(slate => slate.games.length === 0) ? 'No cup matches this week.' : <>No matches this week: {cupSlates.filter(slate => slate.games.length === 0).map((slate, index) => <span key={slate.title}>{index > 0 && ', '}<span className={slate.ink}>{slate.title}</span></span>)}.</>}</p>}
       <p className="result-note">An upset is a final result flipped by a score at least 15 points off its ESPN projection.</p>
     </div>
+    <ShameBoard groups={shameGroups} empty={shameEmpty} />
     <section className="surface week-board could-have-board"><div className="surface-heading"><h2>Could have had ’em</h2></div><p className="could-note">Hindsight is always 20/20. The fewest start and bench moves that turn a loss or a tie into a win.</p>{!rostersReady?<p className="empty-inline">Loading lineups…</p>:!lineupsReady?<p className="empty-inline">{missingLineups}</p>:swings.length?<ul className="could-have">{swings.map(swing=>{
       const manager=managerFor(swing.slug, swing.teamId)?.manager??'Team';
       const opponent=managerFor(swing.slug, swing.opponentId)?.manager??'Team';
@@ -898,7 +939,7 @@ export function WeeklyPage() {
     })}</tbody></table></div></section>
     <StandoutBoard title="Top starting-player performances" rows={standouts} ready={rostersReady} empty={lineupsReady ? undefined : missingLineups} />
     <StandoutBoard title="Top bench performances" rows={bench} ready={rostersReady} empty={lineupsReady ? undefined : missingLineups} />
-    <p className="source-note">The smallest margin excludes tied games. Completed weeks use ESPN’s corrected scores; live-week winners and losers are shown as leaders and trailers.</p>
+    <p className="source-note">The smallest margin excludes tied games. Completed weeks use ESPN’s corrected scores; live-week winners and losers are shown as leaders and trailers. The wall of shame keeps an OUT or injured-reserve starter from the last update before that player’s kickoff, and a bye starter once the week’s last kickoff has passed. A missing score is not an absence.</p>
   </>;
 }
 

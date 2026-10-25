@@ -17,6 +17,7 @@ export interface EmailSwap { outName: string; outPoints: string; inName: string;
 export interface EmailSwing { manager: EmailName; opponent: EmailName; before: string; after: string; swaps: EmailSwap[] }
 export interface EmailRow { rank: number; person: EmailName; score: string; result: string }
 export interface EmailStandout { player: string; score: string; managers: EmailName[] }
+export interface EmailShame { manager: EmailName; player: string; slot: string; reason: string }
 
 /** Everything the weekly roundup email needs. Scores are already formatted; a missing score is an em dash, never zero. */
 export interface WeeklyEmail {
@@ -29,6 +30,8 @@ export interface WeeklyEmail {
   cups: EmailSection[];
   idleCups: { title: string; ink: string }[];
   cupCount: number;
+  shame: EmailShame[] | null;
+  shameEmpty: string | null;
   couldHave: EmailSwing[] | null;
   couldHaveEmpty: string | null;
   leaderboard: EmailRow[];
@@ -153,6 +156,22 @@ export function renderWeeklyEmail(email: WeeklyEmail) {
     const note = 'An upset is a final result flipped by a score at least 15 points off its ESPN projection.';
     html.push(`<p style="${small}">${esc(note)}</p>`);
     plain.push(note, '');
+  }
+  html.push(heading('Wall of shame', ''));
+  plain.push('Wall of shame');
+  html.push(`<p style="${small}">Starters who were out or on injured reserve at kickoff, or still starting on a bye after the week's last kickoff.</p>`);
+  plain.push('Starters who were out or on injured reserve at kickoff, or still starting on a bye after the week\'s last kickoff.');
+  if (email.shameEmpty || !email.shame?.length) {
+    const empty = email.shameEmpty ?? 'Clean sheet — no locked OUT, IR, or bye starters.';
+    html.push(`<p style="${small}">${esc(empty)}</p>`);
+    plain.push(empty, '');
+  } else {
+    for (const row of email.shame) {
+      const line = `${row.manager.name} · ${row.player}, ${row.slot}, ${row.reason}`;
+      html.push(`<p style="${small}">${person(row.manager)} · ${esc(row.player)}, ${esc(row.slot)}, ${esc(row.reason)}</p>`);
+      plain.push(line);
+    }
+    plain.push('');
   }
   html.push(heading('Could have had ’em', ''));
   plain.push('Could have had ’em');

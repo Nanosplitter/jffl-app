@@ -21,6 +21,10 @@ class FirestoreStore:
         snapshot = self.db.collection("publicLeagues").document(slug).get()
         return snapshot.to_dict() if snapshot.exists else None
 
+    def latest_roster(self, slug):
+        snapshot = self.db.collection("publicRosters").document(slug).get()
+        return snapshot.to_dict() if snapshot.exists else None
+
     def publish(self, slug, summary, roster):
         batch = self.db.batch()
         batch.set(self.db.collection("publicLeagues").document(slug), summary)

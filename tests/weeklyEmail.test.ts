@@ -37,6 +37,8 @@ const email = (patch: Partial<WeeklyEmail> = {}): WeeklyEmail => ({
     { title: 'League One Cup', ink: 'league-one' },
   ],
   cupCount: 4,
+  shame: [{ manager: { name: 'Jason', slug: 'premier' }, player: 'Idle <WR>', slot: 'WR', reason: 'OUT at kickoff' }],
+  shameEmpty: null,
   couldHave: [{
     manager: { name: 'Jason', slug: 'premier' }, opponent: { name: 'Donna <b>', slug: 'premier' },
     before: '98–107', after: '120–107',
@@ -59,6 +61,10 @@ test('the weekly email keeps league colors, an upset, and escapes names', () => 
   assert.match(html, /Upset · Donna &lt;b&gt; proj 122/);
   assert.match(html, /Weeks 3 \+ 4/);
   assert.match(html, /No matches this week: .*<span class="ink-championship"/);
+  assert.match(html, /Wall of shame/);
+  assert.match(html, /Jason<\/span> · Idle &lt;WR&gt;, WR, OUT at kickoff/);
+  assert.match(plain, /Wall of shame/);
+  assert.match(plain, /Jason · Idle <WR>, WR, OUT at kickoff/);
   assert.match(html, /Sit Sat Star \(4\) for Bench &amp; Co \(26\)/);
   assert.match(html, /href="https:\/\/jffl-live-colin\.web\.app\/weekly\/4"/);
   assert.match(plain, /^JFFL Week 4/);
@@ -85,6 +91,8 @@ test('a live week says so, and a quiet week does not invent an upset or a hundre
       { title: 'Championship Cup', ink: 'championship' },
       { title: 'League One Cup', ink: 'league-one' },
     ],
+    shame: null,
+    shameEmpty: 'Clean sheet — no locked OUT, IR, or bye starters.',
     couldHave: null,
     couldHaveEmpty: 'Loading lineups…',
     leaderboard: [],
@@ -95,6 +103,7 @@ test('a live week says so, and a quiet week does not invent an upset or a hundre
   assert.match(plain, /Lowest leading score: —/);
   assert.match(plain, /100\+ club: none/);
   assert.match(plain, /No cup matches this week\./);
+  assert.match(plain, /Clean sheet — no locked OUT, IR, or bye starters\./);
   assert.match(plain, /Loading lineups…/);
   assert.doesNotMatch(plain, /An upset is/);
   assert.doesNotMatch(html, /An upset is/);
