@@ -101,7 +101,7 @@ export function executeTool(session: Session, name: string, rawArgs: unknown): T
     if (!result.ok) return { note, response: { ok: false, error: result.error } };
     return {
       note, card: result.spec,
-      response: { ok: true, shown: true, card: result.text.title, facts: result.text.facts, message: 'The card is now displayed with live numbers and a link. Do not repeat everything on it. If the facts include a finals sentence, say that sentence with the matchup.' },
+      response: { ok: true, shown: true, card: result.text.title, facts: result.text.facts, message: 'The card is now displayed with live numbers and a link. Do not repeat everything on it. A series sentence in the facts is context; mention it only when it helps.' },
     };
   }
   if (!isDataTool(name)) return { note, response: { ok: false, error: `Unknown tool "${name}".` } };

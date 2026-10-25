@@ -47,11 +47,13 @@ function seriesFrom(games: HistoryGame[]): PairSeries[] {
     });
     row.order.push(finalRank(game));
   }
-  return [...pairs.values()].filter(row => row.finals.length).map(row => {
+  return [...pairs.values()].map(row => {
     const finals = row.finals.map((meeting, index) => ({ meeting, order: row.order[index] ?? 0 }))
       .sort((left, right) => left.meeting.season - right.meeting.season || left.order - right.order || (left.meeting.label < right.meeting.label ? -1 : 1))
       .map(item => item.meeting);
-    return { a: row.a, b: row.b, winsA: row.winsA, winsB: row.winsB, ties: row.ties, finals };
+    const stored: PairSeries = { a: row.a, b: row.b, winsA: row.winsA, winsB: row.winsB, ties: row.ties };
+    if (finals.length) stored.finals = finals;
+    return stored;
   }).sort((left, right) => left.a < right.a ? -1 : left.a > right.a ? 1 : left.b < right.b ? -1 : 1);
 }
 
@@ -86,8 +88,14 @@ test('but is the series leader losing the final, and the match page names every 
   assert.equal(finalsNote('Brad', 'Michael')?.text, 'Brad and Michael are level at 11–11–1, and the 2003 Combined Superbowl finished level, 65–65.');
 });
 
-test('a pairing with no final has no note', () => {
-  assert.equal(finalsNote('Becky', 'Jeff'), null);
+test('every current pairing gets a series, and a final is named only when they have met in one', () => {
+  assert.equal(finalsNote('Becky', 'Jeff')?.text, 'Jeff leads 16–2 in all competitions.');
+  assert.equal(finalsNote('Allison', 'Jason')?.text, 'Allison and Jason have not played.');
+  assert.equal(finalsNote('Allison', 'Jason')?.href, '/archive/rivals/Allison/Jason');
   assert.equal(finalsNote('Chris', 'Chris'), null);
   assert.equal(finalsNote('Chris', 'Bye'), null);
+  assert.equal(finalsNote('JimZ', 'Chris'), null);
+  const extra: HistoryGame = { season: 2026, league: 'Premier', type: 'Season', round: '', week: 1, teamA: 'Becky', teamB: 'Jeff', scoreA: 100, scoreB: 90 };
+  assert.equal(finalsNote('Becky', 'Jeff', 'latest', [extra])?.text, 'Jeff leads 16–3 in all competitions.');
+  assert.equal(finalsNote('Becky', 'Jeff', 'latest', [extra, extra])?.text, 'Jeff leads 16–4 in all competitions.');
 });

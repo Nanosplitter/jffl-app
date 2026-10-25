@@ -24,6 +24,7 @@ import { usePageLabel } from './BackLink';
 import { copyEmail } from './history/emailCopy';
 import { renderWeeklyEmail, type EmailGame, type EmailSection, type WeeklyEmail } from './weeklyEmail';
 import { finalsNote } from './finalsRematch';
+import { useFinishedSeriesGames } from './useSeriesGames';
 import { roundSlug } from './sharePaths';
 import { weeklyWeek } from './weeklyPath';
 
@@ -353,6 +354,7 @@ export function CupMatchPage() {
 
 export function LeagueMatchPage() {
   const followed = useFollowed();
+  const played = useFinishedSeriesGames();
   const { slug = '', matchId = '' } = useParams();
   const meta = LEAGUES.find(league => league.slug === slug);
   const summaries = useSummaries();
@@ -394,7 +396,7 @@ export function LeagueMatchPage() {
   const homePrior = prior(home.teamId);
   const priorLabel = awayPrior && homePrior && awayPrior.week === homePrior.week ? `Week ${awayPrior.week}` : 'Last week';
   const heading = `${away.manager} vs ${home.manager}`;
-  const history = finalsNote(away.manager, home.manager, 'all');
+  const history = finalsNote(away.manager, home.manager, 'all', played);
   const liveDoc = meta ? liveStates[meta.slug]?.data ?? null : null;
   const oddsFor = (teamId: string | null) => teamId && roster?.data ? roster.data.players.filter(player => player.teamId === teamId && player.group === 'starter').map(player => toOddsStarter(player, week)) : [];
   const fromLive = !decided && !upcoming && liveDoc ? liveMatchChance({ left: { projected: away.projected, starters: oddsFor(away.teamId), week }, right: { projected: home.projected, starters: oddsFor(home.teamId), week }, games: liveDoc.games }) : null;

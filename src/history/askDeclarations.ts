@@ -275,7 +275,7 @@ ${live ? `
 Cards
 - Use show_card when the answer is about specific current-season games or teams: the matchups you discuss, a cup tie, a team, or a league table. At most four cards per answer, and none for history-only answers.
 - Cards update live and link to the full page, so mention the key numbers in a sentence and let the card carry the rest.
-- When a matchup result includes a finals sentence, say that sentence with the matchup. It is their record across every competition and who won their past final. Say it once for the pairing. Do not invent one.
+- A matchup result may include their all-time series, and who won a past final when they have met in one. Mention it when it helps the answer. Do not recite it for every matchup, and do not invent one.
 ` : ''}
 Marks
 - A raised number sits immediately in front of a manager's name, with no space: {#2}Jason. The braces are removed and the number is shown the way the rest of the site shows it.

@@ -8,6 +8,7 @@ import { baseOption, esc } from './history/chartKit';
 import { useLive, useLiveWeek, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
 import { finalsNote } from './finalsRematch';
+import { useFinishedSeriesGames } from './useSeriesGames';
 import { historicalStarters } from './lineups';
 import { collapseGaps, forecastEnd, liveMatchChance, openVariance, recordedProjection, scoreChartScale, scoreLine, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
 import { matchdayMatches, matchFacts, matchTotal, playerBoard, pointSpan, pointsStillOut, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
@@ -388,7 +389,8 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
   teamFor: (slug: LeagueSlug, teamId: string) => Team | null;
 }) {
   const leftTeam = teamFor(match.left.slug, match.left.teamId);
-  const history = match.right ? finalsNote(match.left.manager, match.right.manager) : null;
+  const played = useFinishedSeriesGames();
+  const history = match.right ? finalsNote(match.left.manager, match.right.manager, 'latest', played) : null;
   if (lineups) {
     const startersFor = (slug: LeagueSlug, teamId: string) => historicalStarters(lineups[slug], teamId, match.week) ?? [];
     const rightSide = match.right;

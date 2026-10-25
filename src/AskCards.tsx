@@ -7,7 +7,7 @@ import { cupMatchView, matchupView, teamUrl, type CardItem, type CardSpec } from
 import { projectedWinChance } from './projections';
 import { leagueInk, managerFor } from './reference';
 import { cupSeed } from './RankMark';
-import { finalsNote } from './finalsRematch';
+import { finalsNote, finishedSeriesGames } from './finalsRematch';
 import { pointShare, TeamMatchSheet, type SheetSide } from './TeamMatchSheet';
 import { LEAGUES, type LeagueSlug } from './types';
 import { points, record } from './ui';
@@ -32,7 +32,7 @@ function MatchupCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 
   };
   const away = side(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore);
   const home = side(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected, matchup.awayScore);
-  return <TeamMatchSheet label={`${shortLeague(spec.league)} · Week ${spec.week}`} status={decided ? 'Final' : status === 'live' ? 'Live' : 'Not started'} to={view.url} bar={bar} history={finalsNote(away.name, home.name)} sides={[away, home]} />;
+  return <TeamMatchSheet label={`${shortLeague(spec.league)} · Week ${spec.week}`} status={decided ? 'Final' : status === 'live' ? 'Live' : 'Not started'} to={view.url} bar={bar} history={finalsNote(away.name, home.name, 'latest', finishedSeriesGames(summaries))} sides={[away, home]} />;
 }
 
 function CupMatchCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind: 'cup_match' }>; summaries: SummaryMap }) {
@@ -57,7 +57,7 @@ function CupMatchCardView({ spec, summaries }: { spec: Extract<CardSpec, { kind:
   };
   return <TeamMatchSheet label={`${view.cup.name} · ${view.roundName}`} status={status} to={view.url}
     bar={share ? { ...share, label: `${match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null}
-    history={finalsNote(match.a.participant?.manager ?? '', match.b.participant?.manager ?? '')}
+    history={finalsNote(match.a.participant?.manager ?? '', match.b.participant?.manager ?? '', 'latest', finishedSeriesGames(summaries))}
     sides={[side(match.a), side(match.b)]} />;
 }
 

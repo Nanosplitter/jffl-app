@@ -1,5 +1,5 @@
 import { buildCup, matchupProjection, type Cup, type CupId, type CupMatch, type SummaryMap } from '../competitions.ts';
-import { finalsNote } from '../finalsRematch.ts';
+import { finalsNote, finishedSeriesGames } from '../finalsRematch.ts';
 import { MANAGERS, managerFor, type ManagerReference } from '../reference.ts';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type Matchup } from '../types.ts';
 
@@ -146,7 +146,7 @@ export function describeCard(summaries: SummaryMap, spec: CardSpec): CardText | 
     };
     const state = view.status === 'final' ? 'final' : view.status === 'live' ? 'in progress' : 'not started';
     const projected = projectionFact(matchup.awayProjected, matchup.homeProjected);
-    const finals = finalsNote(away, home)?.text;
+    const finals = finalsNote(away, home, 'latest', finishedSeriesGames(summaries))?.text;
     return {
       title: `${away} vs ${home}, week ${spec.week}`,
       facts: `${leagueName(spec.league)} week ${spec.week}: ${place(matchup.awayTeamId, away)} ${score(matchup.awayScore)}, ${place(matchup.homeTeamId, home)} ${score(matchup.homeScore)} (${state}${projected})${finals ? ` ${finals}` : ''}`,
@@ -174,7 +174,7 @@ export function describeCard(summaries: SummaryMap, spec: CardSpec): CardText | 
       match.a.participant ? matchupProjection(summaries, match.a.participant, match.weeks) : null,
       match.b.participant ? matchupProjection(summaries, match.b.participant, match.weeks) : null,
     );
-    const finals = finalsNote(a, b)?.text;
+    const finals = finalsNote(a, b, 'latest', finishedSeriesGames(summaries))?.text;
     return {
       title: `${a} vs ${b}, ${view.cup.name} ${view.roundName}`,
       facts: `${view.cup.name} ${view.roundName} (${weeks}): ${seeded(match.a)} ${score(match.a.total)}, ${seeded(match.b)} ${score(match.b.total)} (${state}${projected})${finals ? ` ${finals}` : ''}`,

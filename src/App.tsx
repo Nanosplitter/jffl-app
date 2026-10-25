@@ -28,7 +28,8 @@ import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from 
 import { projectedWinChance } from './projections';
 import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
-import { finalsNote } from './finalsRematch';
+import { finalsNote, finishedSeriesGames } from './finalsRematch';
+import { useFinishedSeriesGames } from './useSeriesGames';
 import { pointShare, TeamMatchSheet } from './TeamMatchSheet';
 import { PlayerIdentity, injuryLabel, injuryName } from './PlayerIdentity';
 import { byeWeek } from './byeWeeks';
@@ -77,6 +78,7 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
   lineup?: { players: RosteredPlayer[] | null; loading: boolean; error: boolean }; className?: string; to?: string;
 }) {
   const followed = useFollowed();
+  const played = useFinishedSeriesGames();
   const home = data.teams.find(team => team.id === matchup.homeTeamId);
   const away = data.teams.find(team => team.id === matchup.awayTeamId);
   const status = data.weeklyMatchups?.find(item => item.week === data.week && item.homeTeamId === matchup.homeTeamId && item.awayTeamId === matchup.awayTeamId)?.status;
@@ -105,7 +107,7 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
     {chance && <div className="win-bar" role="img" aria-label={`From ESPN projected totals. ${sideName(away, matchup.awayTeamId)} ${chance.away} percent. ${sideName(home, matchup.homeTeamId)} ${chance.home} percent.`}><span className={chance.away > chance.home ? 'favored' : ''} style={{ width: `${chance.away}%` }} /><span className={chance.home > chance.away ? 'favored' : ''} style={{ width: `${chance.home}%` }} /></div>}
   </>;
   const mine = isFollowedTeam(followed, data.slug, matchup.homeTeamId) || isFollowedTeam(followed, data.slug, matchup.awayTeamId);
-  const history = finalsNote(sideName(sides[0][0], sides[0][1]), sideName(sides[1][0], sides[1][1]));
+  const history = finalsNote(sideName(sides[0][0], sides[0][1]), sideName(sides[1][0], sides[1][1]), 'latest', played);
   return <article className={`matchup ${compact ? 'compact' : ''} ${expanded ? 'open' : ''} ${mine ? 'followed' : ''} ${className}`}>
     {to ? <Link className="matchup-link" to={to}>{face}</Link> : face}
     {history && <Link className="finals-note" to={history.href}>{history.text}</Link>}
@@ -275,6 +277,7 @@ function TeamPage() {
   const matchup = data.matchups.find(item => item.homeTeamId === teamId || item.awayTeamId === teamId);
   const board: SummaryMap = {};
   for (const league of LEAGUES) if (summaries[league.slug].data) board[league.slug] = summaries[league.slug].data!;
+  const played = finishedSeriesGames(board);
   const cupMatches = currentCupMatchesForTeam(board, meta.slug, teamId);
   const players = roster?.data?.players.filter(player => player.teamId === teamId) ?? [];
   const mismatched = roster?.data && roster.data.updatedAt !== data.updatedAt;
@@ -318,7 +321,7 @@ function TeamPage() {
             };
             const awaySide = leagueSide(matchup.awayTeamId, matchup.awayScore, matchup.awayProjected, matchup.homeScore);
             const homeSide = leagueSide(matchup.homeTeamId, matchup.homeScore, matchup.homeProjected, matchup.awayScore);
-            return <TeamMatchSheet label={`Week ${data.week} · League`} status={decided ? 'Final' : undefined} to={`/league/${meta.slug}/match/${matchup.id}`} bar={bar} history={finalsNote(awaySide.name, homeSide.name)} sides={[awaySide, homeSide]} />;
+            return <TeamMatchSheet label={`Week ${data.week} · League`} status={decided ? 'Final' : undefined} to={`/league/${meta.slug}/match/${matchup.id}`} bar={bar} history={finalsNote(awaySide.name, homeSide.name, 'latest', played)} sides={[awaySide, homeSide]} />;
           })()}
           {cupMatches.map(item => {
             const status = item.match.status === 'tied' ? 'Old fashioned duel' : item.match.status === 'live' && item.match.replay ? 'Replay week' : { bye: 'Bye', waiting: '', live: '', final: 'Final', unavailable: 'Scores pending' }[item.match.status];
@@ -346,7 +349,7 @@ function TeamPage() {
                 winner: !!participant && participant.key === item.match.winner?.key,
               };
             };
-            return <TeamMatchSheet key={`${item.cupId}-${item.match.id}`} label={`${item.cupName} · ${item.roundName}`} status={status || undefined} to={`/cups/${item.cupId}/match/${item.match.id}`} note={odds ? `${odds.left}% – ${odds.right}% chance to advance` : chance === 'level' ? 'Level, with both lineups done' : undefined} history={finalsNote(item.match.a.participant?.manager ?? '', item.match.b.participant?.manager ?? '')} bar={odds ? { left: odds.left, right: odds.right, label: `${item.match.a.participant?.manager ?? 'Away'} has a ${odds.left} percent chance to advance. ${item.match.b.participant?.manager ?? 'Home'} has a ${odds.right} percent chance to advance.` } : share ? { ...share, label: `${item.match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${item.match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null} sides={[cupSide(item.match.a), cupSide(item.match.b)]} />;
+            return <TeamMatchSheet key={`${item.cupId}-${item.match.id}`} label={`${item.cupName} · ${item.roundName}`} status={status || undefined} to={`/cups/${item.cupId}/match/${item.match.id}`} note={odds ? `${odds.left}% – ${odds.right}% chance to advance` : chance === 'level' ? 'Level, with both lineups done' : undefined} history={finalsNote(item.match.a.participant?.manager ?? '', item.match.b.participant?.manager ?? '', 'latest', played)} bar={odds ? { left: odds.left, right: odds.right, label: `${item.match.a.participant?.manager ?? 'Away'} has a ${odds.left} percent chance to advance. ${item.match.b.participant?.manager ?? 'Home'} has a ${odds.right} percent chance to advance.` } : share ? { ...share, label: `${item.match.a.participant?.manager ?? 'Away'} ${share.left} percent of the scored points. ${item.match.b.participant?.manager ?? 'Home'} ${share.right} percent.` } : null} sides={[cupSide(item.match.a), cupSide(item.match.b)]} />;
           })}
         </div>
       </section>}
