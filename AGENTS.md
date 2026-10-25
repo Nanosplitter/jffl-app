@@ -49,6 +49,23 @@ and are static source data, not ESPN history.
   `publicHistory/{year}`, `publicLive/{slug}`, and `publicLiveWeeks/{season}-{slug}-{week}`.
   Internal lease/status data stays private. A live week document is kept for every
   season and week that was recorded. Do not replace an earlier week with a later one.
+- Preserve meaningful user-facing history by default. Any source data, event series,
+  snapshot, or derived fact that someone could reasonably want to revisit, compare,
+  chart, include in a record, or ask about through Ask the archive must have a durable
+  season/week/event-keyed representation before a latest-state document is replaced.
+  This includes items such as score and win-odds timelines, historical lineups, and
+  status facts that explain an outcome. A mutable current document must never be the
+  only copy of such data.
+- Retain useful history without retaining polling noise. Fold repeated observations
+  into meaningful deltas or complete bounded artifacts, deduplicate identical samples,
+  and use natural boundaries such as league, season, week, match, or event. Temporary
+  UI state and values that can be reconstructed exactly from durable source data do
+  not need separate permanent storage.
+- Every feature that introduces displayed time-varying data must define its retention
+  path and add tests proving that advancing to a later week or season cannot erase the
+  earlier data. If durable retention is impractical because of privacy, provider,
+  document-size, or cost constraints, stop and ask the user rather than silently
+  discarding the data.
 - Firestore allows public reads only for published documents, plus get (not list)
   of a frozen Ask share at `shares/{id}` and its messages. A signed-in visitor
   may read and write only `users/{their uid}` (profile, threads, and transcript).
