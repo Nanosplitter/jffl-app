@@ -133,8 +133,9 @@ export function rangeStillLeft(position: string, spread: number, projected: numb
   if (!(progress > 0)) return spread;
   if (progress >= 1) return 0;
   const clock = 1 - progress;
-  const posted = scored != null && projected != null && projected > 0 ? Math.max(scored, 0) : null;
-  const unrealized = posted == null ? 1 : Math.min(1, Math.max(projected - posted, 0) / projected);
+  const baseline = projected != null && projected > 0 ? projected : null;
+  const posted = scored != null && baseline != null ? Math.max(scored, 0) : null;
+  const unrealized = posted == null || baseline == null ? 1 : Math.min(1, Math.max(baseline - posted, 0) / baseline);
   const settled = DROPS.has(position) ? Math.max(unrealized, 0.5) : Math.max(unrealized, clock * 0.25);
   return spread * clock * Math.sqrt(settled);
 }
