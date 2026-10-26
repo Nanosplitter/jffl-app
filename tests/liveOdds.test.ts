@@ -52,16 +52,22 @@ test('game progress uses the live slate now and kickoff otherwise', () => {
   assert.equal(gameProgress(final, kickoff, ended, ended + 1000), 1);
 });
 
-test('variance shrinks with progress and ignores a scored or bye starter', () => {
+test('variance follows the game clock, not whether a score has been posted', () => {
   const now = start;
   const games = { KC: { kickoff, state: 'pre' as const, detail: '', progress: 0 } };
   const full = sideVariance([starter({})], games, now, now, 4);
   assert.equal(full, 7.5 * 7.5);
-  assert.equal(sideVariance([starter({ weekPoints: 10 })], games, now, now, 4), 0);
+  assert.equal(sideVariance([starter({ weekPoints: 10 })], games, now, now, 4), full);
   assert.equal(sideVariance([starter({ proTeam: 'MIN' })], games, now, now, 6), 0);
   const halfway: LiveGame = { kickoff, state: 'in', detail: 'Q3', progress: 0.5 };
-  assert.equal(sideVariance([starter({})], { KC: halfway }, now, now, 4), full * 0.5);
-  assert.equal(sideVariance([starter({})], { KC: { ...halfway, state: 'post', progress: 1 } }, now, now, 4), 0);
+  assert.equal(sideVariance([starter({ weekPoints: 8 })], { KC: halfway }, now, now, 4), full * 0.5);
+  assert.equal(sideVariance([starter({ weekPoints: 18 })], { KC: { ...halfway, state: 'post', progress: 1 } }, now, now, 4), 0);
+  const ended = start + gameMs;
+  const final: LiveGame = { kickoff, state: 'post', detail: 'Final', progress: 1, endedAt: new Date(ended).toISOString() };
+  const later = ended + 60 * 60 * 1000;
+  const before = start - 2 * 24 * 60 * 60 * 1000;
+  assert.equal(sideVariance([starter({ weekPoints: 18 })], { KC: final }, before, later, 4), full);
+  assert.equal(sideVariance([starter({ weekPoints: 18 })], { KC: final }, later, later, 4), 0);
 });
 
 test('a live chance stays absent without a projection and is level or settled when nothing is left', () => {
@@ -72,6 +78,29 @@ test('a live chance stays absent without a projection and is level or settled wh
   assert.deepEqual(liveWinChance(10, 11, 0, 0, 5, 0), { left: 100, right: 0 });
   const even = liveWinChance(100, 100, 25, 25);
   assert.deepEqual(even, { left: 50, right: 50 });
+  const big = liveWinChance(130, 100, 25, 0);
+  assert.deepEqual(big, { left: 99, right: 1 });
+});
+
+test('a fraction of a projected point does not flip the week between 100 and 0', () => {
+  const before = start - 2 * 24 * 60 * 60 * 1000;
+  const now = start + gameMs + 60 * 60 * 1000;
+  const final: LiveGame = { kickoff, state: 'post', detail: 'Final', progress: 1, endedAt: new Date(start + gameMs).toISOString() };
+  const games = { KC: final };
+  const played = starter({ weekPoints: 20 });
+  const first = Math.floor(before / 1000);
+  const second = first + 360;
+  const points = winChanceSeries(
+    { t: [first, second], s: [0, 1], p: [91.56, 91.32] },
+    { t: [first, second], s: [0, 0], p: [91.57, 91.57] },
+    at => ({
+      left: sideVariance([played], games, at, now, 4),
+      right: sideVariance([starter({ name: 'Sam', weekPoints: 14 })], games, at, now, 4),
+    }),
+  );
+  assert.equal(points.length, 2);
+  for (const point of points) assert.ok(point.chance > 40 && point.chance < 60, String(point.chance));
+  assert.ok(Math.abs(points[0].chance - points[1].chance) <= 2);
 });
 
 test('a win-chance series holds the other side and keeps a null score', () => {

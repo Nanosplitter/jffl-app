@@ -134,20 +134,28 @@ export function openVariance(starters: readonly OddsStarter[], games: Record<str
   return variance;
 }
 
-/** Remaining uncertainty. A scored or bye starter adds none. Variance shrinks with game progress. */
+/**
+ * Remaining uncertainty at `at`. A bye, or a game already over by then, adds none.
+ * A posted score does not close a game still in progress, and it does not erase
+ * uncertainty from earlier in the week. Variance shrinks with game progress.
+ */
 export function sideVariance(starters: readonly OddsStarter[], games: Record<string, LiveGame> | null | undefined, at: number, now: number, week: number): number {
   let variance = 0;
   for (const player of starters) {
-    if (player.weekPoints != null || byeWeek(player.proTeam) === week) continue;
+    if (byeWeek(player.proTeam) === week) continue;
     const game = player.proTeam ? games?.[player.proTeam] : undefined;
     const progress = gameProgress(game, player.kickoff ?? game?.kickoff ?? null, at, now);
+    if (progress >= 1) continue;
     const spread = playerSpread(player.position, player.previousPoints);
     variance += spread * spread * (1 - progress);
   }
   return variance;
 }
 
-/** Chance the left side finishes ahead. The mean is ESPN's live projected total, plus any finished cup leg. */
+/**
+ * Chance the left side finishes ahead. The mean is ESPN's live projected total, plus any finished cup leg.
+ * 100 or 0 only when every starter is done and one side is ahead. While anyone can still score, the chance stays between 1 and 99.
+ */
 export function liveWinChance(
   meanLeft: number | null,
   meanRight: number | null,
@@ -166,7 +174,7 @@ export function liveWinChance(
     if (left === right) return 'level';
     return left > right ? { left: 100, right: 0 } : { left: 0, right: 100 };
   }
-  const chance = Math.min(100, Math.max(0, Math.round(standardNormalCdf((left - right) / Math.sqrt(variance)) * 100)));
+  const chance = Math.min(99, Math.max(1, Math.round(standardNormalCdf((left - right) / Math.sqrt(variance)) * 100)));
   return { left: chance, right: 100 - chance };
 }
 

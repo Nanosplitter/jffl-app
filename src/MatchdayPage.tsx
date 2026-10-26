@@ -537,7 +537,7 @@ export function MatchdayPage() {
       <button type="button" aria-pressed={filter === 'both'} onClick={() => setFilter('both')}>Both</button>
     </div>}
     {matches.length ? matches.map(match => <MatchSection key={match.id} match={match} players={players} games={games} liveSeries={(slug, teamId) => timeline[slug]?.data?.series?.[teamId] ?? null} now={now} filter={filter} narrow={narrow} teamFor={teamFor} lineups={lineups} />) : <p className="notice">No matchup is scheduled for this week.</p>}
-    {!past && <p className="source-note">Win chance uses ESPN’s live projection. Each starter still playing keeps a share of their usual weekly range. Scores refresh about every three minutes.</p>}
+    {!past && <p className="source-note">Win chance uses ESPN’s live projection. Each starter whose game is not over keeps a share of their usual weekly range, so it reaches 100 only when the other side has nothing left to play. Scores refresh about every three minutes.</p>}
     {past && <p className="source-note">A week that was recorded live keeps its win chance. A week that was not shows a score line rebuilt from the NFL play-by-play, ending on the official total.</p>}
   </div>;
 }
