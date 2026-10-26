@@ -31,16 +31,25 @@ test('names the main pages people open', () => {
 });
 
 test('names the exact screen and the league it belongs to', () => {
-  assert.deepEqual(pageContext('/league/premier'), { screen: 'Premier League', screenClass: 'League', contentGroup: 'Leagues', league: 'premier' });
-  assert.deepEqual(pageContext('/league/premier/team/3'), { screen: 'Team · Premier League · 3', screenClass: 'Team', contentGroup: 'Leagues', league: 'premier' });
-  assert.deepEqual(pageContext('/league/championship/match/9'), { screen: 'Match · Championship · 9', screenClass: 'League match', contentGroup: 'Leagues', league: 'championship' });
-  assert.deepEqual(pageContext('/players/4249084'), { screen: 'Player · 4249084', screenClass: 'Player', contentGroup: 'Players', league: '' });
-  assert.deepEqual(pageContext('/cups/jffl/round/round-2/highlight/Ada'), { screen: 'Cup · JFFL Cup · round-2 · Ada', screenClass: 'Cups', contentGroup: 'Cups', league: '' });
-  assert.deepEqual(pageContext('/cups/premier/match/12'), { screen: 'Cup match · Premier Cup · 12', screenClass: 'Cup match', contentGroup: 'Cups', league: 'premier' });
-  assert.deepEqual(pageContext('/archive/ask/t/abc'), { screen: 'Saved chat', screenClass: 'Ask the archive', contentGroup: 'Archive', league: '' });
-  assert.deepEqual(pageContext('/archive/managers/Ada%20Lovelace'), { screen: 'Manager · Ada Lovelace', screenClass: 'Manager', contentGroup: 'Archive', league: '' });
-  assert.deepEqual(pageContext('/weekly/4'), { screen: 'Week 4', screenClass: 'Weekly roundup', contentGroup: 'Weekly', league: '' });
+  const blank = { manager: '', week: '' };
+  assert.deepEqual(pageContext('/league/premier'), { screen: 'Premier League', screenClass: 'League', contentGroup: 'Leagues', league: 'premier', ...blank });
+  assert.deepEqual(pageContext('/league/premier/team/3'), { screen: 'Team · Premier League · 3', screenClass: 'Team', contentGroup: 'Leagues', league: 'premier', ...blank });
+  assert.deepEqual(pageContext('/league/premier/team/16'), { screen: 'Jason · Team', screenClass: 'Team', contentGroup: 'Leagues', league: 'premier', manager: 'Jason', week: '' });
+  assert.deepEqual(pageContext('/league/championship/match/9'), { screen: 'Match · Championship · 9', screenClass: 'League match', contentGroup: 'Leagues', league: 'championship', ...blank });
+  assert.deepEqual(pageContext('/matchday/championship/73'), { screen: 'Josh · Matchday', screenClass: 'Matchday', contentGroup: 'Matchday', league: 'championship', manager: 'Josh', week: '' });
+  assert.deepEqual(pageContext('/matchday/championship/73', '?week=3'), { screen: 'Josh · Matchday · Week 3', screenClass: 'Matchday', contentGroup: 'Matchday', league: 'championship', manager: 'Josh', week: '3' });
+  assert.deepEqual(pageContext('/players/4249084'), { screen: 'Player · 4249084', screenClass: 'Player', contentGroup: 'Players', league: '', ...blank });
+  assert.deepEqual(pageContext('/cups/jffl/round/round-2/highlight/Ada'), { screen: 'Cup · JFFL Cup · round-2 · Ada', screenClass: 'Cups', contentGroup: 'Cups', league: '', ...blank });
+  assert.deepEqual(pageContext('/cups/premier/match/12'), { screen: 'Cup match · Premier Cup · 12', screenClass: 'Cup match', contentGroup: 'Cups', league: 'premier', ...blank });
+  assert.deepEqual(pageContext('/archive/ask/t/abc'), { screen: 'Saved chat', screenClass: 'Ask the archive', contentGroup: 'Archive', league: '', ...blank });
+  assert.deepEqual(pageContext('/archive/managers/Ada%20Lovelace'), { screen: 'Manager · Ada Lovelace', screenClass: 'Manager', contentGroup: 'Archive', league: '', ...blank });
+  assert.deepEqual(pageContext('/weekly/4'), { screen: 'Week 4', screenClass: 'Weekly roundup', contentGroup: 'Weekly', league: '', manager: '', week: '4' });
+  assert.deepEqual(pageContext('/archive/weeks/3'), { screen: 'Week 3 in history', screenClass: 'Week in history', contentGroup: 'Archive', league: '', manager: '', week: '3' });
+  assert.equal(pageContext('/archive/records/weekly').screen, 'Record book · Weekly');
+  assert.equal(pageContext('/archive/records/jffl').screen, 'Record book · JFFL Cup');
+  assert.equal(pageContext('/archive/records/bowl').screen, 'Record book · Superbowl');
   assert.equal(pageContext('/missing').contentGroup, 'Other');
+  assert.equal(pageContext('/league/premier', '?week=3').week, '');
 });
 
 test('does not count routes that immediately redirect', () => {
@@ -49,4 +58,22 @@ test('does not count routes that immediately redirect', () => {
   assert.equal(countsAsPage('/history/archive/records'), false);
   assert.equal(countsAsPage('/archive/ask'), true);
   assert.equal(countsAsPage('/'), true);
+  assert.equal(countsAsPage('/weekly'), false);
+  assert.equal(countsAsPage('/weekly/7'), true);
+  assert.equal(countsAsPage('/weekly/0'), false);
+  assert.equal(countsAsPage('/weekly/7', '?week=7'), false);
+  assert.equal(countsAsPage('/archive/weeks'), false);
+  assert.equal(countsAsPage('/archive/weeks/5'), true);
+  assert.equal(countsAsPage('/archive/weeks/99'), false);
+  assert.equal(countsAsPage('/archive/records'), false);
+  assert.equal(countsAsPage('/archive/records/weekly'), true);
+  assert.equal(countsAsPage('/archive/records/nope'), false);
+  assert.equal(countsAsPage('/archive/rivals'), false);
+  assert.equal(countsAsPage('/archive/rivals/SeanT/Wayne'), true);
+  assert.equal(countsAsPage('/players', '?league=premier'), false);
+  assert.equal(countsAsPage('/players/premier'), true);
+  assert.equal(countsAsPage('/summary/nope'), false);
+  assert.equal(countsAsPage('/summary/premier'), true);
+  assert.equal(countsAsPage('/cups/jffl', '?manager=premier:16'), false);
+  assert.equal(countsAsPage('/cups/jffl'), true);
 });

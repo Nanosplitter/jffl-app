@@ -70,17 +70,33 @@ The site sends usage to Google Analytics on the `jffl-live-colin` web app
 
 https://console.firebase.google.com/project/jffl-live-colin/analytics/overview
 
-Each screen sends a page view named for that screen (Premier League, Team ·
-Premier League · 3, Week 4, Saved chat, and so on), with the section and league
-attached. The browser, device, country, referrer, and site version are included
-on those hits. Clicks, outbound links such as ESPN, filters, searches, and
-90% scrolls are events. Signing in the first time on a browser is a sign-up;
-later sign-ins are logins. Following or unfollowing a manager, asking the
-archive, and sharing an answer are events too. Signed-in visitors are tied to
-their Firebase user id, and the theme and followed league are user properties.
+Each screen sends one page view, named the way a person would say it: Leagues,
+Matchday, Jason · Matchday, Jason · Matchday · Week 3, Jason · Team, Week 4,
+Player · the player's name, Saved chat. The section (Matchday, Archive, and so
+on), the league name, the manager, and the week go along as event parameters.
+A link that immediately opens another route is not a second view. That covers
+the weekly roundup landing, the record book, week in history, and old query
+links. Changing the week on a matchday is a view of that week.
 
-Question text, email addresses, and display names are not sent. Ad blockers
-and browsers that reject analytics cookies are missing from the counts.
+Active users are browsers, not people. The same browser counts once no matter
+how often it comes back. A phone and a laptop count as two, until that person
+signs in. Sign-in is the only id Analytics can use to join those devices, and
+almost nobody signs in. Views are times a screen was opened, so one person can
+add several. The browser, device, country, referrer, and site version are
+included on those hits. Clicks, outbound links such as ESPN, filters, searches,
+and 90% scrolls are events. Signing in the first time on a browser is a
+sign-up; later sign-ins are logins. Following or unfollowing a manager, asking
+the archive, and sharing an answer are events too. Signed-in visitors are tied
+to their Firebase user id, and the theme and followed league are user
+properties.
+
+Question text, email addresses, and Google account names are not sent. A page
+title uses the manager nickname or player name already shown on that page. Ad
+blockers and browsers that reject analytics cookies are missing from the
+counts. Local development and localhost are not sent. League, manager, and
+week show up as filters in Analytics only after they are registered as
+event-scoped custom dimensions. The page title already carries those names
+without that step.
 Realtime shows a visit within a few minutes. Overview, retention, and
 demographic charts lag, and demographics stay hidden until Google has enough
 visitors to clear its threshold. There is no revenue, so the monetization

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { FollowedNote, useFollowed } from './account';
+import { trackPage } from './analytics';
 import { useLive, useRosters, useSummaries } from './data';
 import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type RosteredPlayer, type Team } from './types';
@@ -800,7 +801,7 @@ export function WeeklyPage() {
   const followed = useFollowed();
   const { week: weekParam } = useParams();
   const [params] = useSearchParams();
-  const { data } = useCompetitionData();
+  const { data, states: leagueStates } = useCompetitionData();
   const currentWeek=Math.max(0,...Object.values(data).map(summary=>summary?.week??0));
   const week=weeklyWeek(weekParam ?? params.get('week') ?? undefined, currentWeek);
   usePageLabel(week ? `Week ${week}` : 'Weekly roundup');
@@ -890,7 +891,13 @@ export function WeeklyPage() {
   };
   const canonical = week > 0 ? `/weekly/${week}` : '';
   const here = weekParam ? `/weekly/${weekParam}` : '/weekly';
-  if (canonical && (here !== canonical || params.toString())) return <Navigate to={canonical} replace />;
+  const redirecting = Boolean(canonical && (here !== canonical || params.toString()));
+  const settled = LEAGUES.every(meta => !leagueStates[meta.slug].loading);
+  useEffect(() => {
+    if (!settled || redirecting || weekParam) return;
+    trackPage('/weekly', '', { force: true });
+  }, [settled, redirecting, weekParam]);
+  if (redirecting) return <Navigate to={canonical} replace />;
   return <><SectionNav/><section className="page-intro"><div><p className="eyebrow">2026 SEASON <span>/</span> WEEKLY ROUNDUP</p><h1>Week {week||'—'}</h1><p className="intro-copy">{allFinal?'Final ESPN scores and scoring extremes.':'Live scores. Leads and scoring extremes remain provisional.'}</p><div className="email-copy-row"><button type="button" className="email-copy" onClick={() => void copyWeek()} disabled={!week}><Copy size={15} aria-hidden="true" />Copy for email</button>{emailNote && <p className="email-copy-note" role="status">{emailNote}</p>}</div></div><WeekNav week={week} count={currentWeek} /></section><UpdateStrip data={data}/>
     <div className="recap-metrics week-recap">
       <article><p className="eyebrow">High scorer</p>{scores[0] ? <WeekFace data={data} slug={scores[0].slug} id={scores[0].id} score={scores[0].score} /> : <strong>—</strong>}{scores[0] && <span className={`league-label ${scores[0].slug}`}>{leagueName(scores[0].slug)}</span>}</article>

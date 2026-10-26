@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { Activity, ArrowUpRight, ChevronLeft, ChevronRight, ExternalLink, Search, Shield, Sun, Moon } from 'lucide-react';
 import { AccountButton, FollowedNote, FollowPrompt, useFollowed } from './account';
-import { setAnalyticsTheme, startAnalytics, trackPage } from './analytics';
+import { pageContext, setAnalyticsTheme, startAnalytics, trackPage } from './analytics';
 import { localPreview, useLive, useRosters, useSummaries } from './data';
 import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type LiveGame, type Matchup, type RosteredPlayer, type Team } from './types';
@@ -406,13 +406,19 @@ function playerWeeks(playerId: string, spots: { player: RosteredPlayer; slug: Le
 
 function PlayerPage() {
   const { playerId = '' } = useParams();
+  const { pathname, search } = useLocation();
   const rosters = useRosters(LEAGUES.map(meta => meta.slug));
   const summaries = useSummaries();
   const spots = LEAGUES.flatMap(meta => (rosters[meta.slug]?.data?.players ?? []).filter(player => player.id === playerId).map(player => ({ player, slug: meta.slug })));
   const loading = LEAGUES.some(meta => rosters[meta.slug]?.loading && !rosters[meta.slug]?.data);
+  const settled = LEAGUES.every(meta => rosters[meta.slug] && !rosters[meta.slug]?.loading);
   const player = spots.find(spot => spot.player.seasonPoints != null)?.player ?? spots[0]?.player;
   usePageLabel(player?.name ?? null);
   useEffect(() => { document.title = `${player?.name ?? 'Player'} · JFFL`; }, [player?.name]);
+  useEffect(() => {
+    if (!player && !settled) return;
+    trackPage(pathname, search, player ? { title: `Player · ${player.name}` } : undefined);
+  }, [player, settled, pathname, search]);
   if (!player) return loading ? <Waiting /> : <NotFound />;
   const weeks = playerWeeks(player.id, spots, rosters);
   const statNames = [...new Set([...Object.keys(player.seasonStats), ...weeks.flatMap(week => Object.keys(week.stats))])].sort((a, b) => {
@@ -476,26 +482,6 @@ function PlayersPage() {
 
 function NotFound() { return <div className="waiting"><Shield size={30} /><h1>Page not found</h1><Link className="button" to="/">Back to the leagues</Link></div>; }
 
-function documentTitle(pathname: string) {
-  if (pathname === '/matchday' || pathname.startsWith('/matchday/')) return 'Matchday';
-  if (pathname.startsWith('/cups')) return 'Cups';
-  if (pathname === '/summary' || pathname.startsWith('/summary/')) return 'Standings';
-  const weekly = pathname.match(/^\/weekly\/(\d+)$/);
-  if (weekly) return `Week ${weekly[1]}`;
-  if (pathname === '/weekly') return 'Weekly roundup';
-  const historyWeek = pathname.match(/^\/archive\/weeks\/(\d+)$/);
-  if (historyWeek) return `Week ${historyWeek[1]} in history`;
-  const rivals = pathname.match(/^\/archive\/rivals\/([^/]+)\/([^/]+)$/);
-  if (rivals) return `${decodeURIComponent(rivals[1])} vs ${decodeURIComponent(rivals[2])}`;
-  if (pathname.startsWith('/archive/records')) return 'Record book';
-  if (pathname.startsWith('/archive/ask')) return 'Ask the archive';
-  if (pathname.startsWith('/archive')) return 'Archive';
-  if (pathname.startsWith('/history/cup')) return 'JFFL Cup history';
-  if (pathname === '/history' || pathname.startsWith('/history/')) return 'History';
-  if (pathname === '/players' || (pathname.startsWith('/players/') && leagueMeta(pathname.split('/')[2] ?? ''))) return 'Players';
-  return 'Leagues';
-}
-
 function RedirectPath({ to }: { to: string }) {
   const { search, hash } = useLocation();
   return <Navigate to={`${to}${search}${hash}`} replace />;
@@ -516,13 +502,17 @@ export default function App() {
     setAnalyticsTheme(dark);
   }, [dark]);
   useEffect(() => { startAnalytics(); }, []);
-  useEffect(() => { trackPage(location.pathname, location.search); }, [location.pathname, location.search]);
+  useEffect(() => {
+    const segment = location.pathname.split('/')[2] ?? '';
+    if (/^\/players\/.+/.test(location.pathname) && !leagueMeta(segment)) return;
+    trackPage(location.pathname, location.search);
+  }, [location.pathname, location.search]);
   useEffect(() => {
     window.scrollTo(0, 0);
     const playerSegment = location.pathname.split('/')[2] ?? '';
     if (/^\/players\/.+/.test(location.pathname) && !leagueMeta(playerSegment)) return;
-    document.title = `${documentTitle(location.pathname)} · JFFL`;
-  }, [location.pathname]);
+    document.title = `${pageContext(location.pathname, location.search).screen} · JFFL`;
+  }, [location.pathname, location.search]);
   return <>
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header"><div className="header-inner">

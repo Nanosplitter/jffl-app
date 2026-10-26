@@ -1,4 +1,5 @@
 import type { Analytics } from 'firebase/analytics';
+import { MANAGERS, managerFor } from './reference.ts';
 import { LEAGUES } from './types.ts';
 
 declare const __APP_VERSION__: string;
@@ -36,19 +37,28 @@ export interface PageContext {
   screenClass: string;
   contentGroup: string;
   league: string;
+  manager: string;
+  week: string;
 }
 
 /** Specific screen, its section, and the league in the path. */
-export function pageContext(pathname: string): PageContext {
+export function pageContext(pathname: string, search = ''): PageContext {
   const parts = pathname.split('/').filter(Boolean);
   const [root, a, b, c, d, e] = parts;
   const league = leagueIn(pathname);
+  const week = weekIn(pathname, search);
+  let manager = '';
   let screen = screenName(pathname);
   if (root === 'league' && a && !b) screen = leagueName(a);
-  else if (root === 'league' && b === 'team' && c) screen = `Team · ${leagueName(a)} · ${c}`;
-  else if (root === 'league' && b === 'match' && c) screen = `Match · ${leagueName(a)} · ${c}`;
-  else if (root === 'matchday' && a && b) screen = `Matchday · ${leagueName(a)} · ${b}`;
-  else if (root === 'players' && a && leagueSlugs.has(a)) screen = `Players · ${leagueName(a)}`;
+  else if (root === 'league' && b === 'team' && c) {
+    manager = managerName(a, c);
+    screen = manager ? `${manager} · Team` : `Team · ${leagueName(a)} · ${c}`;
+  } else if (root === 'league' && b === 'match' && c) screen = `Match · ${leagueName(a)} · ${c}`;
+  else if (root === 'matchday' && a && b) {
+    manager = managerName(a, b);
+    const weekLabel = week ? ` · Week ${week}` : '';
+    screen = manager ? `${manager} · Matchday${weekLabel}` : `Matchday · ${leagueName(a)} · ${b}${weekLabel}`;
+  } else if (root === 'players' && a && leagueSlugs.has(a)) screen = `Players · ${leagueName(a)}`;
   else if (root === 'players' && a) screen = `Player · ${a}`;
   else if (root === 'summary' && a && leagueSlugs.has(a)) screen = `Standings · ${leagueName(a)}`;
   else if (root === 'weekly' && a) screen = `Week ${a}`;
@@ -61,23 +71,72 @@ export function pageContext(pathname: string): PageContext {
   else if (root === 'history' && a && leagueSlugs.has(a)) screen = `History · ${leagueName(a)}`;
   else if (root === 'archive' && a === 'ask' && b === 't') screen = 'Saved chat';
   else if (root === 'archive' && a === 'ask' && (b === 's' || b === 'share')) screen = 'Shared answer';
-  else if (root === 'archive' && a === 'records' && b) screen = `Record book · ${decode(b)}`;
+  else if (root === 'archive' && a === 'records' && b) screen = `Record book · ${bookLabel(b)}`;
   else if (root === 'archive' && a === 'rivals' && b && c) screen = `Rivals · ${decode(b)} · ${decode(c)}`;
   else if (root === 'archive' && a === 'managers' && b) screen = `Manager · ${decode(b)}`;
   else if (root === 'archive' && a === 'weeks' && b) screen = `Week ${b} in history`;
-  return { screen: clip(screen), screenClass: screenName(pathname), contentGroup: groupFor(pathname), league };
+  return { screen: clip(screen), screenClass: screenName(pathname), contentGroup: groupFor(pathname), league, manager: clip(manager), week };
 }
 
+const RECORD_BOOKS = new Set(['weekly', 'jffl', 'league', 'bowl']);
+
 /** Client redirects are not visits. The destination route is counted instead. */
-export function countsAsPage(pathname: string) {
-  return pathname !== '/history/ask'
-    && !pathname.startsWith('/history/ask/')
-    && pathname !== '/history/archive'
-    && !pathname.startsWith('/history/archive/');
+export function countsAsPage(pathname: string, search = '') {
+  const parts = pathname.split('/').filter(Boolean);
+  const [root, a, b] = parts;
+  if (!root) return true;
+  if (root === 'history' && (a === 'ask' || a === 'archive')) return false;
+  if (root === 'weekly') {
+    const week = Number(a);
+    const numbered = /^\d{1,2}$/.test(a ?? '') && week >= 1;
+    if (!numbered || [...query(search).keys()].length > 0) return false;
+  }
+  if (root === 'archive' && a === 'weeks' && !(b && /^\d{1,2}$/.test(b) && Number(b) >= 1 && Number(b) <= 14)) return false;
+  if (root === 'archive' && a === 'records' && !RECORD_BOOKS.has(b ?? '')) return false;
+  if (root === 'archive' && a === 'rivals' && parts.length !== 4) return false;
+  if (root === 'summary' && a && !leagueSlugs.has(a)) return false;
+  if (root === 'history' && a && a !== 'cup' && !leagueSlugs.has(a)) return false;
+  if (root === 'history' && a === 'cup' && b && !leagueSlugs.has(b)) return false;
+  const params = query(search);
+  if (params.get('league') && (pathname === '/players' || pathname === '/summary' || pathname === '/history' || pathname === '/history/cup')) return false;
+  if (root === 'cups' && params.get('manager')) {
+    const cupId = a ?? '';
+    const key = params.get('manager') ?? '';
+    if (MANAGERS.some(item => item.key === key && (cupId === 'jffl' || item.slug === cupId))) return false;
+  }
+  return true;
 }
 
 function leagueName(slug: string | undefined) {
   return LEAGUES.find(league => league.slug === slug)?.name ?? slug ?? '';
+}
+
+function managerName(slug: string | undefined, id: string | undefined) {
+  if (!slug || !id) return '';
+  return managerFor(slug, id)?.manager ?? '';
+}
+
+function weekIn(pathname: string, search: string) {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts[0] === 'weekly' && /^\d{1,2}$/.test(parts[1] ?? '')) return parts[1];
+  if (parts[0] === 'archive' && parts[1] === 'weeks' && /^\d{1,2}$/.test(parts[2] ?? '')) return parts[2];
+  if (parts[0] === 'matchday' && parts[1] && parts[2]) {
+    const value = query(search).get('week');
+    if (value && /^\d{1,2}$/.test(value)) return String(Number(value));
+  }
+  return '';
+}
+
+function query(search: string) {
+  return new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+}
+
+function bookLabel(id: string) {
+  if (id === 'weekly') return 'Weekly';
+  if (id === 'jffl') return 'JFFL Cup';
+  if (id === 'league') return 'League cups';
+  if (id === 'bowl') return 'Superbowl';
+  return decode(id);
 }
 
 function cupLabel(id: string) {
@@ -141,8 +200,14 @@ function client() {
   return loading;
 }
 
+function reportsAnalytics() {
+  if (typeof window === 'undefined' || import.meta.env.DEV) return false;
+  const host = window.location.hostname;
+  return host !== 'localhost' && host !== '127.0.0.1' && host !== '::1' && host !== '[::1]' && !host.endsWith('.local');
+}
+
 async function load(): Promise<AnalyticsApi | null> {
-  if (typeof window === 'undefined') return null;
+  if (!reportsAnalytics()) return null;
   const { getFirebaseApp } = await import('./firebaseApp');
   const app = getFirebaseApp();
   if (!app) return null;
@@ -187,26 +252,29 @@ export function startAnalytics() {
   window.addEventListener('error', onError);
 }
 
-export function trackPage(pathname: string, search: string) {
-  if (!countsAsPage(pathname)) return;
+export function trackPage(pathname: string, search: string, options?: { title?: string; force?: boolean }) {
+  if (!options?.force && !countsAsPage(pathname, search)) return;
   const path = `${pathname || '/'}${search}`;
   if (path === lastPage) return;
-  const context = pageContext(pathname);
+  const context = pageContext(pathname, search);
+  const screen = clip(options?.title || context.screen);
   const origin = typeof window === 'undefined' ? '' : window.location.origin;
   const location = origin ? `${origin}${path}` : path;
   const referrer = lastUrl || (typeof document === 'undefined' ? '' : document.referrer);
   lastPage = path;
   lastUrl = location;
   const params: Record<string, string> = {
-    page_title: context.screen,
+    page_title: screen,
     page_path: clip(path),
     page_location: clip(location, 1000),
     content_group: context.contentGroup,
-    firebase_screen: context.screen,
+    firebase_screen: screen,
     firebase_screen_class: context.screenClass,
   };
   if (referrer) params.page_referrer = clip(referrer, 1000);
-  if (context.league) params.league = context.league;
+  if (context.league) params.league = leagueName(context.league);
+  if (context.manager) params.manager = context.manager;
+  if (context.week) params.week = context.week;
   send('page_view', params);
 }
 
