@@ -2,7 +2,7 @@ import { byeWeek } from './byeWeeks.ts';
 import { currentCupMatchesForTeam, scoreFor, type SummaryMap } from './competitions.ts';
 import { kickoffLabel } from './kickoff.ts';
 import { lineupWouldWin, type LineupCandidate } from './lineups.ts';
-import { gameProgress, toOddsStarter } from './liveOdds.ts';
+import { gameProgress, rangeStillLeft, toOddsStarter } from './liveOdds.ts';
 import { playerSpread } from './cupOdds.ts';
 import { managerFor, type ManagerReference } from './reference.ts';
 import type { LeagueSlug, LiveGame, RosteredPlayer } from './types.ts';
@@ -231,7 +231,7 @@ function rounded(value: number) {
 export function pointSpan(row: BoardRow): { low: number; high: number; center: number } | null {
   const open = row.status === 'playing' || row.status === 'yet';
   const progress = row.status === 'yet' ? 0 : row.progress;
-  const width = row.spread * (open ? Math.sqrt(Math.max(0, 1 - progress)) : 1);
+  const width = open ? rangeStillLeft(row.player.position, row.spread, row.player.projectedPoints, progress, row.player.weekPoints) : row.spread;
   if (width < 0.5) return null;
   const projected = row.player.projectedPoints;
   const scored = row.player.weekPoints;
@@ -253,7 +253,7 @@ export function pointsStillOut(board: PlayerBoard): { count: number; low: number
     any = true;
     const progress = row.status === 'yet' ? 0 : row.progress;
     total += row.player.projectedPoints * (1 - progress);
-    const spread = row.spread * Math.sqrt(Math.max(0, 1 - progress));
+    const spread = rangeStillLeft(row.player.position, row.spread, row.player.projectedPoints, progress, row.player.weekPoints);
     variance += spread * spread;
   }
   if (!any) return { count: open.length, low: null, high: null };

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { collapseGaps, gameProgress, liveWinChance, recordedProjection, scoreChartScale, scoreLine, sideVariance, winChanceSeries, withNow, type OddsStarter } from '../src/liveOdds.ts';
+import { collapseGaps, gameProgress, liveWinChance, rangeStillLeft, recordedProjection, scoreChartScale, scoreLine, sideVariance, winChanceSeries, withNow, type OddsStarter } from '../src/liveOdds.ts';
 import type { LiveGame } from '../src/types.ts';
 
 const kickoff = '2026-10-18T17:00:00Z';
@@ -60,7 +60,8 @@ test('variance follows the game clock, not whether a score has been posted', () 
   assert.equal(sideVariance([starter({ weekPoints: 10 })], games, now, now, 4), full);
   assert.equal(sideVariance([starter({ proTeam: 'MIN' })], games, now, now, 6), 0);
   const halfway: LiveGame = { kickoff, state: 'in', detail: 'Q3', progress: 0.5 };
-  assert.equal(sideVariance([starter({ weekPoints: 8 })], { KC: halfway }, now, now, 4), full * 0.5);
+  const livePlayer = starter({ weekPoints: 8 });
+  assert.equal(sideVariance([livePlayer], { KC: halfway }, now, now, 4), rangeStillLeft(livePlayer.position, 7.5, livePlayer.projectedPoints, 0.5, 8) ** 2);
   assert.equal(sideVariance([starter({ weekPoints: 18 })], { KC: { ...halfway, state: 'post', progress: 1 } }, now, now, 4), 0);
   const ended = start + gameMs;
   const final: LiveGame = { kickoff, state: 'post', detail: 'Final', progress: 1, endedAt: new Date(ended).toISOString() };
@@ -80,6 +81,20 @@ test('a live chance stays absent without a projection and is level or settled wh
   assert.deepEqual(even, { left: 50, right: 50 });
   const big = liveWinChance(130, 100, 25, 0);
   assert.deepEqual(big, { left: 99, right: 1 });
+});
+
+test('a live defense uses its own range and the points already posted', () => {
+  const now = start + 60 * 60 * 1000;
+  const game: LiveGame = { kickoff, state: 'in', detail: 'Q2', progress: 0.45 };
+  const chiefs = starter({ position: 'D/ST', projectedPoints: 7.66, weekPoints: 5, previousPoints: [] });
+  const quiet = sideVariance([chiefs], { KC: game }, now, now, 4);
+  const wild = sideVariance([starter({ position: 'D/ST', projectedPoints: 7.66, weekPoints: 5, previousPoints: [0, 20, 0, 20] })], { KC: game }, now, now, 4);
+  assert.ok(wild > quiet);
+  assert.ok(quiet < 5 * 5 * (1 - 0.45));
+  const chance = liveWinChance(84.39, 82, quiet, 0);
+  assert.ok(chance && chance !== 'level' && chance.left >= 85 && chance.left <= 93);
+  const before = sideVariance([chiefs], { KC: game }, start - 60 * 60 * 1000, now, 4);
+  assert.equal(before, 5 * 5);
 });
 
 test('a fraction of a projected point does not flip the week between 100 and 0', () => {

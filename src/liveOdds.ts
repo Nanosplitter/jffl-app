@@ -121,6 +121,24 @@ export function forecastEnd(starters: readonly OddsStarter[], games: Record<stri
   return end;
 }
 
+const DROPS = new Set(['D/ST', 'DST', 'DEF']);
+
+/**
+ * How wide this finish still is. `spread` is the player's own full-week range.
+ * Before kickoff the whole range applies. After that it shrinks with the clock.
+ * Points already posted shrink it further when the score does not fall; a defense
+ * keeps at least half of that, because it can still drop.
+ */
+export function rangeStillLeft(position: string, spread: number, projected: number | null, progress: number, scored: number | null): number {
+  if (!(progress > 0)) return spread;
+  if (progress >= 1) return 0;
+  const clock = 1 - progress;
+  const posted = scored != null && projected != null && projected > 0 ? Math.max(scored, 0) : null;
+  const unrealized = posted == null ? 1 : Math.min(1, Math.max(projected - posted, 0) / projected);
+  const settled = DROPS.has(position) ? Math.max(unrealized, 0.5) : Math.max(unrealized, clock * 0.25);
+  return spread * clock * Math.sqrt(settled);
+}
+
 /** Variance still left for starters whose games are not final. A posted score does not close it. */
 export function openVariance(starters: readonly OddsStarter[], games: Record<string, LiveGame> | null | undefined, now: number, week: number): number {
   let variance = 0;
@@ -128,7 +146,7 @@ export function openVariance(starters: readonly OddsStarter[], games: Record<str
     if (!stillOpen(player, games, now, week)) continue;
     const game = player.proTeam ? games?.[player.proTeam] : undefined;
     const progress = gameProgress(game, player.kickoff ?? game?.kickoff ?? null, now, now);
-    const spread = playerSpread(player.position, player.previousPoints) * Math.sqrt(1 - progress);
+    const spread = rangeStillLeft(player.position, playerSpread(player.position, player.previousPoints), player.projectedPoints, progress, player.weekPoints);
     variance += spread * spread;
   }
   return variance;
@@ -136,18 +154,22 @@ export function openVariance(starters: readonly OddsStarter[], games: Record<str
 
 /**
  * Remaining uncertainty at `at`. A bye, or a game already over by then, adds none.
- * A posted score does not close a game still in progress, and it does not erase
- * uncertainty from earlier in the week. Variance shrinks with game progress.
+ * Before kickoff the whole weekly range counts, even if a score has since been posted.
+ * During the game the range follows the clock, and the live box score when `at` is now.
  */
 export function sideVariance(starters: readonly OddsStarter[], games: Record<string, LiveGame> | null | undefined, at: number, now: number, week: number): number {
   let variance = 0;
+  const live = Math.abs(at - now) <= NOW_WINDOW_MS;
   for (const player of starters) {
     if (byeWeek(player.proTeam) === week) continue;
     const game = player.proTeam ? games?.[player.proTeam] : undefined;
     const progress = gameProgress(game, player.kickoff ?? game?.kickoff ?? null, at, now);
     if (progress >= 1) continue;
-    const spread = playerSpread(player.position, player.previousPoints);
-    variance += spread * spread * (1 - progress);
+    const nowProgress = gameProgress(game, player.kickoff ?? game?.kickoff ?? null, now, now);
+    const scored = live || player.weekPoints == null || !(nowProgress > 0)
+      ? player.weekPoints
+      : player.weekPoints * Math.min(1, progress / nowProgress);
+    variance += rangeStillLeft(player.position, playerSpread(player.position, player.previousPoints), player.projectedPoints, progress, progress > 0 ? scored : null) ** 2;
   }
   return variance;
 }
