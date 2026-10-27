@@ -1,5 +1,7 @@
 node_modules/
 dist/
+functions-social/lib/
+functions-social/shell/
 .env.local
 .firebase/
 *-debug.log

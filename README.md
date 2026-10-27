@@ -255,6 +255,25 @@ These change the production Firebase project, so they are documented rather than
 6. Run `scripts/eval-ask.ts`, review failures, then `npm run build` and `firebase deploy --only hosting`.
 7. To stop spending quickly: set `ask_enabled` to `false` in Remote Config, or disable the API.
 
+## Link previews
+
+Shared links get a 1200×630 card and a specific title. Chat apps read the first HTML response, so the preview is not taken from the React page after it loads.
+
+Static pages, such as a league, the standings, a cup bracket, or an archive section, are written into the site build with their own title, description, and picture. A team, matchup, matchday, player, weekly roundup, cup match, manager, rivalry, or saved Ask answer is rendered by the `social` Cloud Functions when the link is opened. The function returns the normal site with those tags filled in, and the picture is drawn from the public league snapshot. A matchday, league matchup, or cup matchup picture also draws that week's saved score and win-chance lines when the timeline has them. A cup line includes points from the earlier legs of the tie. A public share picture includes the opening of that frozen answer. A saved chat at `/archive/ask/t/:threadId` stays generic and is marked `noindex`. Older `/archive/ask/share#...` links stay generic because the part after `#` never reaches the server.
+
+The picture address includes a version of the visible text and score, so an unchanged card can be cached and a changed score gets a new address. Missing scores stay blank. Preview images use the same public team logos as the site: HTTPS ESPN hosts, or another HTTPS image the league already displays, with a size and time limit. If rendering fails, the link falls back to the general JFFL card.
+
+Review every preview together before a deploy:
+
+```powershell
+npm run build
+npm run social:gallery
+```
+
+Open `http://127.0.0.1:4177/__social/gallery`. The page uses `functions/local-data.json` when that local snapshot exists, and otherwise the committed week 3 fixture. It is not a public page and is marked `noindex`.
+
+After a hosting and functions deploy, Facebook, Slack, Discord, LinkedIn, and iMessage may keep the previous card. Fetch the shared URL again in each platform's debugger, or share a URL whose preview version changed. Deploy with the manual Deploy workflow so both the static cards and the `social` functions are published. A hosting-only deploy updates section cards and leaves the dynamic renderer on its previous version.
+
 ## Local development
 
 Requires Node.js 22+ and Python 3.13. This workspace uses a project-local venv.

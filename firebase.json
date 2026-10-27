@@ -2,13 +2,34 @@
   "hosting": {
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
-    "rewrites": [{"source":"**","destination":"/index.html"}],
+    "rewrites": [
+      {"source":"/__social/gallery","function":{"functionId":"socialGallery","region":"us-east1"}},
+      {"source":"/__social/card.png","function":{"functionId":"socialImage","region":"us-east1"}},
+      {"source":"/league/*/team/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/league/*/match/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/matchday/*/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/players/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/weekly/*","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/cups/*/match/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/cups/*/highlight/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/cups/*/round/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/archive/ask/s/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/archive/ask/t/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/archive/managers/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"/archive/rivals/**","function":{"functionId":"socialPage","region":"us-east1"}},
+      {"source":"**","destination":"/index.html"}
+    ],
     "headers": [
       {"source":"**","headers":[{"key":"Cache-Control","value":"no-cache"},{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"}]},
-      {"source":"/assets/**","headers":[{"key":"Cache-Control","value":"public,max-age=31536000,immutable"}]}
+      {"source":"/assets/**","headers":[{"key":"Cache-Control","value":"public,max-age=31536000,immutable"}]},
+      {"source":"/og/**","headers":[{"key":"Cache-Control","value":"public,max-age=3600"}]},
+      {"source":"/__social/**","headers":[{"key":"Cache-Control","value":"public,max-age=120"}]}
     ]
   },
-  "functions": [{"source":"functions","codebase":"jffl","runtime":"python313","ignore":["venv",".venv","__pycache__","tests","local-data.json"]}],
+  "functions": [
+    {"source":"functions","codebase":"jffl","runtime":"python313","ignore":["venv",".venv","__pycache__","tests","local-data.json"]},
+    {"source":"functions-social","codebase":"social","runtime":"nodejs22","predeploy":["npm --prefix functions-social ci","npm --prefix functions-social run build"],"ignore":["src","node_modules",".git","*.local","firebase-debug.log"]}
+  ],
   "firestore": {"rules":"firestore.rules","indexes":"firestore.indexes.json"},
   "auth": {
     "authorizedDomains": ["localhost", "127.0.0.1", "jffl.org", "jffl-live-colin.firebaseapp.com", "jffl-live-colin.web.app"],

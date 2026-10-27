@@ -84,6 +84,12 @@ jobs:
           python -m venv functions/venv
           functions/venv/bin/pip install -r functions/requirements.txt
 
+      - name: Prepare social link previews
+        if: inputs.target != 'hosting'
+        run: |
+          npm ci --prefix functions-social
+          npm --prefix functions-social run build
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
