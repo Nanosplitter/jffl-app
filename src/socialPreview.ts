@@ -320,7 +320,7 @@ export function injectSocialMeta(html: string, preview: SocialPreview, origin = 
   return stripped.includes('</head>') ? stripped.replace('</head>', `${block}  </head>`) : `${block}${stripped}`;
 }
 
-function homeCard(leagues: SummaryMap): Omit<SocialPreview, 'imagePath' | 'version'> {
+function homeCard(leagues: SummaryMap): Omit<SocialPreview, 'imagePath' | 'version'> & { versionSource?: string } {
   const facts = leaderFacts(leagues);
   return {
     ...sectionCard('home', '/', '2026 season', 'Three leagues. One JFFL.', DEFAULT_DESCRIPTION, 'League Central'),
@@ -423,7 +423,7 @@ function sampleAskCard(path: string): Omit<SocialPreview, 'imagePath' | 'version
   return { ...storyCard('sample', path, 'Ask the archive', ASK_SAMPLE_TITLE, excerpt, 'Shared answer', '#3ec0f0', true, 'noindex'), description: excerpt };
 }
 
-function shareCard(path: string, share: PreviewData['share']): Omit<SocialPreview, 'imagePath' | 'version'> {
+function shareCard(path: string, share: PreviewData['share']): Omit<SocialPreview, 'imagePath' | 'version'> & { versionSource?: string } {
   const title = oneLine(share?.title ?? '');
   const excerpt = answerExcerpt(share?.excerpt ?? '');
   const card = storyCard('ask-share', path, 'Ask the archive', title || 'Shared answer', 'A shared answer from Ask the archive.', 'Shared answer', '#3ec0f0', true, 'index', share?.createdAt ?? title);
@@ -467,7 +467,7 @@ function leagueMatchCard(slug: LeagueSlug, matchId: string, summary: LeagueSumma
       side: sideOf(leagueName(slug), 'Matchup', null, null, 'square'), facts: [], versionSource: '',
     });
   }
-  const week = 'week' in match ? match.week : summary.week;
+  const week = 'week' in match && typeof match.week === 'number' ? match.week : summary.week;
   const status = matchStatus(match, summary.week);
   const chance = status === 'Final' ? null : projectedWinChance(match.homeProjected, match.awayProjected);
   const away = withOdds(contestant(summary, match.awayTeamId, match.awayScore), chance ? `${chance.away}% to win` : null);
@@ -487,7 +487,7 @@ function leagueMatchCard(slug: LeagueSlug, matchId: string, summary: LeagueSumma
   };
 }
 
-function matchdayCard(slug: LeagueSlug, teamId: string, requestedWeek: string | null, leagues: SummaryMap, rosters: Partial<Record<LeagueSlug, LeagueRosterSnapshot>> = {}, data: PreviewData = {}): Omit<SocialPreview, 'imagePath' | 'version'> {
+function matchdayCard(slug: LeagueSlug, teamId: string, requestedWeek: string | null, leagues: SummaryMap, rosters: Partial<Record<LeagueSlug, LeagueRosterSnapshot>> = {}, data: PreviewData = {}): Omit<SocialPreview, 'imagePath' | 'version'> & { versionSource?: string } {
   const base = leagues[slug];
   const current = base?.week ?? 0;
   const week = requestedWeek && numbered(requestedWeek) ? Number(requestedWeek) : current;
@@ -779,17 +779,19 @@ function withOdds(side: PreviewSide, odds: string | null): PreviewSide {
 
 function cupAdvanceOdds(match: CupMatch, leagues: SummaryMap, rosters: Partial<Record<LeagueSlug, LeagueRosterSnapshot>>) {
   if (match.status !== 'live' && match.status !== 'waiting') return null;
-  const leftSlug = match.a.participant?.slug;
-  const rightSlug = match.b.participant?.slug;
-  if (!leftSlug || !rightSlug || !rosters[leftSlug]?.players || !rosters[rightSlug]?.players) return null;
-  const players = { [leftSlug]: rosters[leftSlug].players, [rightSlug]: rosters[rightSlug].players };
+  const left = match.a.participant;
+  const right = match.b.participant;
+  const leftPlayers = left ? rosters[left.slug]?.players : undefined;
+  const rightPlayers = right ? rosters[right.slug]?.players : undefined;
+  if (!left || !right || !leftPlayers || !rightPlayers) return null;
+  const players = { [left.slug]: leftPlayers, [right.slug]: rightPlayers };
   const chance = cupMatchChance(match, leagues, players);
   if (chance === 'level') return { left: '50% to advance', right: '50% to advance' };
   if (chance) return { left: `${chance.left}% to advance`, right: `${chance.right}% to advance` };
-  const week = Math.max(leagues[leftSlug]?.week ?? 0, leagues[rightSlug]?.week ?? 0);
+  const week = Math.max(leagues[left.slug]?.week ?? 0, leagues[right.slug]?.week ?? 0);
   if (!match.weeks.includes(week)) return null;
-  const leftProjected = matchupProjection(leagues, match.a.participant, [week]);
-  const rightProjected = matchupProjection(leagues, match.b.participant, [week]);
+  const leftProjected = matchupProjection(leagues, left, [week]);
+  const rightProjected = matchupProjection(leagues, right, [week]);
   const current = projectedWinChance(rightProjected, leftProjected);
   if (!current) return null;
   const phrase = match.weeks.some(item => item > week) ? 'this week' : 'to advance';
@@ -951,7 +953,8 @@ function weekExtremes(leagues: SummaryMap, week: number): PreviewLine[] {
   const games: { margin: number; winner: PreviewSide; loser: PreviewSide; final: boolean }[] = [];
   for (const slug of leagueList()) {
     const summary = leagues[slug];
-    for (const match of summary?.weeklyMatchups ?? []) {
+    if (!summary) continue;
+    for (const match of summary.weeklyMatchups ?? []) {
       if (match.week !== week || match.homeScore == null || match.awayScore == null || match.homeScore === match.awayScore) continue;
       const home = contestant(summary, match.homeTeamId, match.homeScore);
       const away = contestant(summary, match.awayTeamId, match.awayScore);
@@ -981,9 +984,10 @@ function leaguesForMatchday(leagues: SummaryMap, data: PreviewData, week: number
   for (const slug of leagueList()) {
     const summary = leagues[slug];
     if (!summary) continue;
+    const rows = summary.weeklyMatchups ?? [];
     const key = (item: { week: number; homeTeamId: string | null; awayTeamId: string | null }) => `${item.week}:${item.homeTeamId ?? ''}:${item.awayTeamId ?? ''}`;
-    const chosen = new Map<string, (typeof summary.weeklyMatchups)[number]>();
-    for (const item of summary.weeklyMatchups ?? []) chosen.set(key(item), item);
+    const chosen = new Map<string, (typeof rows)[number]>();
+    for (const item of rows) chosen.set(key(item), item);
     for (const item of (data.weeks?.[slug] ?? []).filter(row => row.week <= week)) {
       const have = chosen.get(key(item));
       if (!have || (have.status !== 'final' && item.status === 'final')) chosen.set(key(item), item);
