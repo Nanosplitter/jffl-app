@@ -14,6 +14,8 @@ export interface LimitState {
   turns: number;
   todayCount: number;
   busy: boolean;
+  /** A deeper retry replaces the current question, so it does not count as another turn. */
+  replacingTurn?: boolean;
 }
 
 export function checkLimits(state: LimitState): LimitCheck {
@@ -21,7 +23,7 @@ export function checkLimits(state: LimitState): LimitCheck {
   if (!text) return { ok: false, reason: 'Type a question first.' };
   if (state.busy) return { ok: false, reason: 'Hold on, I am still working on the last question.' };
   if (text.length > MAX_INPUT_CHARS) return { ok: false, reason: `Please keep questions under ${MAX_INPUT_CHARS} characters.` };
-  if (state.turns >= MAX_TURNS) return { ok: false, reason: 'This conversation is getting long. Start a new chat to keep going.' };
+  if (!state.replacingTurn && state.turns >= MAX_TURNS) return { ok: false, reason: 'This conversation is getting long. Start a new chat to keep going.' };
   if (state.now - state.lastSentAt < COOLDOWN_MS) return { ok: false, reason: 'One moment before the next question.' };
   if (state.todayCount >= DAILY_SOFT_LIMIT) return { ok: false, reason: 'You have asked a lot of questions today. Please come back tomorrow.' };
   return { ok: true };

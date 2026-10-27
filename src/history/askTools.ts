@@ -115,6 +115,11 @@ export const TABLE_COLUMNS: Record<TableName, Record<string, { type: ColumnType;
     wins: { type: 'number', about: 'Regular-season wins' },
     losses: { type: 'number', about: 'Regular-season losses' },
     ties: { type: 'number', about: 'Regular-season ties' },
+    careerSeason: { type: 'number', about: '1 in this manager\'s first season in the archive, then 2, 3, and so on in the later seasons they played. A missed year does not reset it. Filter careerSeason = 1 for a first year.' },
+    openingWinStreak: { type: 'number', about: 'Regular-season wins from the first game of this season until the first loss or tie. 0 if the season did not start with a win. For the season in progress this uses finished games only, so it can still grow, and the season row stays status live. Null when the weekly log does not match the season record, including 2002.' },
+    openingLossStreak: { type: 'number', about: 'Regular-season losses from the first game of this season until the first win or tie. 0 if the season did not start with a loss. Null in the same cases as openingWinStreak.' },
+    longestWinStreak: { type: 'number', about: 'Longest run of regular-season wins anywhere in this season. This can be longer than openingWinStreak. Null in the same cases as openingWinStreak.' },
+    longestLossStreak: { type: 'number', about: 'Longest run of regular-season losses anywhere in this season. Null in the same cases as openingWinStreak.' },
     draft: { type: 'number', about: 'Draft slot, 1 picks first. For 2026 this is the ESPN draft rank, or the commissioner sheet when ESPN has none. Draft Δ is this number minus standing.' },
     pointsRank: { type: 'number', about: 'Rank by points scored within the league' },
     seasonChamp: { type: 'number', about: '1 if finished first in the regular season, 0 if not, null if unknown' },
@@ -154,7 +159,7 @@ export const DATA_NOTES = [
   'Names are manager nicknames. "team" always means the manager.',
   '2026 cups are seeded. jfflSeed is the JFFL Cup seed and leagueCupSeed is the seed in that manager\'s league cup. Both are null before 2026, so those seasons have no cup seeds. A seed is not the current standing.',
   '2026 season rows also carry the standings page: club, previousRank, week2Rank, draft, zone, and ESPN pointsAgainst. Those fields are null before 2026. Scoring settings, trophy-room profiles, could-have lineups, and player counting stats are separate tools.',
-  'Wins, losses, ties, and points on a season row are the official regular-season totals. teamFinish is the final regular-season rank that year, not the rank at the time of a game, and it only compares with another finish inside the same league. Before 2026, pointsAgainst is null when the weekly log does not match the season record. For 2026 it is the ESPN points against on the standings page. winStreak and lossStreak count consecutive regular-season results inside one season; a tie resets both, and they do not cross seasons or include cup games.',
+  'Wins, losses, ties, and points on a season row are the official regular-season totals. teamFinish is the final regular-season rank that year, not the rank at the time of a game, and it only compares with another finish inside the same league. Before 2026, pointsAgainst is null when the weekly log does not match the season record. For 2026 it is the ESPN points against on the standings page. winStreak and lossStreak count consecutive regular-season results inside one season; a tie resets both, and they do not cross seasons or include cup games. careerSeason is 1 in a manager\'s first season, including a manager whose first season is the one in progress. openingWinStreak is the win streak from that season\'s first finished game, and longestWinStreak is the longest run anywhere in the season. A game still being played is not part of the streak. Those season streak fields stay null when the weekly log does not match the record.',
 ];
 
 const TABLE_INTRO: Record<TableName, string> = {
@@ -190,6 +195,24 @@ export function streakLengths(results: Array<'W' | 'L' | 'T'>): Array<{ winStrea
     else { wins = 0; losses = 0; }
     return { winStreak: wins, lossStreak: losses };
   });
+}
+
+/** Opening run from the first game, plus the longest run anywhere in that sequence. */
+export function seasonStreakSummary(results: Array<'W' | 'L' | 'T'>) {
+  const streaks = streakLengths(results);
+  let openingWinStreak = 0;
+  let openingLossStreak = 0;
+  if (results[0] === 'W') {
+    for (let index = 0; index < results.length && results[index] === 'W'; index += 1) openingWinStreak = streaks[index].winStreak;
+  } else if (results[0] === 'L') {
+    for (let index = 0; index < results.length && results[index] === 'L'; index += 1) openingLossStreak = streaks[index].lossStreak;
+  }
+  return {
+    openingWinStreak,
+    openingLossStreak,
+    longestWinStreak: streaks.reduce((max, row) => Math.max(max, row.winStreak), 0),
+    longestLossStreak: streaks.reduce((max, row) => Math.max(max, row.lossStreak), 0),
+  };
 }
 
 /** Scheduled weeks for a cup round. League cups are one week; the JFFL Cup is the two-week window. */
@@ -262,10 +285,13 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
     list.push(row);
     streakGroups.set(key, list);
   }
-  for (const list of streakGroups.values()) {
+  const seasonStreaks = new Map<string, ReturnType<typeof seasonStreakSummary>>();
+  for (const [key, list] of streakGroups) {
     list.sort((left, right) => (left.week as number) - (right.week as number));
-    const streaks = streakLengths(list.map(row => row.result as 'W' | 'L' | 'T'));
+    const results = list.map(row => row.result as 'W' | 'L' | 'T');
+    const streaks = streakLengths(results);
     list.forEach((row, index) => Object.assign(row, streaks[index]));
+    seasonStreaks.set(key, seasonStreakSummary(results));
   }
   const flag = (rank: number | null, test: (value: number) => boolean) => rank == null ? null : test(rank) ? 1 : 0;
   const seasonRow = (row: HistorySeason & { standing?: number | null; jfflSeed?: number | null; leagueCupSeed?: number | null; club?: string | null; previousRank?: number | null; week2Rank?: number | null; zone?: string | null; snapshotPointsAgainst?: number | null }, status: string): Row => ({
@@ -283,12 +309,31 @@ export function prepareTables(archive: Archive): Record<TableName, Row[]> {
     leagueCupChamp: flag(row.cupRank, value => value === 1),
     jfflCupChamp: flag(row.jfflRank, value => value === 1),
     topThree: flag(row.rankSeason, value => value <= 3),
+    careerSeason: null, openingWinStreak: null, openingLossStreak: null, longestWinStreak: null, longestLossStreak: null,
     status,
   });
   const seasons: Row[] = [
     ...archive.seasons.map(row => seasonRow(row, 'final')),
     ...(archive.live?.seasons ?? []).map(row => seasonRow(row, 'live')),
   ];
+  const byTeam = new Map<string, Row[]>();
+  for (const row of seasons) {
+    const team = String(row.team);
+    const list = byTeam.get(team) ?? [];
+    list.push(row);
+    byTeam.set(team, list);
+  }
+  for (const list of byTeam.values()) {
+    list.sort((left, right) => (left.season as number) - (right.season as number));
+    list.forEach((row, index) => {
+      const streak = seasonStreaks.get(`${row.season}|${row.team}`);
+      row.careerSeason = index + 1;
+      row.openingWinStreak = streak?.openingWinStreak ?? null;
+      row.openingLossStreak = streak?.openingLossStreak ?? null;
+      row.longestWinStreak = streak?.longestWinStreak ?? null;
+      row.longestLossStreak = streak?.longestLossStreak ?? null;
+    });
+  }
   const players: Row[] = (archive.live?.players ?? []).map(row => ({ ...row }));
   return { team_games: teamGames, seasons, player_weeks: players };
 }

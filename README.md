@@ -86,7 +86,7 @@ add several. The browser, device, country, referrer, and site version are
 included on those hits. Clicks, outbound links such as ESPN, filters, searches,
 and 90% scrolls are events. Signing in the first time on a browser is a
 sign-up; later sign-ins are logins. Following or unfollowing a manager, asking
-the archive, and sharing an answer are events too. Signed-in visitors are tied
+the archive, trying a deeper answer, and sharing an answer are events too. Signed-in visitors are tied
 to their Firebase user id, and the theme and followed league are user
 properties.
 
@@ -135,7 +135,11 @@ How it works:
   draft slots, and week slices. Each game row carries the league each manager
   played in that season, whether the matchup crossed leagues, and both managers'
   final regular-season ranks, and the running win and loss streak inside that
-  season. Head-to-head results split regular season, cup, and
+  season. A season row also carries `careerSeason` (1 in a manager's first year,
+  including a first year that is still in progress), the opening win and loss
+  streak from that season's first finished game, and the longest win and loss
+  streak anywhere in that season. A game still being played is not part of the
+  streak. A missing or inconsistent weekly log stays null. Head-to-head results split regular season, cup, and
   Superbowl. It then asks for a chart by naming a returned dataset.
 - The 2026 season comes from the same Firestore snapshots as the rest of the site
   (`publicLeagues` and `publicRosters`), never from ESPN directly. `src/history/liveSeason.ts`
@@ -202,12 +206,19 @@ Configuration (all public client config; no secrets):
 | `VITE_APPCHECK_DEBUG_TOKEN` | dev only | Debug token registered in the console for local App Check. |
 | `ask_enabled` | Remote Config | Kill switch. `false` pauses the assistant without a deploy. |
 | `ask_model` | Remote Config | Model name, default `gemini-3.8-flash`. |
-| `ask_thinking` | Remote Config | `minimal`, `low` (default), `medium`, `high`, or `default`. |
+| `ask_thinking` | Remote Config | `minimal`, `low` (default), `medium`, `high`, or `default`. A Think harder retry uses `high` for that one answer. |
 | `ask_max_output_tokens` | Remote Config | Default 65536, the Gemini 3.x Flash maximum. The page clamps this between 512 and 65536. Thinking tokens count toward the same budget. |
 
 Client-side courtesy limits (`src/history/askGuards.ts`): 500 characters per question, 20 questions
 per chat, a short cooldown, and 40 questions per browser per day. They are not security; App Check,
 quotas, and budget alerts are.
+
+When an answer runs out of steps, or comes back without an answer, the latest reply offers **Think harder**.
+That retries the same question once, with high thinking and a larger step limit, and replaces the incomplete
+reply. A signed-in visitor starts it immediately. A signed-out visitor gets the existing Google sign-in, and
+the same retry continues after the popup or the phone redirect. It counts toward the daily courtesy limit.
+Signing in does not enforce the retry: the browser still calls Firebase AI Logic directly, and App Check,
+quotas, and budget alerts remain the protection. A second miss does not offer another deeper retry.
 
 Budget plan (about $10 a month): start on the free tier, and when billing is enabled keep Gemini
 requests around 60 a day, lower the per-user requests-per-minute quota from 100 to about 10, and set

@@ -36,6 +36,19 @@ const mostBy = (session: Session, flag: string) => {
 
 export const GOLDEN: Golden[] = [
   { id: 'most-super-bowls', turns: ['Who has won the most Superbowls?'], contains: session => mostBy(session, 'superBowlChamp'), tools: ['query_seasons'] },
+  {
+    id: 'first-year-opening-streak',
+    turns: ['What was the longest winstreak anyone has had in their first year starting the season?'],
+    tools: ['query_seasons'],
+    contains: session => {
+      const list = rows(session, 'query_seasons', {
+        filters: [{ field: 'careerSeason', op: 'eq', value: '1' }, { field: 'openingWinStreak', op: 'not_null' }],
+        sort: [{ field: 'openingWinStreak', dir: 'desc' }],
+        limit: 8,
+      });
+      return [tied(list, 'openingWinStreak').map(row => String(row.team)), [String(list[0].openingWinStreak)]];
+    },
+  },
   { id: 'most-regular-season-titles', turns: ['Who has finished first in the regular season most often?'], contains: session => mostBy(session, 'seasonChamp') },
   {
     id: 'highest-weekly-score', turns: ['What is the highest score ever in a single regular-season week?'],

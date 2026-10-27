@@ -16,7 +16,7 @@ export const REMOTE_DEFAULTS = {
   ask_max_output_tokens: MAX_OUTPUT_TOKENS,
 } as const;
 
-export interface Assistant { model: ModelLike; modelName: string; mock: boolean }
+export interface Assistant { model: ModelLike; hardModel: ModelLike; modelName: string; mock: boolean }
 
 export class AssistantUnavailable extends Error {
   constructor(message: string) { super(message); this.name = 'AssistantUnavailable'; }
@@ -53,13 +53,15 @@ export async function loadAssistant(managers: string[], live?: LivePromptInfo | 
   if (!app) {
     if (import.meta.env.DEV) {
       const { createMockModel } = await import('./askMock.ts');
-      return { model: createMockModel(), modelName: 'local-mock', mock: true };
+      const model = createMockModel();
+      return { model, hardModel: model, modelName: 'local-mock', mock: true };
     }
     throw new AssistantUnavailable('The assistant is not set up on this site yet.');
   }
   if (import.meta.env.DEV && import.meta.env.VITE_ASK_MOCK === 'true') {
     const { createMockModel } = await import('./askMock.ts');
-    return { model: createMockModel(), modelName: 'local-mock', mock: true };
+    const model = createMockModel();
+    return { model, hardModel: model, modelName: 'local-mock', mock: true };
   }
 
   const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined;
@@ -77,22 +79,31 @@ export async function loadAssistant(managers: string[], live?: LivePromptInfo | 
     }
   }
 
-  const level = THINKING[remote.ask_thinking.toLowerCase()];
-  const generative = getGenerativeModel(getAI(app, { backend: new GoogleAIBackend() }), {
-    model: remote.ask_model,
-    systemInstruction: buildSystemPrompt(managers, live),
-    tools: [{ functionDeclarations: TOOL_DECLARATIONS as never }],
-    generationConfig: {
-      maxOutputTokens: Math.min(Math.max(remote.ask_max_output_tokens, 512), MAX_OUTPUT_TOKENS),
-      ...(level ? { thinkingConfig: { thinkingLevel: level as never } } : {}),
-    },
-  });
+  const ai = getAI(app, { backend: new GoogleAIBackend() });
+  const systemInstruction = buildSystemPrompt(managers, live);
+  const tools = [{ functionDeclarations: TOOL_DECLARATIONS as never }];
+  const model = bindModel(getGenerativeModel(ai, {
+    model: remote.ask_model, systemInstruction, tools, generationConfig: generationConfig(remote.ask_max_output_tokens, remote.ask_thinking),
+  }));
+  const hardModel = bindModel(getGenerativeModel(ai, {
+    model: remote.ask_model, systemInstruction, tools, generationConfig: generationConfig(remote.ask_max_output_tokens, 'high'),
+  }));
+  return { model, hardModel, modelName: remote.ask_model, mock: false };
+}
 
-  const model: ModelLike = {
+function generationConfig(maxOutputTokens: number, thinking: string) {
+  const level = THINKING[thinking.toLowerCase()];
+  return {
+    maxOutputTokens: Math.min(Math.max(maxOutputTokens, 512), MAX_OUTPUT_TOKENS),
+    ...(level ? { thinkingConfig: { thinkingLevel: level as never } } : {}),
+  };
+}
+
+function bindModel(generative: ReturnType<typeof getGenerativeModel>): ModelLike {
+  return {
     async generateContentStream(request, options) {
       const result = await generative.generateContentStream({ contents: request.contents as unknown as Content[] }, options?.signal ? { signal: options.signal } : undefined);
       return { stream: result.stream as AsyncIterable<never>, response: result.response as Promise<never> };
     },
   };
-  return { model, modelName: remote.ask_model, mock: false };
 }

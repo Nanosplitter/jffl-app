@@ -21,6 +21,26 @@ export interface Stored {
 }
 
 export const STORE_KEY = 'jffl.ask.chat.v1';
+export const THINK_HARDER_KEY = 'jffl.ask.think-harder';
+
+export interface ThinkHarderIntent { v: 1; question: string; answerId: string }
+
+export function serializeThinkHarder(intent: ThinkHarderIntent) {
+  return JSON.stringify({ v: 1, question: intent.question.trim().slice(0, 500), answerId: intent.answerId } satisfies ThinkHarderIntent);
+}
+
+export function deserializeThinkHarder(raw: string | null): ThinkHarderIntent | null {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw) as Partial<ThinkHarderIntent> | null;
+    if (!value || value.v !== 1 || typeof value.question !== 'string' || typeof value.answerId !== 'string') return null;
+    const question = value.question.trim();
+    if (!question || !value.answerId) return null;
+    return { v: 1, question: question.slice(0, 500), answerId: value.answerId };
+  } catch {
+    return null;
+  }
+}
 const MAX_STORED_CHARS = 1_500_000;
 
 export function serialize(state: Omit<Stored, 'v'>): string | null {

@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { runAgent, splitFollowUps, trimHistory, fitHistory, turnCount, type AgentEvent, type ModelContent, type ModelFunctionCall, type ModelLike, type ModelResponse } from '../src/history/askAgent.ts';
+import { isRetryableNotice, retryNotice, rewindLastTurn, runAgent, splitFollowUps, STEP_LIMIT_NOTICE, trimHistory, fitHistory, turnCount, type AgentEvent, type ModelContent, type ModelFunctionCall, type ModelLike, type ModelResponse } from '../src/history/askAgent.ts';
 import { buildSystemPrompt, TOOL_DECLARATIONS } from '../src/history/askDeclarations.ts';
 import { checkLimits, COOLDOWN_MS, DAILY_SOFT_LIMIT, friendlyError, MAX_INPUT_CHARS, MAX_TURNS, readDaily } from '../src/history/askGuards.ts';
 import { createMockModel } from '../src/history/askMock.ts';
 import { createSession } from '../src/history/askRuntime.ts';
-import { deserialize, serialize } from '../src/history/askStore.ts';
+import { deserialize, deserializeThinkHarder, serialize, serializeThinkHarder } from '../src/history/askStore.ts';
 import { parseArchive, type ArchiveFile } from '../src/history/stats.ts';
 
 const archive = parseArchive(JSON.parse(readFileSync(new URL('../src/history/archive.json', import.meta.url), 'utf8')) as ArchiveFile);
@@ -104,7 +104,38 @@ test('the step limit ends with a valid history', async () => {
   const contents: ModelContent[] = [];
   const result = await runAgent({ model: fakeModel(forever), session, contents, message: 'Loop', maxSteps: 3 });
   assert.equal(result.hitLimit, true);
+  assert.equal(result.text, '');
   assert.equal(contents.at(-1)?.role, 'model');
+  assert.equal((contents.at(-1)?.parts[0] as { text?: string }).text, STEP_LIMIT_NOTICE);
+});
+
+test('rewinding an incomplete turn drops its datasets and can be asked again', async () => {
+  const session = createSession(archive);
+  const contents: ModelContent[] = [];
+  await runAgent({ model: fakeModel([{ calls: [titleQuery] }, { text: 'First.' }]), session, contents, message: 'One' });
+  const before = JSON.stringify(contents);
+  assert.equal(session.sources.has('ds1'), true);
+  const limited = await runAgent({ model: fakeModel(Array.from({ length: 6 }, () => ({ calls: [titleQuery] }))), session, contents, message: 'Two', maxSteps: 3 });
+  assert.equal(limited.hitLimit, true);
+  assert.equal(session.sources.has('ds4'), true);
+  rewindLastTurn(contents, session);
+  assert.equal(JSON.stringify(contents), before);
+  assert.equal(session.sources.has('ds1'), true);
+  assert.equal(session.sources.has('ds2'), false);
+  assert.equal(session.next, 2);
+  const retried = await runAgent({ model: fakeModel([{ text: 'Retried.' }]), session, contents, message: 'Two' });
+  assert.equal(retried.hitLimit, false);
+  assert.equal(retried.text, 'Retried.');
+  assert.equal(contents.filter(item => item.role === 'user' && item.parts.some(part => (part as { text?: string }).text === 'Two')).length, 1);
+});
+
+test('only the first incomplete answer can be tried again', () => {
+  assert.equal(isRetryableNotice(retryNotice('steps', 'normal')), true);
+  assert.equal(isRetryableNotice(retryNotice('incomplete', 'normal')), true);
+  assert.equal(isRetryableNotice(retryNotice('steps', 'high')), false);
+  assert.equal(isRetryableNotice(retryNotice('incomplete', 'high')), false);
+  assert.equal(isRetryableNotice('Stopped.'), false);
+  assert.equal(isRetryableNotice(undefined), false);
 });
 
 test('cancelling stops the loop and restores the history', async () => {
@@ -187,6 +218,11 @@ test('every tool declaration is valid for Gemini and the prompt carries the sche
   assert.match(prompt, /betterFinish/);
   assert.match(prompt, /pointsAgainst/);
   assert.match(prompt, /winStreak/);
+  assert.match(prompt, /careerSeason = 1/);
+  assert.match(prompt, /openingWinStreak/);
+  assert.match(prompt, /first year starting the season/);
+  assert.match(prompt, /Do not filter status final/);
+  assert.match(prompt, /season in progress/);
   assert.match(prompt, /old fashioned duel/);
   assert.match(prompt, /do not invent who is saved/);
   assert.match(prompt, /double_duty/);
@@ -216,6 +252,8 @@ test('limits stop empty, long, rapid, and excessive questions', () => {
   assert.equal(checkLimits({ ...base, turns: MAX_TURNS }).ok, false);
   assert.equal(checkLimits({ ...base, lastSentAt: base.now - COOLDOWN_MS + 1 }).ok, false);
   assert.equal(checkLimits({ ...base, todayCount: DAILY_SOFT_LIMIT }).ok, false);
+  assert.equal(checkLimits({ ...base, turns: MAX_TURNS, replacingTurn: true }).ok, true);
+  assert.equal(checkLimits({ ...base, turns: MAX_TURNS, replacingTurn: true, todayCount: DAILY_SOFT_LIMIT }).ok, false);
 });
 
 test('daily counts reset on a new day and ignore garbage', () => {
@@ -251,4 +289,9 @@ test('saved chats round-trip and reject damaged or oversized data', () => {
   assert.equal(serialize({ ...state, contents: [{ role: 'user', parts: [{ text: 'x'.repeat(1_600_000) }] }] }), null);
   const mixed = deserialize(JSON.stringify({ v: 1, messages: [{ role: 'system' }, ...state.messages], contents: [], sources: [] }));
   assert.equal(mixed?.messages.length, 1);
+  const intent = { v: 1 as const, question: '  Longest first-year streak?  ', answerId: 'a1' };
+  assert.deepEqual(deserializeThinkHarder(serializeThinkHarder(intent)), { v: 1, question: 'Longest first-year streak?', answerId: 'a1' });
+  assert.equal(deserializeThinkHarder('{"v":1,"question":"","answerId":"a"}'), null);
+  assert.equal(deserializeThinkHarder('not json'), null);
+  assert.equal(deserializeThinkHarder(null), null);
 });

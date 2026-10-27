@@ -44,7 +44,22 @@ export interface AgentResult {
 }
 
 export const MAX_STEPS = 16;
+export const MAX_HARD_STEPS = 32;
 export const MAX_CHARTS = 3;
+export const STEP_LIMIT_NOTICE = 'That question needed more steps than I allow. Try narrowing it, for example to one league or a few seasons.';
+export const INCOMPLETE_NOTICE = 'I could not put together an answer. Try asking it another way.';
+const HARD_STEP_LIMIT_NOTICE = 'That deeper look still needed more steps than I allow. Try narrowing it, for example to one league or a few seasons.';
+const HARD_INCOMPLETE_NOTICE = 'I still could not put together an answer. Try asking it another way.';
+
+/** A normal miss can be tried once more. The deeper attempt uses a different notice so it cannot chain. */
+export function retryNotice(kind: 'steps' | 'incomplete', effort: 'normal' | 'high') {
+  if (effort === 'high') return kind === 'steps' ? HARD_STEP_LIMIT_NOTICE : HARD_INCOMPLETE_NOTICE;
+  return kind === 'steps' ? STEP_LIMIT_NOTICE : INCOMPLETE_NOTICE;
+}
+
+export function isRetryableNotice(error?: string) {
+  return error === STEP_LIMIT_NOTICE || error === INCOMPLETE_NOTICE;
+}
 
 export class AgentAborted extends Error {
   constructor() { super('The request was cancelled.'); this.name = 'AgentAborted'; }
@@ -116,9 +131,8 @@ export async function runAgent(options: AgentOptions): Promise<AgentResult> {
       contents.push({ role: 'user', parts: replies });
     }
     // Ran out of steps: close the turn so the history stays valid for the next question.
-    const text = lastText || 'That question needed more steps than I allow. Try narrowing it, for example to one league or a few seasons.';
-    contents.push({ role: 'model', parts: [{ text }] });
-    return { text, charts, cards, datasets, steps: maxSteps, hitLimit: true };
+    contents.push({ role: 'model', parts: [{ text: lastText || STEP_LIMIT_NOTICE }] });
+    return { text: lastText, charts, cards, datasets, steps: maxSteps, hitLimit: true };
   } catch (error) {
     contents.length = checkpoint;
     throw error;
@@ -171,6 +185,34 @@ export function fitHistory(contents: ModelContent[], maxChars = 90_000): ModelCo
 }
 
 export const turnCount = (contents: ModelContent[]) => contents.filter(isTextTurn).length;
+
+/** Remove the latest question, its tool results, and the datasets that question created. */
+export function rewindLastTurn(contents: ModelContent[], session: Session) {
+  const starts = contents.flatMap((content, index) => (isTextTurn(content) ? [index] : []));
+  if (!starts.length) return;
+  const removed = contents.splice(starts[starts.length - 1]);
+  for (const id of datasetIdsIn(removed)) {
+    session.sources.delete(id);
+    session.cache.delete(id);
+  }
+  let max = 0;
+  for (const id of session.sources.keys()) {
+    const match = /^ds(\d+)$/.exec(id);
+    if (match) max = Math.max(max, Number(match[1]));
+  }
+  session.next = max + 1;
+}
+
+function datasetIdsIn(contents: ModelContent[]) {
+  const ids: string[] = [];
+  for (const content of contents) {
+    for (const part of content.parts) {
+      const id = asObject(asObject(asObject(part).functionResponse).response).datasetId;
+      if (typeof id === 'string' && /^ds\d{1,4}$/.test(id)) ids.push(id);
+    }
+  }
+  return ids;
+}
 
 // ---------- Follow-ups ----------
 

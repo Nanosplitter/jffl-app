@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { applyControls, createContext, datasetForModel, parseQuery, resolveEntity, runDataTool, runQuery, streakLengths, type Dataset, type Query } from '../src/history/askTools.ts';
+import { applyControls, createContext, datasetForModel, parseQuery, resolveEntity, runDataTool, runQuery, seasonStreakSummary, streakLengths, type Dataset, type Query } from '../src/history/askTools.ts';
 import { parseArchive, type ArchiveFile } from '../src/history/stats.ts';
 import type { SummaryMap } from '../src/competitions.ts';
 import { buildLiveSeason, type RosterMap } from '../src/history/liveSeason.ts';
@@ -274,6 +274,18 @@ test('archive rows are final and live 2026 rows carry their status', () => {
   assert.equal(jason?.week2Rank, 1);
   assert.equal(jason?.zone, 'Premier safety zone');
   assert.equal(jason?.pointsAgainst, 185);
+  const ronni = seasons.find(row => row.team === 'RonniColin');
+  assert.equal(ronni?.careerSeason, 1);
+  assert.equal(ronni?.status, 'live');
+  const ronniGames = liveCtx.tables.team_games.filter(row => row.season === 2026 && row.team === 'RonniColin' && row.type === 'Season').sort((left, right) => (left.week as number) - (right.week as number));
+  assert.deepEqual(ronniGames.map(row => [row.week, row.status, row.result, row.winStreak]), [[1, 'final', 'W', 1], [2, 'final', 'W', 2], [3, 'live', 'W', null]]);
+  assert.equal(ronni?.openingWinStreak, 2);
+  assert.equal(ronni?.longestWinStreak, 2);
+  const debut = liveRun('query_seasons', {
+    filters: [{ field: 'team', op: 'eq', value: 'RonniColin' }, { field: 'careerSeason', op: 'eq', value: 1 }],
+    select: ['season', 'status', 'openingWinStreak'],
+  });
+  assert.deepEqual(debut.rows, [{ season: 2026, status: 'live', openingWinStreak: 2 }]);
   const past = liveCtx.tables.seasons.find(row => row.season === 2025);
   assert.equal(past?.jfflSeed, null);
   assert.equal(past?.leagueCupSeed, null);
@@ -389,6 +401,44 @@ test('streaks are consecutive regular-season results inside one season', () => {
   });
   assert.equal(longest.rows[0].streak, 13);
   assert.ok(longest.rows.some(row => row.team === 'Michael' && row.season === 2019));
+});
+
+test('a first-year opening streak is one season query', () => {
+  assert.deepEqual(seasonStreakSummary(['W', 'W', 'L', 'W', 'W', 'W']), { openingWinStreak: 2, openingLossStreak: 0, longestWinStreak: 3, longestLossStreak: 1 });
+  assert.deepEqual(seasonStreakSummary(['L', 'T', 'W']), { openingWinStreak: 0, openingLossStreak: 1, longestWinStreak: 1, longestLossStreak: 1 });
+  assert.deepEqual(seasonStreakSummary(['T', 'W']), { openingWinStreak: 0, openingLossStreak: 0, longestWinStreak: 1, longestLossStreak: 0 });
+  const michael = ctx.tables.seasons.find(row => row.season === 2019 && row.team === 'Michael');
+  assert.equal(michael?.openingWinStreak, 13);
+  assert.equal(michael?.longestWinStreak, 13);
+  assert.ok(ctx.tables.seasons.filter(row => row.season === 2002).every(row => row.openingWinStreak == null && row.longestWinStreak == null && row.careerSeason != null));
+  const debuts = new Map<string, number>();
+  for (const row of ctx.tables.seasons) {
+    const team = String(row.team);
+    debuts.set(team, Math.min(debuts.get(team) ?? Number(row.season), Number(row.season)));
+  }
+  for (const row of ctx.tables.seasons) {
+    assert.equal(row.careerSeason === 1, row.season === debuts.get(String(row.team)));
+    if (row.openingWinStreak == null) {
+      assert.equal(row.longestWinStreak, null);
+      continue;
+    }
+    const games = ctx.tables.team_games.filter(game => game.season === row.season && game.team === row.team && game.type === 'Season' && game.status === 'final' && (game.result === 'W' || game.result === 'L' || game.result === 'T'))
+      .sort((left, right) => (left.week as number) - (right.week as number));
+    const summary = seasonStreakSummary(games.map(game => game.result as 'W' | 'L' | 'T'));
+    assert.equal(row.openingWinStreak, summary.openingWinStreak);
+    assert.equal(row.longestWinStreak, summary.longestWinStreak);
+    assert.ok((row.longestWinStreak as number) >= (row.openingWinStreak as number));
+  }
+  const firstYears = query('seasons', {
+    filters: [{ field: 'careerSeason', op: 'eq', value: 1 }, { field: 'status', op: 'eq', value: 'final' }, { field: 'openingWinStreak', op: 'not_null' }],
+    select: ['team', 'season', 'openingWinStreak'],
+    sort: [{ field: 'openingWinStreak', dir: 'desc' }, { field: 'season', dir: 'asc' }],
+    limit: 5,
+  });
+  const best = Math.max(...ctx.tables.seasons.filter(row => row.careerSeason === 1 && row.status === 'final' && typeof row.openingWinStreak === 'number').map(row => row.openingWinStreak as number));
+  assert.ok(best >= 1);
+  assert.equal(firstYears.rows[0].openingWinStreak, best);
+  assert.ok(firstYears.rows.every(row => row.openingWinStreak === best ? true : (row.openingWinStreak as number) <= best));
 });
 
 test('cup rounds carry their scheduled weeks, and same-week doubles line up with the league game', () => {

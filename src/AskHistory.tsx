@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Keybo
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useAccount, useFollowed } from './account';
 import { Check, Copy, RotateCcw, Send, Share, Square, X } from 'lucide-react';
-import { trackAsk, trackShare } from './analytics';
+import { trackAsk, trackAskHarder, trackShare } from './analytics';
 import { ArchiveNav } from './ArchiveNav';
 import { usePageLabel } from './BackLink';
 import { AskCardList } from './AskCards';
@@ -10,12 +10,12 @@ import { ChartView, useDarkMode, type ChartHandle } from './AskCharts';
 import type { SummaryMap } from './competitions';
 import { aiConfigured } from './firebaseApp';
 import { parseAnswer, type Inline } from './history/answerText.ts';
-import { AgentAborted, fitHistory, runAgent, splitFollowUps, trimHistory, turnCount, type ModelContent } from './history/askAgent.ts';
+import { AgentAborted, fitHistory, isRetryableNotice, MAX_HARD_STEPS, retryNotice, rewindLastTurn, runAgent, splitFollowUps, trimHistory, turnCount, type ModelContent } from './history/askAgent.ts';
 import { describeCard, managerLinks, nameMatcher, splitNames, type CardItem } from './history/askCards.ts';
 import type { LivePromptInfo } from './history/askDeclarations.ts';
 import { checkLimits, DAILY_KEY, friendlyError, MAX_INPUT_CHARS, readDaily } from './history/askGuards.ts';
 import { createSession, refreshSession, restoreSources, validationEnv, type Session } from './history/askRuntime.ts';
-import { deserialize, serialize, STORE_KEY, type ChartItem, type ChatMessage, type Stored } from './history/askStore.ts';
+import { deserialize, deserializeThinkHarder, serialize, serializeThinkHarder, STORE_KEY, THINK_HARDER_KEY, type ChartItem, type ChatMessage, type Stored } from './history/askStore.ts';
 import type { Assistant } from './history/askModel.ts';
 import { DARK_THEME, LIGHT_THEME, createColorMap } from './history/chartKit.ts';
 import { validateSpec } from './history/chartSpec.ts';
@@ -290,30 +290,12 @@ export function AskPage() {
     setMessages(previous => previous.map(message => (message.id === id ? { ...message, ...(typeof change === 'function' ? change(message) : change) } : message)));
   }, []);
 
-  const send = useCallback(async (raw: string) => {
-    const text = raw.trim();
-    const now = Date.now();
-    const daily = readDaily(read(typeof localStorage === 'undefined' ? undefined : localStorage, DAILY_KEY), now);
-    const check = checkLimits({ input: text, now, lastSentAt: lastSent.current, turns: turnCount(contents.current), todayCount: daily.count, busy: busyRef.current });
-    if (!check.ok) { setNotice(check.reason); return; }
-    trackAsk();
-    setNotice(null);
-    setShareLink(null);
-    restored.current = true;
-    if (account.user && !threadId && !cloudId.current) {
-      cloudId.current = uid();
-      setImportOffer(null);
-    }
-    lastSent.current = now;
-    busyRef.current = true;
-    setBusy(true);
-    write(typeof localStorage === 'undefined' ? undefined : localStorage, DAILY_KEY, JSON.stringify({ day: daily.day, count: daily.count + 1 }));
-    const answerId = uid();
-    setMessages(previous => [...previous, { id: uid(), role: 'user', text, charts: [], followUps: [] }, { id: answerId, role: 'assistant', text: '', charts: [], followUps: [] }]);
-    setDraft('');
-    const controller = new AbortController();
-    abort.current = controller;
+  const answerTurn = useCallback(async (text: string, answerId: string, effort: 'normal' | 'high', signal: AbortSignal) => {
     try {
+      if (effort === 'high') {
+        rewindLastTurn(contents.current, session);
+        patch(answerId, { text: '', charts: [], cards: [], followUps: [], error: undefined });
+      }
       if (!rostersReady.current) { setNote('Loading this season'); await loadRosters(); }
       setNote('Connecting to the assistant');
       const live = livePrompt(archiveRef.current);
@@ -325,9 +307,11 @@ export function AskPage() {
       }
       contents.current = fitHistory(trimHistory(contents.current));
       let stepText = '';
-      setNote('Thinking');
+      setNote(effort === 'high' ? 'Thinking harder' : 'Thinking');
       const result = await runAgent({
-        model: assistant.current.model, session, contents: contents.current, message: text, signal: controller.signal,
+        model: effort === 'high' ? assistant.current.hardModel : assistant.current.model,
+        session, contents: contents.current, message: text, signal,
+        maxSteps: effort === 'high' ? MAX_HARD_STEPS : undefined,
         onEvent: event => {
           if (event.type === 'step') { stepText = ''; patch(answerId, { text: '' }); }
           else if (event.type === 'text') { stepText += event.delta; patch(answerId, { text: splitFollowUps(stepText).answer }); }
@@ -337,17 +321,101 @@ export function AskPage() {
         },
       });
       const { answer, followUps } = splitFollowUps(result.text);
-      patch(answerId, { text: answer || (result.charts.length || result.cards.length ? 'Here it is.' : 'I could not put together an answer. Try asking it another way.'), followUps });
+      const kind = result.hitLimit ? 'steps' as const : !answer && result.charts.length === 0 && result.cards.length === 0 ? 'incomplete' as const : null;
+      patch(answerId, {
+        text: answer || (result.charts.length || result.cards.length ? 'Here it is.' : ''),
+        followUps: kind ? [] : followUps,
+        error: kind ? retryNotice(kind, effort) : undefined,
+      });
     } catch (error) {
-      if (controller.signal.aborted || error instanceof AgentAborted) patch(answerId, { error: 'Stopped.' });
+      if (signal.aborted || error instanceof AgentAborted) patch(answerId, { error: 'Stopped.' });
       else patch(answerId, { error: error instanceof Error && error.name === 'AssistantUnavailable' ? error.message : friendlyError(error) });
-    } finally {
+    }
+  }, [session, patch, loadRosters]);
+
+  const send = useCallback(async (raw: string) => {
+    const text = raw.trim();
+    const now = Date.now();
+    const storage = typeof localStorage === 'undefined' ? undefined : localStorage;
+    const daily = readDaily(read(storage, DAILY_KEY), now);
+    const check = checkLimits({ input: text, now, lastSentAt: lastSent.current, turns: turnCount(contents.current), todayCount: daily.count, busy: busyRef.current });
+    if (!check.ok) { setNotice(check.reason); return; }
+    trackAsk();
+    setNotice(null);
+    setShareLink(null);
+    restored.current = true;
+    write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, THINK_HARDER_KEY, null);
+    if (account.user && !threadId && !cloudId.current) {
+      cloudId.current = uid();
+      setImportOffer(null);
+    }
+    lastSent.current = now;
+    busyRef.current = true;
+    setBusy(true);
+    write(storage, DAILY_KEY, JSON.stringify({ day: daily.day, count: daily.count + 1 }));
+    const answerId = uid();
+    setMessages(previous => [...previous, { id: uid(), role: 'user', text, charts: [], followUps: [] }, { id: answerId, role: 'assistant', text: '', charts: [], followUps: [] }]);
+    setDraft('');
+    const controller = new AbortController();
+    abort.current = controller;
+    try { await answerTurn(text, answerId, 'normal', controller.signal); }
+    finally {
       busyRef.current = false;
       abort.current = null;
       setBusy(false);
       setNote('');
     }
-  }, [session, patch, loadRosters, account.user, threadId]);
+  }, [answerTurn, account.user, threadId]);
+
+  const thinkHarder = useCallback(async (message: ChatMessage, question: string) => {
+    if (!isRetryableNotice(message.error)) return;
+    const tab = typeof sessionStorage === 'undefined' ? undefined : sessionStorage;
+    if (!account.user) {
+      if (!account.configured) { setNotice('Sign-in is not available on this site yet.'); return; }
+      write(tab, THINK_HARDER_KEY, serializeThinkHarder({ v: 1, question, answerId: message.id }));
+      const outcome = await account.signIn();
+      if (outcome === 'cancelled') write(tab, THINK_HARDER_KEY, null);
+      return;
+    }
+    const now = Date.now();
+    const storage = typeof localStorage === 'undefined' ? undefined : localStorage;
+    const daily = readDaily(read(storage, DAILY_KEY), now);
+    const check = checkLimits({ input: question, now, lastSentAt: lastSent.current, turns: turnCount(contents.current), todayCount: daily.count, busy: busyRef.current, replacingTurn: true });
+    if (!check.ok) { setNotice(check.reason); return; }
+    trackAskHarder();
+    setNotice(null);
+    setShareLink(null);
+    lastSent.current = now;
+    busyRef.current = true;
+    setBusy(true);
+    write(storage, DAILY_KEY, JSON.stringify({ day: daily.day, count: daily.count + 1 }));
+    const controller = new AbortController();
+    abort.current = controller;
+    try { await answerTurn(question, message.id, 'high', controller.signal); }
+    finally {
+      busyRef.current = false;
+      abort.current = null;
+      setBusy(false);
+      setNote('');
+    }
+  }, [account, answerTurn]);
+
+  // A signed-out deeper retry waits here until Google sign-in, including a full-page redirect, restores the chat.
+  useEffect(() => {
+    if (!account.ready || !account.user || !restored.current || busyRef.current || unavailable) return undefined;
+    const storage = typeof sessionStorage === 'undefined' ? undefined : sessionStorage;
+    const pending = deserializeThinkHarder(read(storage, THINK_HARDER_KEY));
+    if (!pending) return undefined;
+    const message = messages.find(item => item.id === pending.answerId && item.role === 'assistant');
+    if (!message || !isRetryableNotice(message.error)) { write(storage, THINK_HARDER_KEY, null); return undefined; }
+    let cancel = false;
+    const handle = window.setTimeout(() => {
+      if (cancel || busyRef.current) return;
+      write(storage, THINK_HARDER_KEY, null);
+      void thinkHarder(message, pending.question);
+    }, 0);
+    return () => { cancel = true; window.clearTimeout(handle); };
+  }, [account.ready, account.user, messages, thinkHarder, unavailable]);
 
   // A chart in a shared link can hand a question over to this page.
   useEffect(() => {
@@ -370,6 +438,7 @@ export function AskPage() {
     setImportOffer('no');
     restored.current = true;
     write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY, null);
+    write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, THINK_HARDER_KEY, null);
     if (threadId) navigate('/archive/ask');
     input.current?.focus();
   };
@@ -390,6 +459,7 @@ export function AskPage() {
 
   const discardChat = () => {
     write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, STORE_KEY, null);
+    write(typeof sessionStorage === 'undefined' ? undefined : sessionStorage, THINK_HARDER_KEY, null);
     contents.current = [];
     setMessages([]);
     setImportOffer('no');
@@ -494,7 +564,7 @@ export function AskPage() {
           </div>
           {streaming && !message.text && <p className="ask-progress">{note || 'Working'}…</p>}
           {message.text && <Answer text={message.text} links={links} />}
-          {streaming && message.text && note && note !== 'Thinking' && <p className="ask-progress">{note}…</p>}
+          {streaming && message.text && note && note !== 'Thinking' && note !== 'Thinking harder' && <p className="ask-progress">{note}…</p>}
           {message.cards?.length ? <AskCardList cards={message.cards} summaries={summaries} /> : null}
           {message.charts.length > 0 && <div className="ask-charts">{message.charts.map(chart => <ChartView
             key={chart.id} ref={handle => { if (handle) chartHandles.current.set(chart.id, handle); else chartHandles.current.delete(chart.id); }}
@@ -502,6 +572,10 @@ export function AskPage() {
             onAsk={busy ? undefined : text => void send(text)} onShare={controls => void shareMessage(message, question, chart.id, controls)} />)}</div>}
           {shareLink?.id === message.id && <ShareBox url={shareLink.url} frozen={shareLink.frozen} onCopy={() => { void navigator.clipboard?.writeText(shareLink.url).then(() => setToast('Link copied'), () => setToast('Copy it from the box.')); }} />}
           {message.error && <p className="ask-error" role="alert">{message.error}</p>}
+          {!streaming && message.id === lastAssistant?.id && isRetryableNotice(message.error) && <div className="ask-retry">
+            <button type="button" className="ask-think-harder" disabled={busy || unavailable} onClick={() => void thinkHarder(message, question)}>Think harder</button>
+            {!account.user && account.configured && <p className="ask-retry-note">Sign in to try this question again with more steps.</p>}
+          </div>}
           {!streaming && message.id === lastAssistant?.id && message.followUps.length > 0 && <div className="ask-chips" aria-label="Suggested follow-up questions">
             {message.followUps.map(item => <button key={item} type="button" disabled={busy} onClick={() => void send(item)}>{item}</button>)}
           </div>}

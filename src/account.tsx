@@ -18,7 +18,7 @@ interface AccountValue {
   user: AccountUser | null;
   followed: FollowedManager | null;
   error: string | null;
-  signIn: () => Promise<void>;
+  signIn: () => Promise<'redirect' | 'signed-in' | 'cancelled'>;
   signOutUser: () => Promise<void>;
   setFollowed: (next: FollowedManager | null) => Promise<void>;
 }
@@ -120,20 +120,23 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     followed,
     error,
     signIn: async () => {
-      if (!app) return;
+      if (!app) return 'cancelled' as const;
       setError(null);
       const auth = getAuth(app);
       const provider = new GoogleAuthProvider();
       const narrow = typeof window !== 'undefined' && window.matchMedia('(max-width: 720px)').matches;
       try {
-        if (narrow) await signInWithRedirect(auth, provider);
-        else {
-          const result = await signInWithPopup(auth, provider);
-          trackSignIn(result.user.uid);
+        if (narrow) {
+          await signInWithRedirect(auth, provider);
+          return 'redirect' as const;
         }
+        const result = await signInWithPopup(auth, provider);
+        trackSignIn(result.user.uid);
+        return 'signed-in' as const;
       } catch (reason) {
         const message = authMessage(reason);
         if (message) setError(message);
+        return 'cancelled' as const;
       }
     },
     signOutUser: async () => {

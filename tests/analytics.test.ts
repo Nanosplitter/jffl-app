@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { countsAsPage, pageContext, screenName } from '../src/analytics.ts';
+import { ASK_EVENTS, countsAsPage, pageContext, screenName } from '../src/analytics.ts';
+
+test('a deeper archive retry is its own event', () => {
+  assert.equal(ASK_EVENTS.thinkHarder, 'ask_think_harder');
+  assert.notEqual(ASK_EVENTS.thinkHarder, ASK_EVENTS.question);
+});
 
 test('names the main pages people open', () => {
   assert.equal(screenName('/'), 'Leagues');

@@ -310,8 +310,14 @@ export function trackFollow(key: string | null) {
   send('follow_manager', leagueSlugs.has(league) ? { league } : {});
 }
 
+export const ASK_EVENTS = { question: 'ask_question', thinkHarder: 'ask_think_harder' } as const;
+
 export function trackAsk() {
-  send('ask_question');
+  send(ASK_EVENTS.question);
+}
+
+export function trackAskHarder() {
+  send(ASK_EVENTS.thinkHarder);
 }
 
 export function trackShare() {
@@ -354,7 +360,7 @@ function onClick(event: MouseEvent) {
     }
   }
   const button = node.closest('button');
-  if (!(button instanceof HTMLButtonElement) || button.closest('.ask-starters, .ask-chips')) return;
+  if (!(button instanceof HTMLButtonElement) || button.closest('.ask-starters, .ask-chips, .ask-retry')) return;
   const label = buttonLabel(button);
   if (!label) return;
   send('select_content', { content_type: 'button', content_id: clip(label) });
