@@ -93,6 +93,70 @@ export function roomForAxisNames<T>(option: T): T {
   return (grid.top ?? 60) >= needed ? option : { ...source, grid: { ...grid, top: needed } } as T;
 }
 
+export interface ZoomWindow {
+  start?: number;
+  end?: number;
+  startValue?: number | string;
+  endValue?: number | string;
+}
+
+function isZoomed(item: ZoomWindow) {
+  return typeof item.start === 'number' && typeof item.end === 'number' && (item.start > 0.5 || item.end < 99.5);
+}
+
+export function hasZoomWindow(previous: readonly ZoomWindow[] | null | undefined) {
+  return !!previous?.some(isZoomed);
+}
+
+/** A tight vertical range for the points inside a zoomed window, with a little padding. A 0–100 axis can be clamped so percentages stay on the scale. */
+export function zoomedYRange(points: ReadonlyArray<readonly [number, number]>, xMin: number, xMax: number, clamp?: { min: number; max: number }): { min: number; max: number } | null {
+  let low = Infinity;
+  let high = -Infinity;
+  for (const [x, y] of points) {
+    if (x < xMin || x > xMax || !Number.isFinite(y)) continue;
+    low = Math.min(low, y);
+    high = Math.max(high, y);
+  }
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  const span = high - low;
+  const pad = Math.max(span * 0.18, span === 0 ? Math.max(Math.abs(high) * 0.04, 1) : 0);
+  let min = low - pad;
+  let max = high + pad;
+  if (!clamp && low >= 0) min = Math.max(0, min);
+  if (clamp) {
+    const least = Math.max(span * 1.35, Math.min(8, (clamp.max - clamp.min) * 0.08));
+    min = Math.max(clamp.min, min);
+    max = Math.min(clamp.max, max);
+    if (max - min < least) {
+      const mid = (low + high) / 2;
+      min = Math.max(clamp.min, mid - least / 2);
+      max = Math.min(clamp.max, mid + least / 2);
+      if (max - min < least) {
+        if (min <= clamp.min) max = Math.min(clamp.max, min + least);
+        else min = Math.max(clamp.min, max - least);
+      }
+    }
+  }
+  if (!(max > min)) return null;
+  const step = (max - min) >= 40 ? 1 : (max - min) >= 8 ? 0.5 : (max - min) >= 2 ? 0.1 : 0.01;
+  min = Math.floor(min / step) * step;
+  max = Math.ceil(max / step) * step;
+  if (clamp) {
+    min = Math.max(clamp.min, min);
+    max = Math.min(clamp.max, max);
+  }
+  return max > min ? { min, max } : null;
+}
+
+/** Keeps a chart window the viewer set when a later update replaces the option. A full-range view stays free so new points can extend the axis. */
+export function keepDataZoom<T extends { dataZoom?: unknown }>(option: T, previous: readonly ZoomWindow[] | null | undefined): T {
+  if (!Array.isArray(option.dataZoom) || !previous?.length) return option;
+  const saved = previous.find(isZoomed);
+  if (!saved || typeof saved.start !== 'number' || typeof saved.end !== 'number') return option;
+  const window = { start: saved.start, end: saved.end };
+  return { ...option, dataZoom: option.dataZoom.map(item => item && typeof item === 'object' ? { ...item, ...window } : item) };
+}
+
 export function baseOption(theme: Theme, opts: { legend?: boolean; zoom?: boolean; top?: number } = {}) {
   return {
     animationDuration: 600,

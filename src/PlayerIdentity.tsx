@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { RosteredPlayer } from './types';
 import { injuryLabel, injuryName } from './injury.ts';
 
@@ -28,4 +29,10 @@ export function PlayerIdentity({ player, injury, detail }: { player: Pick<Roster
       <small className="muted player-meta">{headshot && logo && <img className="nfl-logo" src={logo} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={hideImage} />}{team} <span>·</span> {player.position}{detail ? <> <span>·</span> {detail}</> : null}</small>
     </span>
   </span>;
+}
+
+export function PlayerLink({ player, injury, detail }: { player: Pick<RosteredPlayer, 'id' | 'name' | 'proTeam' | 'position'>; injury?: string | null; detail?: string }) {
+  return <Link className="player-link" to={`/players/${encodeURIComponent(player.id)}`}>
+    <PlayerIdentity player={player} injury={injury} detail={detail} />
+  </Link>;
 }

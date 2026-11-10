@@ -348,9 +348,17 @@ select {
 .player-freshness > span { display: flex; gap: 8px; align-items: center; font-size: .66rem; }
 .player-freshness b { font-weight: 500; }
 .directory-table td { font-size: .78rem; vertical-align: middle; }
-.directory-player { display: flex; color: inherit; }
-.directory-player:hover { color: inherit; text-decoration: none; }
-.directory-player:hover .player-name { text-decoration: underline; text-underline-offset: 3px; }
+.directory-player, .player-link { display: flex; color: inherit; min-width: 0; }
+.directory-player:hover, .player-link:hover { color: inherit; text-decoration: none; }
+.directory-player:hover .player-name, .player-link:hover .player-name { text-decoration: underline; text-underline-offset: 3px; }
+.score-popover-anchor { position: relative; }
+.score-figure { appearance: none; background: none; border: 0; padding: 0; margin: 0; color: inherit; font: inherit; font-weight: 650; font-variant-numeric: tabular-nums; cursor: pointer; border-radius: 4px; }
+.score-figure:hover, .score-figure:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+.score-popover { position: fixed; z-index: 30; width: min(240px, calc(100vw - 16px)); padding: 8px 10px; background: #fff; color: var(--text); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px color-mix(in srgb, #000 28%, transparent); text-align: left; }
+:root[data-theme=dark] .score-popover { background: #2a2a2a; }
+.score-popover ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+.score-popover li { display: flex; justify-content: space-between; gap: 12px; font-size: .78rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.score-popover li strong { font-weight: 650; }
 .directory-rosters { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .directory-roster { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .directory-table .directory-roster small { display: inline; margin: 0; width: 1.6rem; flex: 0 0 1.6rem; font-size: .68rem; }
@@ -444,7 +452,7 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
 .lineup { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .lineup li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lineup-points { text-align: right; flex: 0 0 auto; }
-.lineup-points strong { display: block; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.lineup-points strong, .lineup-points .score-figure { display: block; font-size: .8rem; font-variant-numeric: tabular-nums; }
 .lineup-points small { display: block; color: var(--muted); font-size: .6rem; }
 .lineup li.yet-to-play .lineup-points small { color: var(--accent-ink); }
 .player-identity { display: flex; align-items: center; gap: 10px; min-width: 0; }

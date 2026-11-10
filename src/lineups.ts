@@ -48,6 +48,13 @@ export function historicalStarters(lineups: WeekLineup[] | undefined, teamId: st
   })).sort(compareByLineup);
 }
 
+/** Copy the saved week onto a historical starter so its score can explain itself. */
+export function withWeekRecord(starter: RosteredPlayer, roster: readonly RosteredPlayer[] | undefined, week: number): RosteredPlayer {
+  const saved = roster?.find(player => player.id === starter.id)?.weeklyStats?.find(row => row.week === week);
+  if (!saved) return starter;
+  return { ...starter, weekStats: saved.stats ?? {}, ...(saved.scoreLines ? { scoreLines: saved.scoreLines } : {}) };
+}
+
 /** Points still projected for starters who have not finished. A live game keeps the rest of the projection. Null when this snapshot has no starters for the team. */
 export function pointsStillToPlay(players: readonly RosteredPlayer[] | null | undefined, teamId: string | null, games?: Record<string, LiveGame> | null): number | null {
   if (!players || !teamId) return null;

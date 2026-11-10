@@ -267,6 +267,19 @@ export function benchPoints(players: readonly RosteredPlayer[], teamId: string):
   return Math.round(scored.reduce((sum, player) => sum + (player.weekPoints ?? 0), 0) * 100) / 100;
 }
 
+function benchRoster(players: readonly RosteredPlayer[], teamId: string) {
+  return players.filter(player => player.teamId === teamId && player.group === 'bench').map(player => ({
+    id: player.id,
+    name: player.name,
+    points: player.weekPoints != null && Number.isFinite(player.weekPoints) ? player.weekPoints : null,
+  })).sort((a, b) => {
+    if (a.points == null && b.points == null) return a.name.localeCompare(b.name);
+    if (a.points == null) return 1;
+    if (b.points == null) return -1;
+    return b.points - a.points || a.name.localeCompare(b.name);
+  });
+}
+
 function formatPoints(value: number) {
   return value.toLocaleString('en-US', { maximumFractionDigits: 1 });
 }
@@ -280,7 +293,7 @@ function candidates(players: readonly RosteredPlayer[], teamId: string): LineupC
 export interface MatchFacts {
   catchup: { name: string; amount: number } | 'level' | null;
   swing: { name: string; spread: number; low: number; high: number } | null;
-  bench: { leftName: string; rightName: string; left: number | null; right: number | null } | null;
+  bench: { leftName: string; rightName: string; left: number | null; right: number | null; leftPlayers: { id: string; name: string; points: number | null }[]; rightPlayers: { id: string; name: string; points: number | null }[] } | null;
   lineup: string | null;
 }
 
@@ -319,7 +332,11 @@ export function matchFacts(input: {
   const swing = swingRow && swingSpan ? { name: swingRow.player.name, spread: swingRow.spread, low: swingSpan.low, high: swingSpan.high } : null;
   const leftBench = benchPoints(input.leftPlayers, input.leftTeamId);
   const rightBench = input.rightTeamId ? benchPoints(input.rightPlayers, input.rightTeamId) : null;
-  const bench = leftBench != null || rightBench != null ? { leftName: input.leftName, rightName: input.rightName, left: leftBench, right: rightBench } : null;
+  const leftPlayersOnBench = benchRoster(input.leftPlayers, input.leftTeamId);
+  const rightPlayersOnBench = input.rightTeamId ? benchRoster(input.rightPlayers, input.rightTeamId) : [];
+  const bench = leftBench != null || rightBench != null || leftPlayersOnBench.length || rightPlayersOnBench.length
+    ? { leftName: input.leftName, rightName: input.rightName, left: leftBench, right: rightBench, leftPlayers: leftPlayersOnBench, rightPlayers: rightPlayersOnBench }
+    : null;
   let lineup: string | null = null;
   if (input.final && input.rightTeamId && input.leftScore != null && input.rightScore != null && input.leftTotal != null && input.rightTotal != null && input.leftTotal < input.rightTotal) {
     const result = lineupWouldWin(candidates(input.leftPlayers, input.leftTeamId), candidates(input.rightPlayers, input.rightTeamId), input.leftScore, input.rightScore);

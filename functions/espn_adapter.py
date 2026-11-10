@@ -166,6 +166,43 @@ def breakdown(stat):
             if key in stat.get("stats", {}) and number(stat["stats"][key]) is not None}
 
 
+_LINE_ORDER = {key: index for index, key in enumerate([*STAT_NAMES, *SCORING_STAT_NAMES])}
+
+
+def stat_label(stat_id):
+    key = str(stat_id)
+    named = SCORING_STAT_NAMES.get(key) or STAT_NAMES.get(key)
+    if named:
+        return named
+    try:
+        mapped = PLAYER_STATS_MAP.get(int(key))
+    except (TypeError, ValueError):
+        mapped = None
+    return mapped if isinstance(mapped, str) and mapped else f"Stat {key}"
+
+
+def score_lines(stat):
+    """Fantasy points ESPN applied to each stat. A missing ledger stays absent."""
+    applied = stat.get("appliedStats") if isinstance(stat, dict) else None
+    if not isinstance(applied, dict):
+        return None
+    counts = stat.get("stats") if isinstance(stat.get("stats"), dict) else {}
+    ranked = []
+    for key, value in applied.items():
+        points = number(value)
+        if points is None or points == 0:
+            continue
+        line = {"label": stat_label(key), "points": points}
+        count = number(counts.get(str(key)))
+        if count is None:
+            count = number(counts.get(key))
+        if count is not None:
+            line["count"] = count
+        ranked.append((str(key), line))
+    ranked.sort(key=lambda item: (_LINE_ORDER.get(item[0], len(_LINE_ORDER)), item[1]["label"]))
+    return [line for _, line in ranked]
+
+
 def weekly_stats(raw, through_week):
     """Counting stats already captured for each played week. A missing week stays absent."""
     rows = []
@@ -173,11 +210,14 @@ def weekly_stats(raw, through_week):
         actual = source_stat(raw, period, 0)
         stats = breakdown(actual)
         points = number(actual.get("appliedTotal"))
-        if points is None and not stats:
+        lines = score_lines(actual)
+        if points is None and not stats and not lines:
             continue
         row = {"week": period, "stats": stats}
         if points is not None:
             row["points"] = points
+        if lines is not None:
+            row["scoreLines"] = lines
         rows.append(row)
     return rows
 
@@ -201,7 +241,7 @@ def normalize_player(player, team_id, week, raw, box_player=None):
     projected = source_stat(raw, week, 1)
     season = source_stat(raw, 0, 0)
     slot = getattr(box_player, "slot_position", None) or player.lineupSlot or "BE"
-    return {
+    player_row = {
         "id": str(player.playerId), "teamId": str(team_id), "name": player.name,
         "position": player.position, "proTeam": player.proTeam, "slot": slot,
         "group": "ir" if slot == "IR" else "bench" if slot == "BE" else "starter",
@@ -214,6 +254,10 @@ def normalize_player(player, team_id, week, raw, box_player=None):
         "weeklyStats": weekly_stats(raw, week),
         "kickoff": kickoff_iso(box_player),
     }
+    lines = score_lines(actual)
+    if lines is not None:
+        player_row["scoreLines"] = lines
+    return player_row
 
 
 def validate_snapshot(summary, roster):
@@ -583,6 +627,9 @@ def live_view(schedule, week):
                     stats = breakdown(actual)
                     if stats:
                         player["weekStats"] = stats
+                lines = score_lines(actual)
+                if lines is not None:
+                    player["scoreLines"] = lines
                 players.append(player)
     return {"week": week, "matchups": matchups, "players": players}
 

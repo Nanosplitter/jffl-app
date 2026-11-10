@@ -157,7 +157,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .starter-score { min-width: 0; }
 .starter-score.left { text-align: right; padding-right: 16px; }
 .starter-score.right { text-align: left; padding-left: 16px; }
-.starter-score strong { display: block; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.starter-score strong, .starter-score .score-figure { display: block; font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .starter-score small { display: block; margin-top: 2px; color: var(--muted); font-size: .6rem; line-height: 1.35; }
 .starter-score.yet small { color: var(--accent-ink); }
 .cup-manager { display: flex; align-items: center; font-size: .85rem; font-weight: 600; line-height: 1.35; }
@@ -705,7 +705,12 @@ a.title-winner:hover > span:not(.sr-only):not(.title-race):not(.title-tip),
   .chart-scroll .score-chart-canvas { min-width: 920px; }
 }
 .score-chart { margin: 4px 0 8px; }
-.score-chart-canvas { width: 100%; height: 420px; }
+.score-chart-canvas { position: relative; width: 100%; height: 420px; }
+.score-chart-canvas.drag-zoom { cursor: crosshair; touch-action: pan-y; }
+.chart-zoom-band { position: absolute; display: none; z-index: 2; pointer-events: none; background: color-mix(in srgb, var(--accent) 28%, transparent); box-shadow: inset 1px 0 var(--accent), inset -1px 0 var(--accent); }
+.chart-zoom-band.is-on { display: block; }
+.chart-zoom-reset { position: absolute; top: 10px; right: 10px; z-index: 3; margin: 0; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-muted); color: var(--muted); font: inherit; font-size: .72rem; font-weight: 650; line-height: 1.4; cursor: pointer; }
+.chart-zoom-reset:hover, .chart-zoom-reset:focus-visible { color: var(--text); border-color: var(--accent); }
 .archive-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 32px; margin-bottom: 8px; }
 .archive-links a { display: block; border-top: 1px solid var(--line); padding: 16px 0 18px; }
 .archive-links a:hover { text-decoration: none; }
@@ -768,7 +773,7 @@ a:hover .league-ink.jffl,
   .starter-head, .starter-row { grid-template-columns: minmax(0, 1fr) 3.5rem 3.5rem minmax(0, 1fr); column-gap: 6px; }
   .starter-score.left { padding-right: 6px; }
   .starter-score.right { padding-left: 6px; }
-  .starter-score strong { font-size: 1rem; }
+  .starter-score strong, .starter-score .score-figure { font-size: 1rem; }
 }
 
 .matchday { display: grid; gap: 18px; }
@@ -829,6 +834,15 @@ a:hover .league-ink.jffl,
 .matchday-bench { display: flex; justify-content: space-between; gap: 12px; }
 .matchday-bench span { display: grid; gap: 2px; color: var(--muted); font-size: .75rem; }
 .matchday-bench strong { font-size: 1.2rem; color: var(--text); }
+.matchday-insight:has(.matchday-bench-rosters) { grid-column: 1 / -1; }
+.matchday-bench-rosters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 6px; }
+.matchday-bench-rosters.single { grid-template-columns: 1fr; }
+.matchday-bench-rosters ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; min-width: 0; }
+.matchday-bench-rosters li { display: flex; justify-content: space-between; gap: 8px; min-width: 0; font-size: .78rem; color: var(--text); }
+.matchday-bench-rosters li span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.matchday-bench-rosters li strong { font-size: .78rem; font-weight: 650; }
+.matchday-bench-rosters .is-empty { color: var(--muted); }
+@media (max-width: 720px) { .matchday-bench-rosters { grid-template-columns: 1fr; } }
 .matchday-board { display: grid; gap: 22px; min-width: 0; }
 .matchday-board > section { display: grid; gap: 8px; }
 .matchday-board h3 { margin: 0 0 4px; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
@@ -856,11 +870,12 @@ a:hover .league-ink.jffl,
 .matchday-range.quiet { opacity: .55; }
 .matchday-range.quiet .track { background: var(--line); }
 .matchday-player-score { grid-column: 2; grid-row: 1 / span 2; display: grid; justify-items: end; align-content: center; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.matchday-player-score strong { font-size: 1rem; border-radius: 4px; }
-.matchday-player-score strong.score-flash { animation: matchday-flash 1.2s ease-out; }
+.matchday-player > .player-link { grid-column: 1; grid-row: 1; }
+.matchday-player-score strong, .matchday-player-score .score-figure { font-size: 1rem; border-radius: 4px; }
+.matchday-player-score strong.score-flash, .matchday-player-score .score-figure.score-flash { animation: matchday-flash 1.2s ease-out; }
 @keyframes matchday-flash { 0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 55%, transparent); } 100% { box-shadow: 0 0 0 3px transparent; } }
 @media (prefers-reduced-motion: reduce) {
-  .matchday-flash, .matchday-player-score strong.score-flash { animation: none; }
+  .matchday-flash, .matchday-player-score strong.score-flash, .matchday-player-score .score-figure.score-flash { animation: none; }
 }
 .matchday-player-score small { color: var(--muted); font-size: .68rem; }
 .matchday-player-score .up { color: var(--accent-ink); }

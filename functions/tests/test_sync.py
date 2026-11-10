@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
-from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, espn_image_url, kickoff_iso, normalize_player, validate_snapshot, week_lineups, weekly_matchups
+from espn_adapter import SCORING_STAT_NAMES, BoundedRequests, espn_image_url, kickoff_iso, live_view, normalize_player, validate_snapshot, week_lineups, weekly_matchups
 from history_archive import fold_public_history
 from sync_service import retain_lineup_locks, retain_projections, sync_leagues
 
@@ -251,6 +251,40 @@ def test_weekly_stats_keep_played_weeks_and_skip_missing_ones():
     assert result["weeklyStats"][0]["stats"]["Pass TD"] == 2
     assert result["weekStats"]["Pass yards"] == 180
     assert result["seasonStats"]["Pass yards"] == 430
+    assert "scoreLines" not in result
+    assert "scoreLines" not in result["weeklyStats"][0]
+
+
+def test_score_lines_keep_paid_stats_and_drop_zeros():
+    player = SimpleNamespace(playerId=1, name="Player", position="RB", proTeam="BAL",
+                             eligibleSlots=["RB"], lineupSlot="RB")
+    raw = {"stats": [
+        {"seasonId": 2026, "scoringPeriodId": 1, "statSourceId": 0, "statSplitTypeId": 0,
+         "appliedTotal": 4, "stats": {"24": 40}, "appliedStats": {"24": 4}},
+        {"seasonId": 2026, "scoringPeriodId": 3, "statSourceId": 0, "statSplitTypeId": 0,
+         "appliedTotal": 14, "stats": {"24": 80, "25": 1, "41": 5},
+         "appliedStats": {"25": 6, "41": 0, "24": 8, "58": 0}},
+    ]}
+    result = normalize_player(player, 1, 3, raw)
+    assert result["scoreLines"] == [
+        {"label": "Rush yards", "points": 8, "count": 80},
+        {"label": "Rush TD", "points": 6, "count": 1},
+    ]
+    assert result["weeklyStats"][0]["scoreLines"] == [{"label": "Rush yards", "points": 4, "count": 40}]
+    assert result["weeklyStats"][1]["week"] == 3
+    assert result["weeklyStats"][1]["scoreLines"] == result["scoreLines"]
+
+
+def test_live_view_keeps_applied_point_lines():
+    schedule = [{"home": {"teamId": 1, "rosterForCurrentScoringPeriod": {"entries": [
+        {"playerPoolEntry": {"player": {"id": 9, "stats": [{
+            "seasonId": 2026, "scoringPeriodId": 6, "statSourceId": 0, "statSplitTypeId": 0,
+            "appliedTotal": 8, "stats": {"24": 80}, "appliedStats": {"24": 8, "23": 0},
+        }]}}},
+    ]}}, "away": {}}]
+    view = live_view(schedule, 6)
+    assert view["players"][0]["weekStats"]["Rush yards"] == 80
+    assert view["players"][0]["scoreLines"] == [{"label": "Rush yards", "points": 8, "count": 80}]
 
 
 def test_stat_ids_do_not_confuse_yards_and_yards_per_game():

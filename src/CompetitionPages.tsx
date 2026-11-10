@@ -19,7 +19,8 @@ import { projectedWinChance } from './projections';
 import { cupLiveChance, liveMatchChance, toOddsStarter } from './liveOdds';
 import { cupMatchChance } from './cupOdds';
 import { TeamIdentity } from './TeamIdentity';
-import { PlayerIdentity, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
+import { PlayerIdentity, PlayerLink, nflLogoUrl, playerHeadshotUrl } from './PlayerIdentity';
+import { ScoreButton } from './ScoreButton';
 import { compareByLineup, historicalStarters, lineupWouldWin, rosterForWeek, slotLabel, type LineupMove, type LineupSwing } from './lineups';
 import { shameLabel, shameWall, type ShameGroup } from './lineupShame';
 import { usePageLabel } from './BackLink';
@@ -238,7 +239,7 @@ function MatchIdentity({ participant, team, seed, title, align }: { participant:
   </div>;
 }
 
-function StarterCompare({ sides, week }: { sides: { title: string; mark?: number | null; players: RosteredPlayer[]; message: string | null }[]; week: number }) {
+function StarterCompare({ sides, week }: { sides: { title: string; mark?: number | null; players: RosteredPlayer[]; message: string | null; scoring?: LeagueSummary['scoring'] }[]; week: number }) {
   const [left, right] = sides;
   const count = Math.max(left.players.length, right.players.length);
   return <div className="starter-compare">
@@ -249,10 +250,10 @@ function StarterCompare({ sides, week }: { sides: { title: string; mark?: number
         const a = left.players[index];
         const b = right.players[index];
         return <div className="starter-row" key={a?.id ?? b?.id ?? index}>
-          <div className="starter-id">{a && <PlayerIdentity player={a} injury={a.injuryStatus} />}</div>
-          <StarterScore player={a} align="left" week={week} />
-          <StarterScore player={b} align="right" week={week} />
-          <div className="starter-id right">{b && <PlayerIdentity player={b} injury={b.injuryStatus} />}</div>
+          <div className="starter-id">{a && <PlayerLink player={a} injury={a.injuryStatus} />}</div>
+          <StarterScore player={a} align="left" week={week} scoring={left.scoring} />
+          <StarterScore player={b} align="right" week={week} scoring={right.scoring} />
+          <div className="starter-id right">{b && <PlayerLink player={b} injury={b.injuryStatus} />}</div>
         </div>;
       })}
     </div>
@@ -267,7 +268,7 @@ function benchFor(players: RosteredPlayer[], teamId: string) {
   return players.filter(player => player.teamId === teamId && player.group === 'bench').sort(compareByLineup);
 }
 
-function StarterScore({ player, align, week }: { player?: RosteredPlayer; align: 'left' | 'right'; week: number }) {
+function StarterScore({ player, align, week, scoring }: { player?: RosteredPlayer; align: 'left' | 'right'; week: number; scoring?: LeagueSummary['scoring'] }) {
   if (!player) return <span className={`starter-score ${align}`} />;
   const onBye = player.weekPoints == null && byeWeek(player.proTeam) === week;
   const yet = !onBye && player.weekPoints == null && player.projectedPoints != null;
@@ -275,8 +276,9 @@ function StarterScore({ player, align, week }: { player?: RosteredPlayer; align:
   const when = onBye ? 'Bye' : yet ? pendingPlayLabel(player.proTeam, week, kickoff) : null;
   const projected = !onBye && player.projectedPoints != null ? points(player.projectedPoints) : null;
   const statusClass = onBye ? ' bye' : kickoff ? ' kickoff' : '';
+  const explain = !yet && !onBye && (player.weekPoints != null || player.scoreLines != null || Object.keys(player.weekStats).length > 0);
   return <span className={`starter-score ${align}${yet || onBye ? ' yet' : ''}`}>
-    <strong>{points(player.weekPoints)}</strong>
+    <ScoreButton player={player} value={points(player.weekPoints)} explain={explain} align={align === 'left' ? 'right' : 'left'} scoring={scoring} />
     {(when || projected != null) && <small>{when && <span className={`yet-label${statusClass}`}>{when}{projected != null && <span className="yet-sep"> · </span>}</span>}{projected != null && (align === 'left' ? `proj ${projected}` : `${projected} proj`)}</small>}
   </span>;
 }
@@ -348,7 +350,7 @@ export function CupMatchPage() {
         const historical = !current && participant && roster?.data ? historicalStarters(roster.data.weeklyLineups, participant.teamId, week) : null;
         const players = current && roster?.data ? startersFor(roster.data.players, participant!.teamId) : historical ?? [];
         const message = !participant ? 'Opponent is not set yet.' : roster?.loading && !roster.data ? 'Loading starters…' : roster?.error && !roster.data ? 'Starter list is unavailable.' : !current && historical === null ? 'Starter scores for this week are not in the latest snapshot yet.' : players.length ? null : 'No starters in this snapshot.';
-        return { title: sideTitle(side), mark: side.participant ? (cupId === 'jffl' ? side.participant.jfflSeed : side.participant.leagueSeed) : null, players, message };
+        return { title: sideTitle(side), mark: side.participant ? (cupId === 'jffl' ? side.participant.jfflSeed : side.participant.leagueSeed) : null, players, message, scoring: participant ? data[participant.slug]?.scoring : undefined };
       })} /></section>)}
     </>}
   </div>;
@@ -461,8 +463,8 @@ export function LeagueMatchPage() {
     {upcoming
       ? <p className="notice">Week {week} has not started. Scores, projections, and starters appear once it is the current week.</p>
       : <>
-        <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare week={week} sides={[starters(away.teamId, away.manager, away.team?.rank ?? null), starters(home.teamId, home.manager, home.team?.rank ?? null)]} /></section>
-        {data.week === week && <section className="match-lineups" aria-label={`Week ${week} bench`}><h2>Week {week} bench</h2><StarterCompare week={week} sides={[bench(away.teamId, away.manager, away.team?.rank ?? null), bench(home.teamId, home.manager, home.team?.rank ?? null)]} /></section>}
+        <section className="match-lineups" aria-label={`Week ${week} starters`}><h2>Week {week} starters</h2><StarterCompare week={week} sides={[starters(away.teamId, away.manager, away.team?.rank ?? null), starters(home.teamId, home.manager, home.team?.rank ?? null)].map(side => ({ ...side, scoring: data.scoring }))} /></section>
+        {data.week === week && <section className="match-lineups" aria-label={`Week ${week} bench`}><h2>Week {week} bench</h2><StarterCompare week={week} sides={[bench(away.teamId, away.manager, away.team?.rank ?? null), bench(home.teamId, home.manager, home.team?.rank ?? null)].map(side => ({ ...side, scoring: data.scoring }))} /></section>}
       </>}
   </div>;
 }

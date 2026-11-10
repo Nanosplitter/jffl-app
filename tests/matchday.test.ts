@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { historicalStarters } from '../src/lineups.ts';
-import { benchPoints, kickoffWindow, matchdayMatches, matchNotes, matchTotal, playerBoard, pointSpan, pointsStillOut, priorLegOffset } from '../src/matchday.ts';
+import { benchPoints, kickoffWindow, matchdayMatches, matchFacts, matchNotes, matchTotal, playerBoard, pointSpan, pointsStillOut, priorLegOffset } from '../src/matchday.ts';
 import type { LeagueSummary, RosteredPlayer } from '../src/types.ts';
 
 const player = (partial: Partial<RosteredPlayer> & Pick<RosteredPlayer, 'id' | 'name'>): RosteredPlayer => ({
@@ -111,6 +111,21 @@ test('notes cover the projection gap, the swing left, the bench, and a lineup th
   assert.equal(notes[0], 'Jason needs 8 more than projected.');
   assert.equal(notes[1], 'Biggest swing left: Sat (±7.5).');
   assert.equal(notes[2], 'Bench: Jason 17.5, Donna —.');
+  const facts = matchFacts({
+    leftName: 'Jason', rightName: 'Donna', leftProjected: 100, rightProjected: 108,
+    leftTeamId: '16', rightTeamId: '34', games: {}, now, week: 6, final: false,
+    leftScore: 10, rightScore: 12, leftTotal: 10, rightTotal: 12,
+    leftPlayers: [
+      player({ id: 'sit', name: 'Sat', slot: 'WR', group: 'starter', weekPoints: 4, projectedPoints: 10, position: 'QB', proTeam: 'BUF', kickoff: '2026-10-20T00:15:00Z' }),
+      player({ id: 'in', name: 'Started', slot: 'BE', group: 'bench', weekPoints: 14, projectedPoints: null, eligibleSlots: ['WR', 'BE'] }),
+      player({ id: 'quiet', name: 'Waiting', slot: 'BE', group: 'bench', weekPoints: null, eligibleSlots: ['RB', 'BE'] }),
+      player({ id: 'bench', name: 'Spare', slot: 'BE', group: 'bench', weekPoints: 3.5, position: 'RB' }),
+      player({ id: 'hurt', name: 'Out', slot: 'IR', group: 'ir', weekPoints: 9 }),
+    ],
+    rightPlayers: [player({ id: 'opp', name: 'Opponent', teamId: '34', slot: 'WR', group: 'starter', weekPoints: 12, proTeam: 'PHI', kickoff: '2026-10-18T13:00:00Z' })],
+  });
+  assert.deepEqual(facts.bench?.leftPlayers.map(item => [item.name, item.points]), [['Started', 14], ['Spare', 3.5], ['Waiting', null]]);
+  assert.deepEqual(facts.bench?.rightPlayers, []);
   const lost = matchNotes({
     leftName: 'Jason', rightName: 'Donna', leftProjected: null, rightProjected: null,
     leftTeamId: '16', rightTeamId: '34', games, now, week: 6, final: true,

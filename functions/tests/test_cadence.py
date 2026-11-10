@@ -202,6 +202,30 @@ def test_live_tick_keeps_past_weeks_and_appends_a_changed_score():
     assert "2" not in store.weeks
 
 
+def test_live_tick_updates_this_weeks_score_lines_and_keeps_earlier_weeks():
+    summary, roster = _summary(), _roster()
+    roster["players"][0]["weekPoints"] = 3.5
+    roster["players"][0]["scoreLines"] = [{"label": "Pass yards", "points": 0.4, "count": 10}]
+    roster["players"][0]["weeklyStats"][0]["scoreLines"] = [{"label": "Pass yards", "points": 8, "count": 200}]
+    roster["players"][0]["weeklyStats"][1]["points"] = 3.5
+    incoming = {
+        "week": 6,
+        "matchups": [],
+        "players": [{"teamId": "1", "id": "9", "weekPoints": 3.5, "scoreLines": [{"label": "Pass yards", "points": 1.6, "count": 40}]}],
+    }
+    merged, next_roster, changed = merge_live_snapshot(summary, roster, incoming, T0)
+    assert changed
+    assert next_roster["players"][0]["scoreLines"] == [{"label": "Pass yards", "points": 1.6, "count": 40}]
+    assert next_roster["players"][0]["weeklyStats"][0]["points"] == 10
+    assert next_roster["players"][0]["weeklyStats"][0]["scoreLines"] == [{"label": "Pass yards", "points": 8, "count": 200}]
+    assert next_roster["players"][0]["weeklyStats"][1]["scoreLines"] == [{"label": "Pass yards", "points": 1.6, "count": 40}]
+    assert merge_live_snapshot(merged, next_roster, incoming, T0)[2] is False
+    quiet = {"week": 6, "matchups": [], "players": [{"teamId": "1", "id": "9", "weekPoints": 3.5}]}
+    kept = merge_live_snapshot(merged, next_roster, quiet, T0)
+    assert kept[2] is False
+    assert kept[1]["players"][0]["scoreLines"] == [{"label": "Pass yards", "points": 1.6, "count": 40}]
+
+
 def test_nudge_on_a_quiet_slate_does_not_fetch_and_a_live_game_fetches_once():
     store = Store()
     store.publish("premier", _summary(), _roster())

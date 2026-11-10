@@ -27,6 +27,7 @@ export interface LeagueSummary extends Freshness {
   weeklyMatchups?: (Matchup & { week: number; status: 'live' | 'final' | 'pending' })[];
   scoring: { name: string; points: number }[];
 }
+export interface ScoreLine { label: string; points: number; count?: number }
 export interface RosteredPlayer {
   id: string; teamId: string; name: string; position: string; proTeam: string;
   slot: string; group: 'starter' | 'bench' | 'ir'; eligibleSlots: string[];
@@ -34,7 +35,8 @@ export interface RosteredPlayer {
   projectedPoints: number | null; seasonPoints: number | null; averagePoints: number | null;
   weekStats: Record<string, number>; seasonStats: Record<string, number>;
   kickoff?: string | null;
-  weeklyStats?: { week: number; points?: number | null; stats: Record<string, number> }[];
+  scoreLines?: ScoreLine[];
+  weeklyStats?: { week: number; points?: number | null; stats: Record<string, number>; scoreLines?: ScoreLine[] }[];
 }
 export interface LineupLock { reason: 'out' | 'ir'; at: string }
 export interface WeekLineupPlayer {

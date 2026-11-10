@@ -32,7 +32,8 @@ import { TeamIdentity } from './TeamIdentity';
 import { finalsNote, finishedSeriesGames } from './finalsRematch';
 import { useFinishedSeriesGames } from './useSeriesGames';
 import { pointShare, TeamMatchSheet } from './TeamMatchSheet';
-import { PlayerIdentity, injuryLabel, injuryName } from './PlayerIdentity';
+import { PlayerIdentity, PlayerLink, injuryLabel, injuryName } from './PlayerIdentity';
+import { ScoreButton } from './ScoreButton';
 import { byeWeek } from './byeWeeks';
 import { canStillSwing, closestListed, closestOpen, compareByLineup, pointsStillToPlay, slotLabel, slotsLabel } from './lineups';
 import { BackTrail, SiteBack, usePageLabel } from './BackLink';
@@ -61,7 +62,7 @@ function starterList(players: RosteredPlayer[], teamId: string) {
   return players.filter(player => player.teamId === teamId && player.group === 'starter').sort(compareByLineup);
 }
 
-function Lineup({ slug, teamId, players, week }: { slug: string; teamId: string | null; players: RosteredPlayer[]; week: number }) {
+function Lineup({ slug, teamId, players, week, scoring }: { slug: string; teamId: string | null; players: RosteredPlayer[]; week: number; scoring?: LeagueSummary['scoring'] }) {
   const followed = useFollowed();
   if (!teamId) return null;
   const starters = starterList(players, teamId);
@@ -70,7 +71,8 @@ function Lineup({ slug, teamId, players, week }: { slug: string; teamId: string 
     const onBye = player.weekPoints == null && byeWeek(player.proTeam) === week;
     const yet = !onBye && player.weekPoints == null && player.projectedPoints != null;
     const when = onBye ? 'Bye' : yet ? kickoffLabel(player.kickoff) ?? 'Yet to play' : null;
-    return <li key={player.id} className={yet || onBye ? 'yet-to-play' : ''}><PlayerIdentity player={player} injury={player.injuryStatus} /><span className="lineup-points"><strong>{points(player.weekPoints)}</strong><small>{onBye ? 'Bye' : when ? `${when} · proj ${points(player.projectedPoints)}` : player.projectedPoints != null ? `Proj ${points(player.projectedPoints)}` : ''}</small></span></li>;
+    const explain = !yet && !onBye && (player.weekPoints != null || player.scoreLines != null || Object.keys(player.weekStats).length > 0);
+    return <li key={player.id} className={yet || onBye ? 'yet-to-play' : ''}><PlayerLink player={player} injury={player.injuryStatus} /><span className="lineup-points"><ScoreButton player={player} value={points(player.weekPoints)} explain={explain} scoring={scoring} /><small>{onBye ? 'Bye' : when ? `${when} · proj ${points(player.projectedPoints)}` : player.projectedPoints != null ? `Proj ${points(player.projectedPoints)}` : ''}</small></span></li>;
   })}</ul> : <p className="empty-inline">No starters in this snapshot.</p>}</div>;
 }
 
@@ -113,7 +115,7 @@ function MatchupCard({ matchup, data, compact = false, board = false, expanded =
     {to ? <Link className="matchup-link" to={to}>{face}</Link> : face}
     {history && <Link className="finals-note" to={history.href}>{history.text}</Link>}
     {onToggle && <button className="matchup-toggle" aria-expanded={expanded} aria-controls={panelId} onClick={onToggle}>{expanded ? 'Hide starters' : 'Show starters'}<span className="sr-only"> for {sideName(away, matchup.awayTeamId)} versus {sideName(home, matchup.homeTeamId)}</span></button>}
-    {expanded && <div id={panelId} className="matchup-lineup">{!lineup || (lineup.loading && !lineup.players) ? <p className="empty-inline">Loading starters…</p> : lineup.error && !lineup.players ? <p className="empty-inline">Starters are temporarily unavailable.</p> : <div className="lineup-sides"><Lineup slug={data.slug} teamId={matchup.awayTeamId} players={lineup.players ?? []} week={data.week} /><Lineup slug={data.slug} teamId={matchup.homeTeamId} players={lineup.players ?? []} week={data.week} /></div>}</div>}
+    {expanded && <div id={panelId} className="matchup-lineup">{!lineup || (lineup.loading && !lineup.players) ? <p className="empty-inline">Loading starters…</p> : lineup.error && !lineup.players ? <p className="empty-inline">Starters are temporarily unavailable.</p> : <div className="lineup-sides"><Lineup slug={data.slug} teamId={matchup.awayTeamId} players={lineup.players ?? []} week={data.week} scoring={data.scoring} /><Lineup slug={data.slug} teamId={matchup.homeTeamId} players={lineup.players ?? []} week={data.week} scoring={data.scoring} /></div>}</div>}
   </article>;
 }
 
@@ -245,7 +247,7 @@ function statKeys(player: RosteredPlayer) {
   return [...new Set([...Object.keys(player.weekStats), ...Object.keys(player.seasonStats)])].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
 }
 
-function PlayerTable({ players, slug, teams, showSlot = true, week }: { players: RosteredPlayer[]; slug: LeagueSlug; teams?: Team[]; showSlot?: boolean; week?: number }) {
+function PlayerTable({ players, slug, teams, showSlot = true, week, scoring }: { players: RosteredPlayer[]; slug: LeagueSlug; teams?: Team[]; showSlot?: boolean; week?: number; scoring?: LeagueSummary['scoring'] }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const columns = 7 + (teams ? 1 : 0) + (showSlot ? 1 : 0);
   return <div className="table-scroll"><table className="player-table"><caption className="sr-only">Rostered players and fantasy statistics</caption><thead><tr><th scope="col">Player</th>{teams && <th scope="col">Fantasy team</th>}{showSlot && <th className="col-slot" scope="col">Slot</th>}<th scope="col">Bye</th><th scope="col">Week pts</th><th scope="col">Proj</th><th className="col-season" scope="col">Season</th><th className="col-avg" scope="col">Avg</th><th scope="col"><span className="sr-only">Statistics</span></th></tr></thead><tbody>{players.flatMap(player => {
@@ -255,7 +257,8 @@ function PlayerTable({ players, slug, teams, showSlot = true, week }: { players:
     const showWeek = keys.some(key => player.weekStats[key] != null);
     const bye = byeWeek(player.proTeam);
     const onBye = bye != null && bye === week;
-    return [<tr key={id}><td><PlayerIdentity player={player} injury={player.injuryStatus} /></td>{teams && <td><Link className={leagueInk(slug)} to={teamLink(slug, player.teamId)}>{teams.find(team => team.id === player.teamId) ? <TeamIdentity team={teams.find(team => team.id === player.teamId)!} /> : '—'}</Link></td>}{showSlot && <td className="col-slot"><span className="slot">{slotLabel(player.slot)}</span></td>}<td className={`numeric${onBye ? ' bye-now' : ''}`}>{bye ?? '—'}{onBye ? <span className="sr-only">, this week</span> : null}</td><td className="numeric emphasis">{points(player.weekPoints)}</td><td className="numeric muted">{points(player.projectedPoints)}</td><td className="numeric col-season">{points(player.seasonPoints)}</td><td className="numeric col-avg">{points(player.averagePoints)}</td><td><button type="button" className="stat-toggle" aria-expanded={open} aria-label={`Statistics for ${player.name}`} onClick={() => setOpenId(open ? null : id)}>Stats</button></td></tr>,
+    const explain = !onBye && (player.weekPoints != null || player.scoreLines != null || Object.keys(player.weekStats).length > 0);
+    return [<tr key={id}><td><PlayerLink player={player} injury={player.injuryStatus} /></td>{teams && <td><Link className={leagueInk(slug)} to={teamLink(slug, player.teamId)}>{teams.find(team => team.id === player.teamId) ? <TeamIdentity team={teams.find(team => team.id === player.teamId)!} /> : '—'}</Link></td>}{showSlot && <td className="col-slot"><span className="slot">{slotLabel(player.slot)}</span></td>}<td className={`numeric${onBye ? ' bye-now' : ''}`}>{bye ?? '—'}{onBye ? <span className="sr-only">, this week</span> : null}</td><td className="numeric emphasis"><ScoreButton player={player} value={points(player.weekPoints)} explain={explain} scoring={scoring} /></td><td className="numeric muted">{points(player.projectedPoints)}</td><td className="numeric col-season">{points(player.seasonPoints)}</td><td className="numeric col-avg">{points(player.averagePoints)}</td><td><button type="button" className="stat-toggle" aria-expanded={open} aria-label={`Statistics for ${player.name}`} onClick={() => setOpenId(open ? null : id)}>Stats</button></td></tr>,
       open ? <tr key={`${id}-stats`} className="stat-row"><td colSpan={columns}>{keys.length ? <table className="stat-panel"><thead><tr><th>Statistic</th>{showWeek && <th>Week</th>}<th>Season</th></tr></thead><tbody>{keys.map(key => <tr key={key}><th>{key}</th>{showWeek && <td>{points(player.weekStats[key])}</td>}<td>{points(player.seasonStats[key])}</td></tr>)}</tbody></table> : <p className="empty-inline">Stats are not available yet.</p>}</td></tr> : null];
   })}</tbody></table></div>;
 }
@@ -362,7 +365,7 @@ function TeamPage() {
             const entries = players.filter(player => player.group === group).sort(compareByLineup);
             return <section className="surface roster-section" key={group}>
               <div className="surface-heading"><h3>{group === 'starter' ? 'Starters' : group === 'bench' ? 'Bench' : 'Injured reserve'}</h3></div>
-              {entries.length ? <PlayerTable players={entries} slug={meta.slug} week={data.week} /> : <p className="empty-inline">No players in this section.</p>}
+              {entries.length ? <PlayerTable players={entries} slug={meta.slug} week={data.week} scoring={data.scoring} /> : <p className="empty-inline">No players in this section.</p>}
             </section>;
           })}
         </> : <Waiting error={roster?.error} />}

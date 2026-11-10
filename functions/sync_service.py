@@ -339,15 +339,21 @@ def _paint_player(player, incoming, week):
     if stats is not None and player.get("weekStats") != stats:
         player["weekStats"] = stats
         changed = True
-    if points is None:
-        return changed
-    for row in player.get("weeklyStats") or []:
-        if not isinstance(row, dict) or row.get("week") != week or row.get("points") == points:
-            continue
-        row["points"] = points
-        if stats is not None:
-            row["stats"] = stats
+    lines = incoming.get("scoreLines") if isinstance(incoming.get("scoreLines"), list) else None
+    if lines is not None and player.get("scoreLines") != lines:
+        player["scoreLines"] = lines
         changed = True
+    for row in player.get("weeklyStats") or []:
+        if not isinstance(row, dict) or row.get("week") != week:
+            continue
+        if points is not None and row.get("points") != points:
+            row["points"] = points
+            if stats is not None:
+                row["stats"] = stats
+            changed = True
+        if lines is not None and row.get("scoreLines") != lines:
+            row["scoreLines"] = lines
+            changed = True
     return changed
 
 
