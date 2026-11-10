@@ -1,12 +1,14 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
 from firebase_admin import initialize_app, firestore
-from firebase_functions import options, scheduler_fn
+from firebase_functions import https_fn, options, scheduler_fn
 from google.cloud.firestore_v1 import transactional
 
+from cadence import decide
 from history_archive import fold_public_history
-from sync_service import sync_leagues
+from sync_service import begin_nudge, finish_nudge, run_scheduled
 
 initialize_app()
 options.set_global_options(region="us-east1", memory=options.MemoryOption.MB_256,
@@ -60,6 +62,22 @@ class FirestoreStore:
                 batch.update(ref, {"refreshStatus": "error", "lastAttemptAt": stamp})
         batch.commit()
 
+    def slate(self):
+        snapshot = self.db.collection("_sync").document("slate").get()
+        return snapshot.to_dict() if snapshot.exists else None
+
+    def save_slate(self, document):
+        self.db.collection("_sync").document("slate").set(document)
+
+    def audience_seen(self):
+        snapshot = self.db.collection("_sync").document("audience").get()
+        if not snapshot.exists:
+            return None
+        return (snapshot.to_dict() or {}).get("lastSeen")
+
+    def mark_audience(self, stamp):
+        self.db.collection("_sync").document("audience").set({"lastSeen": stamp})
+
 
 @transactional
 def acquire_lease(transaction, reference, token):
@@ -78,14 +96,44 @@ def release_lease(transaction, reference, token):
         transaction.delete(reference)
 
 
-@scheduler_fn.on_schedule(schedule="every 3 minutes", timezone="America/New_York", retry_count=0)
-def refresh_jffl(event: scheduler_fn.ScheduledEvent) -> None:
-    db = firestore.client()
+def _run_locked(db, work):
     reference = db.collection("_sync").document("lease")
     token = str(uuid.uuid4())
     if not acquire_lease(db.transaction(), reference, token):
-        return
+        return False
     try:
-        sync_leagues(FirestoreStore(db))
+        work()
+        return True
     finally:
         release_lease(db.transaction(), reference, token)
+
+
+@scheduler_fn.on_schedule(schedule="every 1 minutes", timezone="America/New_York", retry_count=0)
+def refresh_jffl(event: scheduler_fn.ScheduledEvent) -> None:
+    del event
+    db = firestore.client()
+    store = FirestoreStore(db)
+    now = datetime.now(timezone.utc)
+    if decide(now, store.slate(), store.audience_seen(), "scheduler") == "skip":
+        return
+    _run_locked(db, lambda: run_scheduled(store))
+
+
+@https_fn.on_request(invoker="public")
+def nudge_jffl(req: https_fn.Request) -> https_fn.Response:
+    """An open tab asks for a live tick. The body is ignored and ESPN stays here."""
+    if req.method != "POST":
+        return https_fn.Response("", status=405)
+    try:
+        db = firestore.client()
+        store = FirestoreStore(db)
+        if begin_nudge(store) != "live":
+            return https_fn.Response("", status=204)
+
+        def work():
+            finish_nudge(store)
+
+        _run_locked(db, work)
+    except Exception as error:
+        logging.error("JFFL nudge failed (%s)", type(error).__name__)
+    return https_fn.Response("", status=204)

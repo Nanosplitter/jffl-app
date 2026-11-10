@@ -3,6 +3,7 @@
     "public": "dist",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
+      {"source":"/__refresh","function":{"functionId":"nudge_jffl","region":"us-east1"}},
       {"source":"/__social/gallery","function":{"functionId":"socialGallery","region":"us-east1"}},
       {"source":"/__social/card.png","function":{"functionId":"socialImage","region":"us-east1"}},
       {"source":"/league/*/team/**","function":{"functionId":"socialPage","region":"us-east1"}},

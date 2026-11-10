@@ -230,7 +230,7 @@ tbody tr:last-child td { border-bottom: 0; }
 .waiting { min-height: 210px; display: flex; align-items: center; justify-content: center; flex-direction: column; text-align: center; gap: 14px; padding: 30px; color: var(--muted); }
 .waiting strong { color: var(--text); font-size: .9rem; }
 .waiting > span { font-size: .8rem; max-width: 350px; line-height: 1.7; }
-.site-footer { max-width: 1540px; margin: auto; border-top: 1px solid var(--line); padding: 24px 0; display: flex; align-items: center; gap: 18px; font-size: .63rem; color: var(--muted); }
+.site-footer { max-width: 1540px; margin: auto; border-top: 1px solid var(--line); padding: 24px 0; display: flex; align-items: center; flex-wrap: wrap; gap: 18px; font-size: .63rem; color: var(--muted); }
 .site-footer > span:last-child { margin-left: auto; }
 .footer-brand { font-family: 'Barlow Condensed', sans-serif; font-weight: 800; font-style: italic; font-size: 1.25rem; color: var(--text); }
 .back-link { display: inline-flex; gap: 5px; align-items: center; font-size: .72rem; color: var(--muted); margin-bottom: 24px; }

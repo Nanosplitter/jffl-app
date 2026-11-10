@@ -262,6 +262,33 @@ BENCH_SLOTS = {"BE", "IR", ""}
 LINEUP_ORDER = ["QB", "RB", "WR", "TE", "RB/WR/TE", "FLEX", "D/ST", "K"]
 
 
+def matchup_period_map(boundary):
+    """Week to ESPN matchup period. Playoff weeks can share one period."""
+    periods = boundary.raw_settings.get("scheduleSettings", {}).get("matchupPeriods", {})
+    mapping = {}
+    if not isinstance(periods, dict):
+        return mapping
+    for period, weeks in periods.items():
+        try:
+            period_id = int(period)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(period_id, bool) or not isinstance(weeks, list):
+            continue
+        for week in weeks:
+            if isinstance(week, int) and not isinstance(week, bool):
+                mapping[str(week)] = period_id
+    return mapping
+
+
+def matchup_period_for_week(mapping, week):
+    if isinstance(mapping, dict):
+        period = mapping.get(str(week))
+        if isinstance(period, int) and not isinstance(period, bool):
+            return period
+    return week
+
+
 def matchup_period_for(league, week):
     periods = getattr(league.settings, "matchup_periods", {}) or {}
     for matchup_id, weeks in periods.items():
@@ -513,6 +540,60 @@ def fetch_league(slug):
                    'weeklyMatchups': weekly_matchups(boundary, week), 'completedWeeks': completed}
         roster = {**common, "players": players, "weeklyLineups": lineups}
         validate_snapshot(summary, roster)
+        summary["_matchupPeriods"] = matchup_period_map(boundary)
         return summary, roster
+    finally:
+        boundary.session.close()
+
+
+def live_view(schedule, week):
+    """Current-week scores and player points from one matchup response."""
+    matchups, players = [], []
+    for matchup in schedule or []:
+        if not isinstance(matchup, dict):
+            continue
+        home = matchup.get("home") if isinstance(matchup.get("home"), dict) else {}
+        away = matchup.get("away") if isinstance(matchup.get("away"), dict) else {}
+        matchups.append({
+            "homeTeamId": str(home["teamId"]) if "teamId" in home else None,
+            "awayTeamId": str(away["teamId"]) if "teamId" in away else None,
+            "homeScore": number(home.get("totalPointsLive", home.get("totalPoints"))),
+            "awayScore": number(away.get("totalPointsLive", away.get("totalPoints"))),
+            "homeProjected": number(home.get("totalProjectedPointsLive")),
+            "awayProjected": number(away.get("totalProjectedPointsLive")),
+        })
+        for side in (home, away):
+            if "teamId" not in side:
+                continue
+            team_id = str(side["teamId"])
+            entries = side.get("rosterForCurrentScoringPeriod", {}).get("entries", [])
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if not isinstance(entry, dict):
+                    continue
+                raw = entry.get("playerPoolEntry", {}).get("player") or entry.get("player") or {}
+                if not isinstance(raw, dict) or "id" not in raw:
+                    continue
+                actual = source_stat(raw, week, 0)
+                points = number(actual.get("appliedTotal"))
+                player = {"teamId": team_id, "id": str(raw["id"])}
+                if points is not None:
+                    player["weekPoints"] = points
+                    stats = breakdown(actual)
+                    if stats:
+                        player["weekStats"] = stats
+                players.append(player)
+    return {"week": week, "matchups": matchups, "players": players}
+
+
+def fetch_live_scores(slug, week, matchup_period):
+    """One current-week request. Past weeks stay on the last full sync."""
+    if slug not in LEAGUES or isinstance(week, bool) or not isinstance(week, int):
+        raise ValueError("Live scores need a known league and week")
+    boundary = BoundedRequests(LEAGUES[slug]["id"], SEASON)
+    try:
+        schedule = boundary.scoring_period_schedule(week, matchup_period)
+        return live_view(schedule, week)
     finally:
         boundary.session.close()

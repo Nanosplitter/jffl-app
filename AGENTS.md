@@ -8,8 +8,10 @@ the authority when they differ from these defaults.
 
 JFFL League Central is a read-only dashboard for three public ESPN fantasy
 football leagues. A scheduled Python function fetches ESPN data and publishes
-validated Firestore snapshots. The React client reads the shared snapshots;
-opening the site must never trigger ESPN requests or browser-side writes.
+validated Firestore snapshots. The React client reads those snapshots. It does
+not call ESPN or write league documents. While a tab is visible and someone has
+used it recently, the page may ask the updater to refresh; only the updater
+calls ESPN.
 
 The site includes league/team/roster views, standings, matchups, weekly scoring,
 cup brackets, historical commissioner records, and a locally persisted theme
@@ -25,7 +27,8 @@ and are static source data, not ESPN history.
 - `src/CompetitionPages.tsx`: competition/commissioner pages.
 - `src/TeamIdentity.tsx`: team identity and logo rendering.
 - `src/styles.css`, `src/competition-styles.css`: visual system and responsive layouts.
-- `functions/main.py`: scheduled entry point, Firestore storage, and overlap lease.
+- `functions/main.py`: scheduled refresh, live-tick nudge, Firestore storage, and overlap lease.
+- `functions/cadence.py`: when a full sync or a current-week live tick is due.
 - `functions/sync_service.py`: per-league refresh, validation, and snapshot shaping.
 - `functions/espn_adapter.py`: boundary around the pinned `espn-api` package.
 - `functions/league_config.py`: season and ESPN league identifiers.
@@ -47,7 +50,7 @@ and are static source data, not ESPN history.
   good data and must not block the other leagues.
 - Published documents are `publicLeagues/{slug}`, `publicRosters/{slug}`,
   `publicHistory/{year}`, `publicLive/{slug}`, and `publicLiveWeeks/{season}-{slug}-{week}`.
-  Internal lease/status data stays private. A live week document is kept for every
+  Internal lease, slate, and audience timestamps stay private. A live week document is kept for every
   season and week that was recorded. Do not replace an earlier week with a later one.
 - Preserve meaningful user-facing history by default. Any source data, event series,
   snapshot, or derived fact that someone could reasonably want to revisit, compare,

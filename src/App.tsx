@@ -7,6 +7,7 @@ import { localPreview, useLive, useRosters, useSummaries } from './data';
 import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type LiveGame, type Matchup, type RosteredPlayer, type Team } from './types';
 import { kickoffLabel } from './kickoff';
+import { useRefreshNudge } from './nudge';
 import { Fresh, points, record, weeklyAverage } from './ui';
 import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, LeagueStandingsCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
 const ArchivePage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.ArchivePage })));
@@ -502,6 +503,7 @@ export default function App() {
     setAnalyticsTheme(dark);
   }, [dark]);
   useEffect(() => { startAnalytics(); }, []);
+  useRefreshNudge();
   useEffect(() => {
     const segment = location.pathname.split('/')[2] ?? '';
     if (/^\/players\/.+/.test(location.pathname) && !leagueMeta(segment)) return;
@@ -532,6 +534,6 @@ export default function App() {
       <FollowPrompt />
       <Suspense fallback={<div className="waiting" role="status">Loading archive…</div>}><Routes><Route path="/" element={<Overview/>}/><Route path="/league/:slug" element={<LeaguePage/>}/><Route path="/matchday/:slug/:teamId" element={<MatchdayPage/>}/><Route path="/matchday" element={<MatchdayPage/>}/><Route path="/league/:slug/match/:matchId" element={<LeagueMatchPage/>}/><Route path="/league/:slug/team/:teamId" element={<TeamPage/>}/><Route path="/players/:playerId" element={<RosterRoute/>}/><Route path="/players" element={<PlayersPage/>}/><Route path="/summary/:league" element={<SeasonPage/>}/><Route path="/summary" element={<SeasonPage/>}/><Route path="/weekly/:week" element={<WeeklyPage/>}/><Route path="/weekly" element={<WeeklyPage/>}/><Route path="/history/cup/:league" element={<HistoryPage/>}/><Route path="/history/cup" element={<HistoryPage/>}/><Route path="/history/:league" element={<HistoryPage/>}/><Route path="/history" element={<HistoryPage/>}/><Route path="/archive" element={<ArchivePage/>}/><Route path="/archive/ask" element={<AskPage/>}/><Route path="/archive/ask/t/:threadId" element={<AskPage/>}/><Route path="/archive/ask/s/:shareId" element={<AskSavedSharePage/>}/><Route path="/archive/ask/share" element={<AskSharePage/>}/><Route path="/archive/records/:book" element={<RecordsPage/>}/><Route path="/archive/records" element={<RecordsPage/>}/><Route path="/archive/titles" element={<TitlesPage/>}/><Route path="/archive/rivals/:left/:right" element={<RivalsPage/>}/><Route path="/archive/rivals" element={<RivalsPage/>}/><Route path="/archive/managers/:name" element={<ManagerArchivePage/>}/><Route path="/archive/managers" element={<ManagersPage/>}/><Route path="/archive/draft" element={<DraftPage/>}/><Route path="/archive/weeks/:week" element={<WeekHistoryPage/>}/><Route path="/archive/weeks" element={<WeekHistoryPage/>}/><Route path="/history/ask/share" element={<RedirectPath to="/archive/ask/share"/>}/><Route path="/history/ask" element={<RedirectPath to="/archive/ask"/>}/><Route path="/history/archive/*" element={<RedirectArchive/>}/><Route path="/history/archive" element={<RedirectPath to="/archive"/>}/><Route path="/cups" element={<CupHubPage/>}/><Route path="/cups/:cupId/match/:matchId" element={<CupMatchPage/>}/><Route path="/cups/:cupId/round/:round/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId/round/:round" element={<CupPage/>}/><Route path="/cups/:cupId/highlight/:manager" element={<CupPage/>}/><Route path="/cups/:cupId" element={<CupPage/>}/><Route path="*" element={<NotFound/>}/></Routes></Suspense>
     </main>
-    <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores</span><span>Refreshes every 3 minutes · ESPN updates may be delayed</span></footer>
+    <footer className="site-footer"><Link className="footer-brand" to="/">JFFL</Link><span>2026 season · ESPN scores</span><span>About every 30 seconds during games while this tab is open · slower when the slate is quiet</span></footer>
   </>;
 }

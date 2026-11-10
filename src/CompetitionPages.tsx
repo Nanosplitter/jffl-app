@@ -224,7 +224,7 @@ export function CupPage() {
         return tree ? <div className={`bracket-slot${leagueCup && roundIndex === 0 ? ' play-in' : ''}`} key={match.id}>{card}</div> : card;
       })}</div></section>;
     })}</div></div>
-    <p className="source-note">Live and completed leg scores come from ESPN and refresh every three minutes. Missing or future scores remain blank. A level tie plays the next week. A second tie is an old fashioned duel.</p>
+    <p className="source-note">Live and completed leg scores come from ESPN. They refresh about every 30 seconds while games are on and this tab is open, and slow down when the slate is quiet. Missing or future scores remain blank. A level tie plays the next week. A second tie is an old fashioned duel.</p>
   </>;
 }
 

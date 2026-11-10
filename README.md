@@ -3,7 +3,8 @@
 Public dashboard: https://jffl-live-colin.web.app
 
 React, TypeScript, and Vite on Firebase Hosting. A Python adapter reads ESPN using
-`espn-api==0.46.0`; visitors only read shared Firestore snapshots.
+`espn-api==0.46.0`. Visitors read shared Firestore snapshots. An open tab can ask
+the updater to refresh; the browser does not call ESPN.
 
 ## Deployment status
 
@@ -322,10 +323,14 @@ Week 2 results, two-leg completion, tied scores, and missing-league behavior.
 
 ## Updater and storage
 
-`functions/main.py` defines one scheduled function, `refresh_jffl`, in `us-east1`:
-every three minutes, zero minimum instances, one maximum instance, concurrency
-one, 256 MB RAM, first-generation CPU allocation, 150-second timeout, no scheduler
-retries. An expiring Firestore transaction lease also prevents overlapping runs.
+`functions/main.py` defines two functions in `us-east1`, both with zero minimum
+instances, one maximum instance, concurrency one, 256 MB RAM, and first-generation
+CPU allocation. `refresh_jffl` is scheduled every minute with a 150-second timeout
+and no scheduler retries. Most of those wakes return before any ESPN request.
+`nudge_jffl` is a public POST at `/__refresh`. An open, recently used tab calls it
+about every 30 seconds. The body is ignored. Hosting rewrites that path, so
+functions and hosting need to ship together. An expiring Firestore transaction
+lease keeps a scheduled run and a nudge from overlapping.
 
 The ESPN adapter bounds each league refresh to a 42-second request deadline,
 uses connection/read timeouts, and allows at most one retry of selected transient
@@ -335,9 +340,20 @@ are committed together in a Firestore batch:
 - `publicLeagues/{slug}`: teams, standings, weekly matchups for every scheduled week (future weeks are `pending` with null scores; playoff slots appear once ESPN assigns teams), completed weeks, scoring, freshness. A matchup projection ESPN sends is kept on later refreshes. A missing projection stays null, and a later refresh does not replace a saved number with null. A finished score is kept the same way when a later fetch drops it.
 - `publicRosters/{slug}`: rostered players, slots, weekly and cumulative stats. Until a starter’s kickoff, the lineup remembers the last injury status seen. Once kickoff passes, an OUT or NFL injured-reserve status becomes a permanent `locked` record and stays even if a later refresh changes the status or drops the player.
 - `publicHistory/{year}`: the season archive. Each successful refresh copies that league's teams and weekly matchups into the document for the season year, with manager nicknames, and never replaces a saved score with null. The client reads it for seasons that are no longer the live snapshot. Visitors can get a year document and cannot list or write the collection.
-- `publicLive/{slug}`: this week's score history and the NFL scoreboard, written after a successful league publish. A point is stored only when a team's score or live projection changes. A missing score stays null. Visitors can get a league document and cannot list or write the collection. The refresh also makes one public NFL scoreboard request per run. If that request or the live write fails, the league snapshot is still published and the other leagues continue.
+- `publicLive/{slug}`: this week's score history and the NFL scoreboard, written after a successful league publish or live tick. A point is stored only when a team's score or live projection changes. A missing score stays null. Visitors can get a league document and cannot list or write the collection. The refresh also makes one public NFL scoreboard request per run. If that request or the live write fails, the league snapshot is still published and the other leagues continue.
 - `publicLiveWeeks/{season}-{slug}-{week}`: the same score history, kept for that season and week. Every successful refresh writes the current week here, and the previous week is copied once when the week number changes. A later week does not replace an earlier one. Visitors can get one week document and cannot list or write the collection. Weeks recorded before this archive existed have final scores and lineups on the league snapshot. Their score line can be rebuilt from NFL play-by-play (`scripts/replay-week.py`); the projection series stays empty, so win chance is only shown for a week that was recorded live.
-- `_sync/lease`: private synchronization state.
+- `_sync/lease`, `_sync/slate`, and `_sync/audience`: private synchronization state. The slate remembers the last full sync, the last live tick, and the NFL scoreboard used to choose the next interval. The audience document is the last time a tab asked for a refresh.
+
+A full sync still fetches each league, including past weeks. It runs about every
+15 minutes during a slate, every 10 minutes when someone is browsing and no game
+is on, and about once an hour when the site is idle and the slate is quiet. A
+failed attempt is retried within 10 minutes. While a game is on, or a kickoff is
+within 15 minutes, a lighter live tick updates the current week's scores,
+projections, player points, and the scoreboard. That tick runs about every 30
+seconds when a tab is open and about every 5 minutes when nobody is looking. It
+does not refetch past weeks, and it keeps saved lineups, finished scores, and
+lineup locks. A missing score stays null. A failed live tick leaves the last
+good snapshot in place.
 
 Matchday can render before `publicLive` is readable. Until a rules deploy allows `publicLive` reads and a refresh has stored the first samples, win chance falls back to kickoff times and the chart says history starts with the next update. Shipping that rules change is separate from the hosting and functions deploy, and needs an explicit request.
 
@@ -348,8 +364,8 @@ snapshot and record the failed attempt separately. If even the status write fail
 the next league still refreshes; the client recognizes stale timestamps.
 
 The frontend subscribes to three summaries. Rosters load only for team/player
-pages and after the first question in Ask the archive. All visitors share the same provider reads; visiting a page never contacts
-ESPN. Arrays are exempted from Firestore indexing to avoid unnecessary index work.
+pages and after the first question in Ask the archive. All visitors share the same provider reads. Visiting a page never contacts
+ESPN directly. Arrays are exempted from Firestore indexing to avoid unnecessary index work.
 
 ## Cloud maintenance
 
@@ -405,8 +421,9 @@ firebase deploy --only hosting,functions --project <your-firebase-project>
 
 ## Costs and limitations
 
-The target is below $5/month, not a guaranteed total. At a three-minute cadence,
-six published-document writes per run are about 2,880 writes per day; lease traffic,
+The target is below $5/month, not a guaranteed total. The scheduler wakes every
+minute and usually does not call ESPN. Published writes follow score changes and
+the slower full syncs, not a flat three-minute cadence. Empty wakes, lease traffic,
 visitor document reads, hosting transfer, logs, builds, and container storage also
 contribute. Inactive functions scale to zero. One scheduler job serves all leagues.
 Ask the archive reads the three roster documents only once a visitor sends a first
