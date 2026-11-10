@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { animateOnChange } from '../changePulse';
 import type { ChartInstance } from './echartsSetup.ts';
 
 export function useDarkMode() {
@@ -19,9 +20,10 @@ function selectedPair(data: unknown): [string, string] | null {
   return [pair[0], pair[1]];
 }
 
-export function ArchiveChart({ option, summary, height = 380, onSelect }: { option: object; summary: string; height?: number; onSelect?: (pair: [string, string]) => void }) {
+export function ArchiveChart({ option, summary, height = 380, onSelect, motionKey }: { option: object; summary: string; height?: number; onSelect?: (pair: [string, string]) => void; motionKey?: string }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<ChartInstance | null>(null);
+  const motionRef = useRef<string | null>(null);
   const navigate = useNavigate();
   const navigateRef = useRef(navigate);
   navigateRef.current = navigate;
@@ -76,8 +78,14 @@ export function ArchiveChart({ option, summary, height = 380, onSelect }: { opti
 
   useEffect(() => {
     if (!ready || !chartRef.current) return;
-    try { chartRef.current.setOption(option as never, true); } catch { /* A bad option must not take down the page. */ }
-  }, [ready, option]);
+    const reduceMotion = motionKey !== undefined && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const animate = !reduceMotion && (motionKey === undefined || animateOnChange(motionRef.current, motionKey));
+    if (motionKey !== undefined) motionRef.current = motionKey;
+    const drawn = animate
+      ? option
+      : { ...option, animation: false, animationDuration: 0, animationDurationUpdate: 0 };
+    try { chartRef.current.setOption(drawn as never, true); } catch { /* A bad option must not take down the page. */ }
+  }, [ready, option, motionKey]);
 
   return <figure className="score-chart">
     <div ref={hostRef} className="score-chart-canvas" style={{ height }} role="img" aria-label={summary} />

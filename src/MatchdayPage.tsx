@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { chartMotionKey } from './changePulse';
+import { useChangeFlash } from './useChangeFlash';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAccount, useFollowed } from './account';
 import { usePageLabel } from './BackLink';
@@ -246,16 +248,20 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
     leftSd: Math.sqrt(openVariance(leftStarters, games, now, match.week)),
     rightSd: Math.sqrt(openVariance(rightStarters, games, now, match.week)),
   }), [final, games, leftStarters, match.week, now, rightStarters]);
+  const scorePoints = replay ? scores : history;
+  const chanceFresh = useChangeFlash(chartMotionKey('chance', history[history.length - 1]));
+  const scoreFresh = useChangeFlash(chartMotionKey('score', scorePoints[scorePoints.length - 1]));
   const { theme } = chartTheme(dark);
   if (!match.right) return null;
   const chanceReady = history.length >= 2;
-  const scoreReady = (replay ? scores : history).length >= 2;
+  const scoreReady = scorePoints.length >= 2;
   const height = narrow ? 200 : 240;
   const empty = final ? 'No score history was recorded for this week.' : 'History starts with the next update.';
-  const card = (mode: ChartMode, title: string, ready: boolean, points: typeof history) => <section className="matchday-chart" aria-label={title}>
+  const card = (mode: ChartMode, title: string, ready: boolean, points: typeof history, pulse: number) => <section className="matchday-chart" aria-label={title}>
+    {pulse > 0 && <span key={pulse} className="matchday-flash" aria-hidden="true" />}
     <h3 className="matchday-chart-title">{title}</h3>
     {ready
-      ? <ArchiveChart option={chartOption(dark, mode, match.left.manager, match.right!.manager, points, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}.`} height={height} />
+      ? <ArchiveChart option={chartOption(dark, mode, match.left.manager, match.right!.manager, points, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}.`} height={height} motionKey={chartMotionKey(mode, points[points.length - 1])} />
       : <p className="matchday-empty">{mode === 'chance' && replay && scoreReady ? 'Win chance wasn\u2019t recorded for this week.' : empty}</p>}
     {mode === 'score' && replay && ready && <p className="source-note">Rebuilt from the play-by-play. The line ends on the official score.</p>}
     <div className="matchday-chart-names">
@@ -264,19 +270,21 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
     </div>
   </section>;
   return <div className="matchday-charts">
-    {card('chance', 'Win chance', chanceReady, history)}
-    {card('score', 'Score', scoreReady, replay ? scores : history)}
+    {card('chance', 'Win chance', chanceReady, history, chanceFresh)}
+    {card('score', 'Score', scoreReady, scorePoints, scoreFresh)}
   </div>;
 }
 
 function PlayerLine({ row }: { row: BoardRow }) {
   const gap = row.gap != null && Math.abs(row.gap) >= 1 ? row.gap : null;
   const waiting = row.status === 'yet' || row.status === 'bye';
+  const shown = waiting ? row.player.projectedPoints : row.player.weekPoints;
+  const pulse = useChangeFlash(shown == null ? '' : String(shown), row.player.id);
   const pace = gap == null ? null : gap > 0 ? `${points(gap)} ahead` : `${points(Math.abs(gap))} behind`;
   return <li className="matchday-player">
     <PlayerIdentity player={row.player} injury={row.player.injuryStatus} />
     <span className="matchday-player-score">
-      <strong>{waiting ? points(row.player.projectedPoints) : points(row.player.weekPoints)}</strong>
+      <strong key={pulse} className={pulse ? 'score-flash' : ''}>{points(shown)}</strong>
       <small className={gap == null ? '' : gap > 0 ? 'up' : 'down'}>{waiting ? 'projected' : pace ?? (row.status === 'done' && row.player.projectedPoints != null ? 'on pace' : '')}</small>
     </span>
     {row.detail && <span className="matchday-chip">{row.detail}</span>}
