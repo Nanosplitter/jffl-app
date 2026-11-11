@@ -11,9 +11,9 @@ import { useLive, useLiveWeek, useRosters, useSummaries } from './data';
 import { isFollowedTeam } from './follow';
 import { finalsNote } from './finalsRematch';
 import { useFinishedSeriesGames } from './useSeriesGames';
-import { historicalStarters, withWeekRecord } from './lineups';
+import { historicalStarters, rosterForWeek, withWeekRecord } from './lineups';
 import { collapseGaps, forecastEnd, liveMatchChance, openVariance, recordedProjection, scoreChartScale, scoreLine, sideVariance, toOddsStarter, winChanceSeries, withNow } from './liveOdds';
-import { matchdayMatches, matchFacts, matchTotal, playerBoard, pointSpan, pointsStillOut, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
+import { benchRoster, compareKickoffWindows, matchdayMatches, matchFacts, matchTotal, playerBoard, pointSpan, pointsStillOut, windowMarkers, type BoardRow, type MatchdayMatch, type MatchFacts, type PlayerBoard } from './matchday';
 import { PlayerLink } from './PlayerIdentity';
 import { ScoreButton } from './ScoreButton';
 import type { ScoringRule } from './scoreLines.ts';
@@ -111,7 +111,7 @@ function matchZoom(theme: Theme) {
   return [
     { ...range, type: 'inside' as const, zoomOnMouseWheel: true, moveOnMouseMove: false, moveOnMouseWheel: false },
     {
-      ...range, type: 'slider' as const, height: 16, bottom: 6,
+      ...range, type: 'slider' as const, height: 12, bottom: 2,
       borderColor: theme.line, textStyle: { color: theme.muted },
       fillerColor: theme.dark ? 'rgba(74,168,221,0.25)' : 'rgba(0,118,182,0.18)',
     },
@@ -160,7 +160,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
       ...base,
       legend: undefined,
       dataZoom: matchZoom(theme),
-      grid: { ...base.grid, top: 8, bottom: 56 },
+      grid: { ...base.grid, top: 8, bottom: 36 },
       tooltip: { ...base.tooltip, trigger: 'axis' as const, axisPointer: { type: 'line' as const, lineStyle: { color: theme.muted, type: 'dashed' as const } }, formatter: (params: { axisValue?: number; data?: { value?: [number, number] } | [number, number]; seriesName?: string; marker?: string }[]) => {
         const axisTime = params.map(item => item.axisValue).find(value => value != null);
         if (axisTime == null) return '';
@@ -215,7 +215,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
     ...base,
     legend: undefined,
     dataZoom: matchZoom(theme),
-    grid: { ...base.grid, bottom: 56 },
+    grid: { ...base.grid, bottom: 36 },
     tooltip: { ...baseOption(theme).tooltip, trigger: 'axis' as const, formatter: (params: { data?: { value?: [number, number]; point?: typeof pointsIn[number] } }[]) => {
       const item = params.find(entry => entry.data?.point);
       const point = item?.data?.point;
@@ -357,7 +357,7 @@ function Board({ left, right, showLeft, showRight, leftName, rightName, leftScor
   const both = showLeft && showRight;
   const finished = (rows: BoardRow[], direction: number) => rows.filter(row => row.status === 'done' && row.gap != null && Math.sign(row.gap) === direction);
   const close = (board: PlayerBoard) => board.done.filter(row => row.gap == null || Math.abs(row.gap) < 1);
-  const yetWindows = [...new Set([...left.yet.map(group => group.window), ...other.yet.map(group => group.window)])];
+  const yetWindows = [...new Set([...left.yet.map(group => group.window), ...other.yet.map(group => group.window)])].sort(compareKickoffWindows);
   const playing = { title: 'Playing now', left: left.playing, right: other.playing };
   const later: { title: string; left: BoardRow[]; right: BoardRow[] }[] = [
     { title: 'Beat their projection', left: finished(left.above, 1), right: finished(other.above, 1) },
@@ -376,7 +376,7 @@ function Board({ left, right, showLeft, showRight, leftName, rightName, leftScor
   </div>;
 }
 
-function MatchInsights({ facts }: { facts: MatchFacts }) {
+function MatchInsights({ facts, rosters = true }: { facts: MatchFacts; rosters?: boolean }) {
   if (!facts.catchup && !facts.swing && !facts.bench && !facts.lineup) return null;
   return <div className="matchday-insights">
     {facts.catchup && <article className="matchday-insight">
@@ -394,13 +394,24 @@ function MatchInsights({ facts }: { facts: MatchFacts }) {
       <p className="eyebrow">Bench points</p>
       <div className="matchday-bench"><span>{facts.bench.leftName}<strong>{facts.bench.left == null ? '—' : points(facts.bench.left)}</strong></span>{facts.bench.rightName && <span>{facts.bench.rightName}<strong>{facts.bench.right == null ? '—' : points(facts.bench.right)}</strong></span>}</div>
       <p>Points scored by players who are not starting.</p>
-      <div className={`matchday-bench-rosters${facts.bench.rightName ? '' : ' single'}`}>
+      {rosters && <div className={`matchday-bench-rosters${facts.bench.rightName ? '' : ' single'}`}>
         <BenchList name={facts.bench.leftName} players={facts.bench.leftPlayers} />
         {facts.bench.rightName && <BenchList name={facts.bench.rightName} players={facts.bench.rightPlayers} />}
-      </div>
+      </div>}
     </article>}
     {facts.lineup && <article className="matchday-insight"><p className="eyebrow">A lineup that would have won</p><p>{facts.lineup}</p></article>}
   </div>;
+}
+
+function BenchRosters({ bench }: { bench: NonNullable<MatchFacts['bench']> }) {
+  if (!bench.leftPlayers.length && !bench.rightPlayers.length) return null;
+  return <article className="matchday-insight matchday-side-bench">
+    <p className="eyebrow">Bench</p>
+    <div className={`matchday-bench-rosters${bench.rightName ? '' : ' single'}`}>
+      <BenchList name={bench.leftName} players={bench.leftPlayers} />
+      {bench.rightName && <BenchList name={bench.rightName} players={bench.rightPlayers} />}
+    </div>
+  </article>;
 }
 
 function BenchList({ name, players }: { name: string; players: { id: string; name: string; points: number | null }[] }) {
@@ -444,6 +455,15 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
     const noOut = { count: 0, low: null, high: null };
     const unscored = (rows: RosteredPlayer[]) => rows.map(row => toOddsStarter({ ...row, weekPoints: null }, match.week));
     const pastMarkers = windowMarkers([...leftStarters, ...rightStarters].map(player => ({ kickoff: games[player.proTeam]?.kickoff })));
+    const benchSide = (slug: LeagueSlug, teamId: string) => benchRoster(rosterForWeek(lineups[slug], players[slug], teamId, match.week) ?? [], teamId);
+    const pastBench = {
+      leftName: match.left.manager,
+      rightName: rightSide?.manager ?? '',
+      left: null,
+      right: null,
+      leftPlayers: benchSide(match.left.slug, match.left.teamId),
+      rightPlayers: rightSide ? benchSide(rightSide.slug, rightSide.teamId) : [],
+    };
     return <section className="matchday-match" id={`matchday-${match.id}`}>
       <header className="matchday-match-head"><p className="eyebrow">FINAL <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{rightSide ? ` vs ${rightSide.manager}` : ' · Bye'}</p>{history && <Link className="finals-note" to={history.href}>{history.text}</Link>}</header>
       <div className="matchday-layout">
@@ -451,7 +471,10 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
           <Scoreboard match={{ ...match, left: { ...match.left, projected: null }, right: rightSide && { ...rightSide, projected: null } }} chance={null} leftRank={leftTeam?.rank ?? null} rightRank={(rightSide ? teamFor(rightSide.slug, rightSide.teamId) : null)?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightSide ? teamFor(rightSide.slug, rightSide.teamId)?.logoUrl : null} leftOut={noOut} rightOut={noOut} />
           <ChanceChart final match={match} seriesLeft={liveSeries(match.left.slug, match.left.teamId)} seriesRight={rightSide ? liveSeries(rightSide.slug, rightSide.teamId) : null} leftStarters={unscored(leftStarters)} rightStarters={unscored(rightStarters)} games={games} now={now} markers={pastMarkers} />
         </div>
-        <PastBoardView left={pastBoard(leftStarters).done} right={pastBoard(rightStarters).done} showLeft={!narrow || filter !== 'right'} showRight={(!narrow || filter !== 'left') && !!rightSide} leftName={match.left.manager} rightName={rightSide?.manager ?? 'Bye'} leftScoring={scoring[match.left.slug] ?? []} rightScoring={rightSide ? scoring[rightSide.slug] ?? [] : []} />
+        <div className="matchday-side">
+          <PastBoardView left={pastBoard(leftStarters).done} right={pastBoard(rightStarters).done} showLeft={!narrow || filter !== 'right'} showRight={(!narrow || filter !== 'left') && !!rightSide} leftName={match.left.manager} rightName={rightSide?.manager ?? 'Bye'} leftScoring={scoring[match.left.slug] ?? []} rightScoring={rightSide ? scoring[rightSide.slug] ?? [] : []} />
+          {(pastBench.leftPlayers.length || pastBench.rightPlayers.length) ? <BenchRosters bench={pastBench} /> : null}
+        </div>
       </div>
     </section>;
   }
@@ -489,9 +512,12 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
       <div className="matchday-main">
         <Scoreboard match={match} chance={chance} leftRank={leftTeam?.rank ?? null} rightRank={rightTeam?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightTeam?.logoUrl} leftOut={pointsStillOut(leftBoard)} rightOut={pointsStillOut(rightBoard ?? { playing: [], above: [], below: [], yet: [], bye: [], done: [] })} />
         <ChanceChart match={match} seriesLeft={seriesLeft} seriesRight={seriesRight} leftStarters={leftStarters.map(player => toOddsStarter(player, match.week))} rightStarters={rightStarters.map(player => toOddsStarter(player, match.week))} games={games} now={now} markers={markers} />
-        <MatchInsights facts={facts} />
+        <MatchInsights facts={facts} rosters={false} />
       </div>
-      <Board left={leftBoard} right={rightBoard} showLeft={showLeft} showRight={showRight && !!match.right} leftName={match.left.manager} rightName={match.right?.manager ?? 'Bye'} leftScoring={scoring[match.left.slug] ?? []} rightScoring={match.right ? scoring[match.right.slug] ?? [] : []} />
+      <div className="matchday-side">
+        <Board left={leftBoard} right={rightBoard} showLeft={showLeft} showRight={showRight && !!match.right} leftName={match.left.manager} rightName={match.right?.manager ?? 'Bye'} leftScoring={scoring[match.left.slug] ?? []} rightScoring={match.right ? scoring[match.right.slug] ?? [] : []} />
+        {facts.bench && <BenchRosters bench={facts.bench} />}
+      </div>
     </div>
   </section>;
 }

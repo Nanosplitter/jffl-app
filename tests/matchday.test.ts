@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { historicalStarters } from '../src/lineups.ts';
-import { benchPoints, kickoffWindow, matchdayMatches, matchFacts, matchNotes, matchTotal, playerBoard, pointSpan, pointsStillOut, priorLegOffset } from '../src/matchday.ts';
+import { benchPoints, compareKickoffWindows, kickoffWindow, matchdayMatches, matchFacts, matchNotes, matchTotal, playerBoard, pointSpan, pointsStillOut, priorLegOffset } from '../src/matchday.ts';
 import type { LeagueSummary, RosteredPlayer } from '../src/types.ts';
 
 const player = (partial: Partial<RosteredPlayer> & Pick<RosteredPlayer, 'id' | 'name'>): RosteredPlayer => ({
@@ -23,6 +23,7 @@ test('kickoff windows follow the Eastern slate', () => {
   assert.equal(kickoffWindow('2026-10-19T00:20:00Z'), 'SNF');
   assert.equal(kickoffWindow('2026-10-20T00:15:00Z'), 'MNF');
   assert.equal(kickoffWindow(null), null);
+  assert.deepEqual(['MNF', 'SNF', 'SUN 4PM'].sort(compareKickoffWindows), ['SUN 4PM', 'SNF', 'MNF']);
 });
 
 test('a cup offset adds finished legs and a missing week score stays blank', () => {

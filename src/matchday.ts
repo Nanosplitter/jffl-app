@@ -10,6 +10,15 @@ import type { LeagueSlug, LiveGame, RosteredPlayer } from './types.ts';
 const PACE_GAP = 1;
 const WINDOW_ORDER = ['TNF', 'FRI', 'SAT', 'SUN 1PM', 'SUN 4PM', 'SNF', 'MNF', 'Time TBD'];
 
+/** Sunday night stays ahead of Monday night when the two sides list different windows. */
+export function compareKickoffWindows(a: string, b: string) {
+  const rank = (window: string) => {
+    const index = WINDOW_ORDER.indexOf(window);
+    return index === -1 ? WINDOW_ORDER.length : index;
+  };
+  return rank(a) - rank(b) || a.localeCompare(b);
+}
+
 export interface MatchdaySide {
   slug: LeagueSlug;
   teamId: string;
@@ -194,13 +203,7 @@ export function playerBoard(starters: readonly RosteredPlayer[], games: Record<s
     .filter(row => row.gap != null && Math.abs(row.gap) >= PACE_GAP && Math.sign(row.gap) === direction)
     .sort((a, b) => (b.gap! - a.gap!) * direction || a.player.name.localeCompare(b.player.name));
   const yetRows = rows.filter(row => row.status === 'yet');
-  const windows = [...new Set(yetRows.map(row => row.window))].sort((a, b) => {
-    const rank = (window: string) => {
-      const index = WINDOW_ORDER.indexOf(window);
-      return index === -1 ? WINDOW_ORDER.length : index;
-    };
-    return rank(a) - rank(b) || a.localeCompare(b);
-  });
+  const windows = [...new Set(yetRows.map(row => row.window))].sort(compareKickoffWindows);
   return {
     playing: rows.filter(row => row.status === 'playing'),
     above: byGap(1),
@@ -267,7 +270,7 @@ export function benchPoints(players: readonly RosteredPlayer[], teamId: string):
   return Math.round(scored.reduce((sum, player) => sum + (player.weekPoints ?? 0), 0) * 100) / 100;
 }
 
-function benchRoster(players: readonly RosteredPlayer[], teamId: string) {
+export function benchRoster(players: readonly RosteredPlayer[], teamId: string) {
   return players.filter(player => player.teamId === teamId && player.group === 'bench').map(player => ({
     id: player.id,
     name: player.name,
