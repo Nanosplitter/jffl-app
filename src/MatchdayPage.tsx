@@ -455,7 +455,7 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
     const noOut = { count: 0, low: null, high: null };
     const unscored = (rows: RosteredPlayer[]) => rows.map(row => toOddsStarter({ ...row, weekPoints: null }, match.week));
     const pastMarkers = windowMarkers([...leftStarters, ...rightStarters].map(player => ({ kickoff: games[player.proTeam]?.kickoff })));
-    const benchSide = (slug: LeagueSlug, teamId: string) => benchRoster(rosterForWeek(lineups[slug], players[slug], teamId, match.week) ?? [], teamId);
+    const benchSide = (slug: LeagueSlug, teamId: string) => benchRoster(rosterForWeek(lineups[slug], players[slug] ?? [], teamId, match.week) ?? [], teamId);
     const pastBench = {
       leftName: match.left.manager,
       rightName: rightSide?.manager ?? '',
