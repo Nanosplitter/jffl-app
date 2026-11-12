@@ -8,7 +8,7 @@ import { isFollowedName, isFollowedTeam } from './follow';
 import { LEAGUES, type LeagueSlug, type LeagueSummary, type LiveGame, type Matchup, type RosteredPlayer, type Team } from './types';
 import { kickoffLabel } from './kickoff';
 import { useRefreshNudge } from './nudge';
-import { Fresh, points, record, weeklyAverage } from './ui';
+import { Fresh, OutlookCell, PointsBack, points, record, weeklyAverage } from './ui';
 import { CupHubPage, CupMatchPage, CupPage, LeagueMatchPage, LeagueStandingsCard, SeasonPage, WeeklyPage, HistoryPage } from './CompetitionPages';
 const ArchivePage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.ArchivePage })));
 const RecordsPage = lazy(() => import('./HistoryExplorer').then(module => ({ default: module.RecordsPage })));
@@ -25,7 +25,7 @@ const MatchdayPage = lazy(() => import('./MatchdayPage').then(module => ({ defau
 import { leagueInk, managerFor } from './reference';
 import { RankMark, cupSeed } from './RankMark';
 import { cupMatchChance } from './cupOdds';
-import { buildCup, currentCupMatchesForTeam, type CupId, type SummaryMap } from './competitions';
+import { buildCup, currentCupMatchesForTeam, playoffOutlook, scoringGaps, seasonOutlook, type CupId, type SummaryMap } from './competitions';
 import { projectedWinChance } from './projections';
 import { scoringLabel } from './scoring';
 import { TeamIdentity } from './TeamIdentity';
@@ -52,9 +52,11 @@ function Waiting({ error = false }: { error?: boolean }) {
 
 function Standings({ data, compact = false }: { data: LeagueSummary; compact?: boolean }) {
   const followed = useFollowed();
-  return <div className="table-scroll" tabIndex={0} role="region" aria-label={`${data.leagueName} standings`}><table className={`standings ${compact ? 'compact' : ''}`}><caption className="sr-only">{data.leagueName} standings</caption><thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col">W–L</th><th scope="col">Points</th>{!compact && <th scope="col">P. Against</th>}</tr></thead><tbody>{data.teams.map(team => {
+  const scoring = scoringGaps(data, data.teams);
+  return <div className="table-scroll" tabIndex={0} role="region" aria-label={`${data.leagueName} standings`}><table className={`standings ${compact ? 'compact' : ''}`}><caption className="sr-only">{data.leagueName} standings</caption><thead><tr><th scope="col">#</th><th scope="col">Team</th><th scope="col">W–L</th>{!compact && <th className="outlook race-start" scope="col" title="Promotion, safety, and demotion with the games still left">Outlook</th>}{!compact && <th className="outlook" scope="col" title="Playoff spot with the games still left">Playoff</th>}<th scope="col">Points</th>{!compact && <th scope="col" title="Points back of the most-points leader">Pts back</th>}{!compact && <th scope="col">P. Against</th>}</tr></thead><tbody>{data.teams.map(team => {
     const on = isFollowedTeam(followed, data.slug, team.id);
-    return <tr key={team.id} className={on ? 'followed' : undefined}><td className={team.rank === 1 ? 'rank first' : 'rank'}>{team.rank ?? '—'}</td><td><Link to={teamLink(data.slug, team.id)}><TeamIdentity className={leagueInk(data.slug)} team={team} /><FollowedNote on={on} /></Link></td><td className="numeric">{record(team)}</td><td className="numeric">{points(team.pointsFor)}</td>{!compact && <td className="numeric muted">{points(team.pointsAgainst)}</td>}</tr>;
+    const gap = scoring.get(team.id);
+    return <tr key={team.id} className={on ? 'followed' : undefined}><td className={team.rank === 1 ? 'rank first' : 'rank'}>{team.rank ?? '—'}</td><td><Link to={teamLink(data.slug, team.id)}><TeamIdentity className={leagueInk(data.slug)} team={team} /><FollowedNote on={on} /></Link></td><td className="numeric">{record(team)}</td>{!compact && <OutlookCell outlook={seasonOutlook(data.slug, team, data.teams)} className="race-start" />}{!compact && <OutlookCell outlook={playoffOutlook(team, data.teams)} />}<td className="numeric">{points(team.pointsFor)}</td>{!compact && <PointsBack back={gap?.back ?? null} role={gap?.role ?? 'unknown'} />}{!compact && <td className="numeric muted">{points(team.pointsAgainst)}</td>}</tr>;
   })}</tbody></table></div>;
 }
 

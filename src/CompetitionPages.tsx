@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Navigate, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpRight, Trophy, Search, ArrowUpDown, ChevronLeft, ChevronRight, Copy } from 'lucide-react';
 import { FollowedNote, useFollowed } from './account';
 import { trackPage } from './analytics';
 import { useLive, useRosters, useSummaries } from './data';
@@ -11,10 +11,10 @@ import { RankMark, cupSeed } from './RankMark';
 import { ArchiveChart, useDarkMode } from './history/ArchiveChart';
 import { chartTheme, horizontalBars } from './history/archiveCharts';
 import { esc } from './history/chartKit';
-import { buildCup, matchupProjection, projectionUpset, provisionalZone, regularSeason, roundScoreAverage, type CupId, type CupMatch, type SummaryMap } from './competitions';
+import { buildCup, matchupProjection, playoffOutlook, projectionUpset, provisionalZone, regularSeason, roundScoreAverage, scoringGaps, seasonOutlook, type CupId, type CupMatch, type SummaryMap } from './competitions';
 import { byeWeek, pendingPlayLabel } from './byeWeeks';
 import { kickoffLabel } from './kickoff';
-import { Fresh, points, record, weeklyAverage } from './ui';
+import { Fresh, OutlookCell, PointsBack, points, record, weeklyAverage } from './ui';
 import { projectedWinChance } from './projections';
 import { cupLiveChance, liveMatchChance, toOddsStarter } from './liveOdds';
 import { cupMatchChance } from './cupOdds';
@@ -35,7 +35,15 @@ const matchUrl = (cupId: string, matchId: string) => `/cups/${cupId}/match/${mat
 
 const CUP_IDS: CupId[] = ['jffl', 'premier', 'championship', 'league-one'];
 const teamUrl = (slug: string, id: string) => `/league/${slug}/team/${id}`;
-const delta = (value: number | null) => value === null ? '—' : value > 0 ? `+${value}` : String(value);
+function WeekDelta({ value }: { value: number | null }) {
+  if (value == null) return <td className="numeric">—</td>;
+  if (value === 0) return <td className="numeric">0</td>;
+  const up = value > 0;
+  const places = Math.abs(value);
+  const phrase = `${up ? 'Up' : 'Down'} ${places} ${places === 1 ? 'place' : 'places'}`;
+  const Icon = up ? ArrowUp : ArrowDown;
+  return <td className={`numeric week-delta ${up ? 'up' : 'down'}`} title={phrase}><span className="week-move"><Icon size={14} strokeWidth={2.4} aria-hidden="true" /><span aria-hidden="true">{places}</span></span><span className="sr-only">{phrase}</span></td>;
+}
 
 function useCompetitionData() {
   const states = useSummaries();
@@ -347,7 +355,7 @@ export function CupMatchPage() {
         const participant = side.participant;
         const roster = participant ? rosters[participant.slug] : null;
         const current = participant ? data[participant.slug]?.week === week : false;
-        const historical = !current && participant && roster?.data ? historicalStarters(roster.data.weeklyLineups, participant.teamId, week) : null;
+        const historical = !current && participant && roster?.data ? historicalStarters(roster.data.weeklyLineups, participant.teamId, week, roster.data.players) : null;
         const players = current && roster?.data ? startersFor(roster.data.players, participant!.teamId) : historical ?? [];
         const message = !participant ? 'Opponent is not set yet.' : roster?.loading && !roster.data ? 'Loading starters…' : roster?.error && !roster.data ? 'Starter list is unavailable.' : !current && historical === null ? 'Starter scores for this week are not in the latest snapshot yet.' : players.length ? null : 'No starters in this snapshot.';
         return { title: sideTitle(side), mark: side.participant ? (cupId === 'jffl' ? side.participant.jfflSeed : side.participant.leagueSeed) : null, players, message, scoring: participant ? data[participant.slug]?.scoring : undefined };
@@ -417,7 +425,7 @@ export function LeagueMatchPage() {
       const players = startersFor(roster.data.players, teamId);
       return { title: manager, mark, players, message: players.length ? null : 'No starters in this snapshot.' };
     }
-    const historical = roster?.data ? historicalStarters(roster.data.weeklyLineups, teamId, week) : null;
+    const historical = roster?.data ? historicalStarters(roster.data.weeklyLineups, teamId, week, roster.data.players) : null;
     if (historical === null) return { title: manager, mark, players: [] as RosteredPlayer[], message: 'Starter scores for this week are not in the latest snapshot yet.' };
     return { title: manager, mark, players: historical, message: historical.length ? null : 'No starters in this snapshot.' };
   };
@@ -501,18 +509,18 @@ function pointShare(left: number | null, right: number | null) {
   return { left: share, right: 100 - share };
 }
 
-export function LeagueStandingsCard({ meta, teams, updated, error = false }: { meta: (typeof LEAGUES)[number]; teams: Team[]; updated?: LeagueSummary; error?: boolean }) {
+export function LeagueStandingsCard({ meta, teams, field, updated, race, error = false }: { meta: (typeof LEAGUES)[number]; teams: Team[]; field?: readonly Team[]; updated?: LeagueSummary; race?: LeagueSummary; error?: boolean }) {
   const followed = useFollowed();
-  return <section className={`surface season-league ${meta.slug}`}><div className="surface-heading"><h2 className={`league-label ${meta.slug}`}><Link to={`/league/${meta.slug}`}>{meta.name}</Link></h2>{updated && <Fresh data={updated} error={error} />}</div><div className="table-scroll" tabIndex={0} role="region" aria-label={`${meta.name} detailed standings`}><table className="commissioner-table"><thead><tr><th>#</th><th>Manager / team</th><th>Record</th><th>Points</th><th>Per week</th><th>P. Against</th><th>Week Δ</th><th>Start Δ</th><th>Draft Δ</th></tr></thead><tbody>{teams.map(team=>{
+  const source = field ?? teams;
+  const scoring = scoringGaps(race ?? updated, source);
+  return <section className={`surface season-league ${meta.slug}`}><div className="surface-heading"><h2 className={`league-label ${meta.slug}`}><Link to={`/league/${meta.slug}`}>{meta.name}</Link></h2>{updated && <Fresh data={updated} error={error} />}</div><div className="table-scroll" tabIndex={0} role="region" aria-label={`${meta.name} detailed standings`}><table className="commissioner-table"><thead><tr><th>#</th><th>Manager / team</th><th>Record</th><th className="outlook race-start" title="Promotion, safety, and demotion with the games still left">Outlook</th><th className="outlook" title="Playoff spot with the games still left">Playoff</th><th>Points</th><th title="Points back of the most-points leader">Pts back</th><th>Per week</th><th>P. Against</th><th title="Places moved since the previous completed week">Week Δ</th></tr></thead><tbody>{teams.map(team=>{
     const profile=managerFor(meta.slug,team.id);
     const on = isFollowedTeam(followed, meta.slug, team.id);
     const rank=team.rank;
     const weekChange=team.previousRank&&rank?team.previousRank-rank:null;
-    const startChange=profile&&rank?profile.leagueSeed-rank:null;
-    const draftChange=(team.draftRank??profile?.draftRank)&&rank?(team.draftRank??profile!.draftRank)-rank:null;
     const zone=provisionalZone(meta.slug,rank);
     const zoneClass=zone.includes('Relegation')?'danger':zone.includes('promotion')?'promotion':'';
-    return <tr key={team.id} className={on ? 'followed' : undefined}><td className="rank"><span className="rank-with-zone"><span>{rank??'—'}</span><span className={`zone-dot ${zoneClass}`} title={zone} role="img" aria-label={zone} /></span></td><td><div className="manager-cell"><Link className={`manager-link ${leagueInk(meta.slug)} ${on ? 'followed-name' : ''}`} to={teamUrl(meta.slug,team.id)}>{profile?.manager??team.name}<FollowedNote on={on} /></Link><span className="muted team-subline"><TeamIdentity team={team}/></span></div></td><td className="numeric">{record(team)}</td><td className="numeric emphasis">{points(team.pointsFor)}</td><td className="numeric">{points(weeklyAverage(team))}</td><td className="numeric muted">{points(team.pointsAgainst)}</td>{[weekChange,startChange,draftChange].map((change,index)=><td key={index} className={`numeric rank-change ${change!==null&&change>0?'up':change!==null&&change<0?'down':''}`}>{delta(change)}</td>)}</tr>;
+    return <tr key={team.id} className={on ? 'followed' : undefined}><td className="rank"><span className="rank-with-zone"><span>{rank??'—'}</span><span className={`zone-dot ${zoneClass}`} title={zone} role="img" aria-label={zone} /></span></td><td><div className="manager-cell"><Link className={`manager-link ${leagueInk(meta.slug)} ${on ? 'followed-name' : ''}`} to={teamUrl(meta.slug,team.id)}>{profile?.manager??team.name}<FollowedNote on={on} /></Link><span className="muted team-subline"><TeamIdentity team={team}/></span></div></td><td className="numeric">{record(team)}</td><OutlookCell outlook={seasonOutlook(meta.slug, team, source)} className="race-start" /><OutlookCell outlook={playoffOutlook(team, source)} /><td className="numeric emphasis">{points(team.pointsFor)}</td><PointsBack back={scoring.get(team.id)?.back ?? null} role={scoring.get(team.id)?.role ?? 'unknown'} /><td className="numeric">{points(weeklyAverage(team))}</td><td className="numeric muted">{points(team.pointsAgainst)}</td><WeekDelta value={weekChange} /></tr>;
   })}</tbody></table></div>{!teams.length&&<p className="empty-inline">No teams match your search.</p>}</section>;
 }
 
@@ -531,9 +539,9 @@ export function SeasonPage() {
       const summary=data[meta.slug];
       if(!summary) return <section className="surface waiting" key={meta.slug}>{meta.name} data is loading or unavailable.</section>;
       const teams=summary.teams.filter(team=>`${managerFor(meta.slug,team.id)?.manager} ${team.name}`.toLowerCase().includes(search.toLowerCase())).sort((a,b)=>sort==='points'?(b.pointsFor??-Infinity)-(a.pointsFor??-Infinity):sort==='manager'?(managerFor(meta.slug,a.id)?.manager??a.name).localeCompare(managerFor(meta.slug,b.id)?.manager??b.name):(a.rank??99)-(b.rank??99));
-      return <LeagueStandingsCard key={meta.slug} meta={meta} teams={teams} />;
+      return <LeagueStandingsCard key={meta.slug} meta={meta} teams={teams} field={summary.teams} race={summary} />;
     })}
-    <details className="explainer"><summary>Rank movement, promotion & relegation</summary><p>Week Δ compares the latest completed standings with the previous completed week. Start Δ compares today’s rank with the preseason order. Draft Δ compares it with the draft-day rank. Positive numbers mean a climb.</p><p>Promotion and relegation bands are provisional: Premier’s top six are in the safety zone; Championship and League One’s top four occupy promotion bands; Premier and Championship’s bottom four occupy relegation bands. Trophy-based automatic promotions and saved relegations can change the final allocation.</p></details>
+    <details className="explainer"><summary>Rank movement, promotion & relegation</summary><p>Week Δ compares the latest completed standings with the previous completed week. An up arrow is a climb.</p><p>Promotion and relegation bands are provisional: Premier’s top six are in the safety zone; Championship and League One’s top four occupy promotion bands; Premier and Championship’s bottom four occupy relegation bands. Trophy-based automatic promotions and saved relegations can change the final allocation.</p><p>Outlook is the promotion and demotion picture with the games still left in the 14-week season. Clinched means the other side cannot catch the record. Likely up means the team outside the promotion spots would have to win out, and this team lose most of what is left, to catch them. Inside is a thinner lead on the right side of the line. Chasing is still alive for the last promotion place, and close. Long shot is alive, but most of the remaining games would have to swing. Safe means the drop is at least two games off, and Demoted means safety cannot be caught. In danger and Drop likely are the teams already in the bottom four, or level with them. Premier has no promotion race, and League One has no demotion race. Playoff reads the top eight the same way: Clinched, Likely in, Inside, Chasing, Long shot, and Out.</p><p>Pts back is how many finished regular-season points behind the most-points leader. The leader is 0. A live week is included once it is final, and playoff weeks are left out.</p></details>
   </>;
 }
 

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { buildCup, currentCupMatchesForTeam, matchupProjection, projectionUpset, roundScoreAverage, scoreFor, type CupRound, type SummaryMap } from '../src/competitions.ts';
+import { buildCup, currentCupMatchesForTeam, DEMOTION_RANK, demotionCutoff, gamesAhead, gamesApartLabel, matchupProjection, PLAYOFF_RANK, pointsBackLabel, pointsLeaderGap, projectionUpset, PROMOTION_RANK, promotionCutoff, provisionalZone, regularSeason, roundScoreAverage, scoreFor, scoringGaps, playoffOutlook, seasonOutlook, type CupRound, type SummaryMap } from '../src/competitions.ts';
 import { MANAGERS, managerFor } from '../src/reference.ts';
 
 // Fixed public Week 3 scores keep this suite independent of ESPN and live updates.
@@ -198,4 +198,103 @@ test('a round average is the mean of playing totals and leaves byes out',()=>{
   assert.ok(cup.rounds[0].matches.some(match => match.status === 'bye' && match.a.total !== null));
   assert.equal(roundScoreAverage(cup.rounds[0]), playing.reduce((sum, total) => sum + total, 0) / playing.length);
   assert.equal(roundScoreAverage(cup.rounds[1]), null);
+});
+
+test('games ahead of a line uses the win and loss gap, and a one-sided tie is a half game', () => {
+  const line = { wins: 5, losses: 4 };
+  assert.equal(gamesAhead({ wins: 8, losses: 1 }, line), 3);
+  assert.equal(gamesAhead(line, line), 0);
+  assert.equal(gamesAhead({ wins: 4, losses: 5 }, line), -1);
+  assert.equal(gamesAhead({ wins: 5, losses: 3 }, line), 0.5);
+  assert.equal(gamesAhead({ wins: null, losses: 1 }, line), null);
+  assert.equal(gamesAhead({ wins: 5, losses: 4 }, null), null);
+  assert.deepEqual(gamesApartLabel(3, 'promotion line'), { text: '3 ahead', phrase: '3 games ahead of the promotion line', tone: 'up' });
+  assert.deepEqual(gamesApartLabel(-1, 'demotion line'), { text: '1 back', phrase: '1 game back of the demotion line', tone: 'down' });
+  assert.deepEqual(gamesApartLabel(-1.5, 'playoff line'), { text: '1.5 back', phrase: '1.5 games back of the playoff line', tone: 'down' });
+  assert.deepEqual(gamesApartLabel(0, 'demotion line', true), { text: 'even', phrase: 'On the demotion line', tone: '' });
+  assert.deepEqual(gamesApartLabel(0, 'promotion line'), { text: 'even', phrase: 'Even with the promotion line', tone: '' });
+  assert.equal(gamesApartLabel(null, 'playoff line').text, '—');
+});
+
+test('points back is the gap to the most-points leader, and a tie shares the lead', () => {
+  const gaps = pointsLeaderGap([
+    { id: 'a', points: 100.26, counted: true },
+    { id: 'b', points: 90, counted: true },
+    { id: 'c', points: 100.26, counted: true },
+    { id: 'd', points: 10, counted: false },
+    { id: 'e', points: null, counted: true },
+  ]);
+  assert.equal(gaps.get('a')?.back, 0);
+  assert.equal(gaps.get('a')?.role, 'tied');
+  assert.equal(gaps.get('c')?.role, 'tied');
+  assert.equal(gaps.get('b')?.back, 10.26);
+  assert.equal(gaps.get('b')?.role, 'behind');
+  assert.equal(gaps.get('d')?.role, 'unknown');
+  assert.equal(gaps.get('e')?.back, null);
+  assert.deepEqual(pointsBackLabel(0, 'leader'), { text: '0', phrase: 'Scoring leader' });
+  assert.deepEqual(pointsBackLabel(10.26, 'behind'), { text: '-10.26', phrase: '10.26 points back of the scoring leader' });
+  assert.equal(pointsBackLabel(null, 'unknown').text, '—');
+
+  const premier = fixture().premier!;
+  const rows = regularSeason(premier).filter(row => row.games > 0);
+  const leader = rows.reduce((best, row) => row.points > best.points ? row : best);
+  const race = scoringGaps(premier, premier.teams);
+  assert.equal(race.get(leader.teamId)?.back, 0);
+  for (const row of rows) assert.equal(race.get(row.teamId)?.back, Math.round((Math.round(leader.points * 100) - Math.round(row.points * 100))) / 100);
+});
+
+const side = (id: string, rank: number, wins: number, losses: number, ties = 0) => ({ id, rank, wins, losses, ties });
+
+test('the outlook says how live the promotion and demotion races are', () => {
+  const champ = [
+    side('1', 1, 7, 2), side('2', 2, 5, 3, 1), side('3', 3, 5, 4), side('4', 4, 5, 4),
+    side('5', 5, 4, 5), side('6', 6, 4, 5), side('7', 7, 4, 5), side('8', 8, 4, 5),
+    side('9', 9, 3, 5, 1), side('10', 10, 3, 6),
+  ];
+  assert.deepEqual(seasonOutlook('championship', champ[0], champ), { label: 'Likely up', detail: '3 games clear', tone: 'up' });
+  assert.deepEqual(seasonOutlook('championship', champ[1], champ), { label: 'Inside', detail: '1.5 games clear', tone: 'hold' });
+  assert.deepEqual(seasonOutlook('championship', champ[3], champ), { label: 'Inside', detail: '1 game clear', tone: 'hold' });
+  assert.deepEqual(seasonOutlook('championship', champ[4], champ), { label: 'Chasing', detail: '1 game back · level with the drop', tone: 'warn' });
+  assert.deepEqual(seasonOutlook('championship', champ[6], champ), { label: 'In danger', detail: 'On the drop line', tone: 'danger' });
+  assert.deepEqual(seasonOutlook('championship', champ[9], champ), { label: 'In danger', detail: '1 game from safety', tone: 'danger' });
+
+  const buried = [side('6', 6, 5, 4), side('7', 7, 4, 5), side('10', 10, 1, 8)];
+  assert.equal(seasonOutlook('premier', buried[2], buried).label, 'Drop likely');
+  const gone = [side('6', 6, 7, 1), side('7', 7, 4, 4), side('10', 10, 0, 8)];
+  assert.deepEqual(seasonOutlook('premier', gone[2], gone), { label: 'Demoted', detail: 'Cannot catch safety', tone: 'bad' });
+  const clear = [side('1', 1, 8, 0), side('6', 6, 4, 4), side('7', 7, 1, 7)];
+  assert.deepEqual(seasonOutlook('premier', clear[0], clear), { label: 'Safe', detail: 'Clear of the drop', tone: 'good' });
+
+  const locked = [side('1', 1, 8, 0), side('4', 4, 6, 2), side('5', 5, 1, 7)];
+  assert.deepEqual(seasonOutlook('league-one', locked[0], locked), { label: 'Clinched', detail: 'Cannot fall out', tone: 'good' });
+  const shot = [side('4', 4, 5, 4), side('10', 10, 1, 8)];
+  assert.deepEqual(seasonOutlook('league-one', shot[1], shot), { label: 'Long shot', detail: '4 games back', tone: 'long' });
+  assert.equal(seasonOutlook('championship', { id: 'x', rank: null, wins: 1, losses: 0, ties: 0 }, champ).label, '—');
+  assert.deepEqual(playoffOutlook(champ[0], champ), { label: 'Likely in', detail: '3.5 games clear', tone: 'up' });
+  assert.deepEqual(playoffOutlook(champ[7], champ), { label: 'Inside', detail: '0.5 games clear', tone: 'hold' });
+  assert.deepEqual(playoffOutlook(champ[8], champ), { label: 'Chasing', detail: '0.5 games back', tone: 'warn' });
+  assert.deepEqual(playoffOutlook(champ[9], champ), { label: 'Chasing', detail: '1 game back', tone: 'warn' });
+  const field = [side('1', 1, 8, 0), side('8', 8, 6, 2), side('9', 9, 0, 8)];
+  assert.deepEqual(playoffOutlook(field[0], field), { label: 'Clinched', detail: 'Cannot fall out', tone: 'good' });
+  const missing = [side('8', 8, 7, 1), side('10', 10, 0, 8)];
+  assert.deepEqual(playoffOutlook(missing[1], missing), { label: 'Out', detail: 'Out of the playoffs', tone: 'bad' });
+});
+
+test('promotion is fourth and the playoff is eighth, matching the provisional bands', () => {
+  assert.equal(PROMOTION_RANK, 4);
+  assert.equal(DEMOTION_RANK, 7);
+  assert.equal(PLAYOFF_RANK, 8);
+  assert.equal(promotionCutoff('premier'), null);
+  assert.equal(promotionCutoff('league-one'), PROMOTION_RANK);
+  assert.equal(demotionCutoff('league-one'), null);
+  assert.equal(demotionCutoff('premier'), DEMOTION_RANK);
+  assert.equal(demotionCutoff('championship'), DEMOTION_RANK);
+  assert.equal(provisionalZone('league-one', PROMOTION_RANK).includes('promotion'), true);
+  assert.equal(provisionalZone('league-one', PROMOTION_RANK + 1).includes('promotion'), false);
+  assert.equal(provisionalZone('league-one', DEMOTION_RANK), 'League One');
+  assert.equal(provisionalZone('championship', PROMOTION_RANK).includes('promotion'), true);
+  assert.equal(provisionalZone('championship', PROMOTION_RANK + 1), 'Championship safety zone');
+  assert.equal(provisionalZone('championship', DEMOTION_RANK), 'Relegation zone');
+  assert.equal(provisionalZone('premier', DEMOTION_RANK - 1), 'Premier safety zone');
+  assert.equal(provisionalZone('premier', DEMOTION_RANK), 'Relegation zone');
 });

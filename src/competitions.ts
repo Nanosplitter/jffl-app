@@ -124,7 +124,207 @@ export function regularSeason(data: LeagueSummary) {
   return [...totals.values()];
 }
 
-export const provisionalZone=(slug:LeagueSlug,rank:number|null)=>rank===null?'Unranked':slug==='premier'?rank<=6?'Premier safety zone':'Relegation zone':slug==='championship'?rank<=4?'Premier promotion zone':rank>=7?'Relegation zone':'Championship safety zone':rank<=4?'Championship promotion zone':'League One';
+/** Last rank still inside Championship and League One's promotion band. Premier has no promotion line. */
+export const PROMOTION_RANK = 4;
+/** First rank inside Premier and Championship's relegation band. League One has no demotion line. */
+export const DEMOTION_RANK = 7;
+/** Last rank in each league's top-8 Superbowl bracket. */
+export const PLAYOFF_RANK = 8;
+
+export const promotionCutoff = (slug: LeagueSlug) => slug === 'premier' ? null : PROMOTION_RANK;
+export const demotionCutoff = (slug: LeagueSlug) => slug === 'league-one' ? null : DEMOTION_RANK;
+
+export const provisionalZone=(slug:LeagueSlug,rank:number|null)=>rank===null?'Unranked':slug==='premier'?rank<DEMOTION_RANK?'Premier safety zone':'Relegation zone':slug==='championship'?rank<=PROMOTION_RANK?'Premier promotion zone':rank>=DEMOTION_RANK?'Relegation zone':'Championship safety zone':rank<=PROMOTION_RANK?'Championship promotion zone':'League One';
+
+export interface RecordLine { wins: number | null; losses: number | null }
+
+/**
+ * Games ahead of a line team's record. Positive is ahead, negative is back,
+ * and zero means the wins and losses are level. A tie that changes only one
+ * side leaves a half game.
+ */
+export function gamesAhead(team: RecordLine, line: RecordLine | null): number | null {
+  if (!line || team.wins == null || team.losses == null || line.wins == null || line.losses == null) return null;
+  return ((team.wins - line.wins) + (line.losses - team.losses)) / 2;
+}
+
+export function lineTeam<T extends { rank: number | null }>(teams: readonly T[], rank: number): T | null {
+  return teams.find(team => team.rank === rank) ?? null;
+}
+
+export type ScoringRole = 'leader' | 'tied' | 'behind' | 'unknown';
+
+/** Points behind the most-points leader. The leader, and anyone tied with them, are 0. */
+export function pointsLeaderGap(entries: readonly { id: string; points: number | null; counted: boolean }[]) {
+  const result = new Map<string, { back: number | null; role: ScoringRole }>();
+  const racing = entries.filter((entry): entry is { id: string; points: number; counted: boolean } => entry.counted && entry.points != null && Number.isFinite(entry.points));
+  const cents = (value: number) => Math.round(value * 100);
+  const best = racing.length ? Math.max(...racing.map(entry => cents(entry.points))) : null;
+  const leaders = best == null ? 0 : racing.filter(entry => cents(entry.points) === best).length;
+  for (const entry of entries) {
+    if (best == null || entry.points == null || !entry.counted || !Number.isFinite(entry.points)) {
+      result.set(entry.id, { back: null, role: 'unknown' });
+      continue;
+    }
+    const back = (best - cents(entry.points)) / 100;
+    const role: ScoringRole = back === 0 ? (leaders > 1 ? 'tied' : 'leader') : 'behind';
+    result.set(entry.id, { back, role });
+  }
+  return result;
+}
+
+/** The scoring title: finished regular-season points, through week 14. Falls back to the standings total when those weeks are unavailable. */
+export function scoringGaps(summary: LeagueSummary | undefined, teams: readonly { id: string; pointsFor: number | null }[]) {
+  if (summary?.weeklyMatchups) return pointsLeaderGap(regularSeason(summary).map(row => ({ id: row.teamId, points: row.points, counted: row.games > 0 })));
+  return pointsLeaderGap(teams.map(team => ({ id: team.id, points: team.pointsFor, counted: team.pointsFor != null })));
+}
+
+export function pointsBackLabel(back: number | null, role: ScoringRole): { text: string; phrase: string } {
+  if (back == null || role === 'unknown') return { text: '—', phrase: '' };
+  if (role === 'leader') return { text: '0', phrase: 'Scoring leader' };
+  if (role === 'tied') return { text: '0', phrase: 'Tied for the scoring lead' };
+  const body = back.toLocaleString('en-US', { maximumFractionDigits: 2 });
+  return { text: `-${body}`, phrase: `${body} points back of the scoring leader` };
+}
+
+const SEASON_GAMES = 14;
+
+export type OutlookTone = 'good' | 'up' | 'hold' | 'warn' | 'long' | 'danger' | 'bad' | 'steady' | 'muted';
+export interface SeasonOutlook { label: string; detail: string; tone: OutlookTone }
+type OutlookTeam = { id: string; rank: number | null; wins: number | null; losses: number | null; ties?: number | null };
+
+function gamesLeft(team: OutlookTeam): number | null {
+  if (team.wins == null || team.losses == null) return null;
+  return Math.max(0, SEASON_GAMES - (team.wins + team.losses + (team.ties ?? 0)));
+}
+
+/** How many games the trailer can close if one side loses out and the other wins out. */
+function maxSwing(team: OutlookTeam, rival: OutlookTeam): number | null {
+  const left = gamesLeft(team);
+  const right = gamesLeft(rival);
+  if (left == null || right == null) return null;
+  return (left + right) / 2;
+}
+
+function gamesPhrase(gap: number, tail: 'clear' | 'back' | 'from safety'): string {
+  const abs = Math.abs(gap);
+  const body = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
+  const unit = abs === 1 ? 'game' : 'games';
+  if (tail === 'clear') return `${body} ${unit} clear`;
+  if (tail === 'back') return `${body} ${unit} back`;
+  return `${body} ${unit} from safety`;
+}
+
+type SpotRead = { state: 'clinched' | 'likely' | 'holding' | 'reach' | 'long' | 'out' | 'none'; detail: string };
+
+/** Where a team stands against the last place inside a cutoff, with the games still left. */
+function spotRace(team: OutlookTeam, teams: readonly OutlookTeam[], cutoff: number, outDetail: string, levelDetail: string): SpotRead {
+  const at = (rank: number) => teams.find(item => item.rank === rank) ?? null;
+  const line = at(cutoff);
+  const firstOut = at(cutoff + 1);
+  if (!line || team.rank == null) return { state: 'none', detail: '' };
+  if (team.rank <= cutoff && firstOut) {
+    const cushion = gamesAhead(team, firstOut);
+    const swing = maxSwing(team, firstOut);
+    if (cushion == null || swing == null) return { state: 'holding', detail: '' };
+    if (cushion > swing) return { state: 'clinched', detail: 'Cannot fall out' };
+    if (cushion >= swing / 2 && cushion >= 1) return { state: 'likely', detail: gamesPhrase(cushion, 'clear') };
+    return { state: 'holding', detail: cushion > 0 ? gamesPhrase(cushion, 'clear') : cushion === 0 ? 'Level with the team below' : gamesPhrase(cushion, 'back') };
+  }
+  if (team.rank > cutoff) {
+    const ahead = gamesAhead(team, line);
+    const swing = maxSwing(team, line);
+    if (ahead == null || swing == null) return { state: 'none', detail: '' };
+    const back = -ahead;
+    if (back > swing) return { state: 'out', detail: outDetail };
+    if (back <= Math.max(1.5, swing * 0.35)) return { state: 'reach', detail: back === 0 ? levelDetail : gamesPhrase(back, 'back') };
+    return { state: 'long', detail: gamesPhrase(back, 'back') };
+  }
+  return { state: 'none', detail: '' };
+}
+
+/**
+ * One reading of the promotion and demotion races. The words follow the
+ * games still left: a lead that the other side cannot close is clinched,
+ * and a gap they cannot close is settled.
+ */
+export function seasonOutlook(slug: LeagueSlug, team: OutlookTeam, teams: readonly OutlookTeam[]): SeasonOutlook {
+  const blank: SeasonOutlook = { label: '—', detail: '', tone: 'muted' };
+  if (team.rank == null || team.wins == null || team.losses == null) return blank;
+  const at = (rank: number) => teams.find(item => item.rank === rank) ?? null;
+  const promoCut = promotionCutoff(slug);
+  const dropCut = demotionCutoff(slug);
+  const dropLine = dropCut == null ? null : at(dropCut);
+  const lastSafe = dropCut == null ? null : at(dropCut - 1);
+
+  const promo: SpotRead = promoCut == null ? { state: 'none', detail: '' } : spotRace(team, teams, promoCut, 'Out of promotion', 'Level with promotion');
+
+  type Drop = { state: 'clinched' | 'safe' | 'close' | 'danger' | 'likely' | 'down' | 'none'; detail: string };
+  let drop: Drop = { state: 'none', detail: '' };
+  if (dropLine && lastSafe) {
+    const aheadOfDrop = gamesAhead(team, dropLine);
+    const aheadOfSafe = gamesAhead(team, lastSafe);
+    const swingDrop = maxSwing(team, dropLine);
+    const swingSafe = maxSwing(team, lastSafe);
+    const inZone = team.rank >= dropCut!;
+    const backOfSafe = aheadOfSafe == null ? null : -aheadOfSafe;
+    if (backOfSafe != null && swingSafe != null && backOfSafe > swingSafe) drop = { state: 'down', detail: 'Cannot catch safety' };
+    else if (!inZone && aheadOfDrop != null && swingDrop != null && aheadOfDrop > swingDrop) drop = { state: 'clinched', detail: 'Clear of the drop' };
+    else if (inZone) {
+      if (backOfSafe != null && swingSafe != null && backOfSafe >= Math.max(2, swingSafe / 2)) drop = { state: 'likely', detail: gamesPhrase(backOfSafe, 'from safety') };
+      else if (aheadOfDrop === 0) drop = { state: 'danger', detail: 'On the drop line' };
+      else if (aheadOfDrop != null && aheadOfDrop < 0) drop = { state: 'danger', detail: gamesPhrase(-aheadOfDrop, 'from safety') };
+      else drop = { state: 'danger', detail: 'In the drop' };
+    } else if (aheadOfDrop != null && aheadOfDrop <= 1 && (promoCut == null || team.rank > promoCut)) drop = { state: 'close', detail: aheadOfDrop === 0 ? 'Level with the drop' : gamesPhrase(aheadOfDrop, 'clear') };
+    else if (aheadOfDrop != null) drop = { state: 'safe', detail: gamesPhrase(aheadOfDrop, 'clear') };
+  }
+
+  const noteDrop = (reading: SeasonOutlook): SeasonOutlook => {
+    if (drop.state !== 'close') return reading;
+    const extra = drop.detail;
+    if (!extra) return reading;
+    const joined = extra.charAt(0).toLowerCase() + extra.slice(1);
+    return { ...reading, detail: reading.detail ? `${reading.detail} · ${joined}` : extra, tone: reading.tone === 'up' ? 'warn' : reading.tone };
+  };
+
+  if (drop.state === 'down') return { label: 'Demoted', detail: drop.detail, tone: 'bad' };
+  if (drop.state === 'likely') return { label: 'Drop likely', detail: drop.detail, tone: 'bad' };
+  if (drop.state === 'danger') return { label: 'In danger', detail: drop.detail, tone: 'danger' };
+  if (promo.state === 'clinched') return noteDrop({ label: 'Clinched', detail: promo.detail, tone: 'good' });
+  if (promo.state === 'likely') return noteDrop({ label: 'Likely up', detail: promo.detail, tone: 'up' });
+  if (promo.state === 'holding') return noteDrop({ label: 'Inside', detail: promo.detail, tone: 'hold' });
+  if (promo.state === 'reach') return noteDrop({ label: 'Chasing', detail: promo.detail, tone: 'warn' });
+  if (drop.state === 'close') return { label: 'Drop close', detail: promo.state === 'long' && promo.detail ? `${promo.detail} of promotion` : drop.detail, tone: 'warn' };
+  if (promo.state === 'long') return { label: 'Long shot', detail: drop.state === 'safe' || drop.state === 'clinched' ? `${promo.detail} · safe from the drop` : promo.detail, tone: 'long' };
+  if (promo.state === 'out' && drop.state === 'none') return { label: 'Staying', detail: promo.detail, tone: 'long' };
+  if (drop.state === 'clinched') return { label: 'Safe', detail: promo.state === 'out' ? 'Out of promotion' : drop.detail, tone: 'good' };
+  if (drop.state === 'safe') return { label: 'Safe', detail: promo.state === 'out' ? 'Out of promotion' : drop.detail, tone: 'up' };
+  if (promo.state === 'out') return { label: 'Safe', detail: promo.detail, tone: 'up' };
+  return { label: 'Safe', detail: '', tone: 'up' };
+}
+
+/** The top-8 Superbowl race, in the same words as the promotion outlook. */
+export function playoffOutlook(team: OutlookTeam, teams: readonly OutlookTeam[]): SeasonOutlook {
+  if (team.rank == null || team.wins == null || team.losses == null) return { label: '—', detail: '', tone: 'muted' };
+  const race = spotRace(team, teams, PLAYOFF_RANK, 'Out of the playoffs', 'Level with the cut');
+  if (race.state === 'clinched') return { label: 'Clinched', detail: race.detail, tone: 'good' };
+  if (race.state === 'likely') return { label: 'Likely in', detail: race.detail, tone: 'up' };
+  if (race.state === 'holding') return { label: 'Inside', detail: race.detail, tone: 'hold' };
+  if (race.state === 'reach') return { label: 'Chasing', detail: race.detail, tone: 'warn' };
+  if (race.state === 'long') return { label: 'Long shot', detail: race.detail, tone: 'long' };
+  if (race.state === 'out') return { label: 'Out', detail: race.detail, tone: 'bad' };
+  return { label: '—', detail: '', tone: 'muted' };
+}
+
+export function gamesApartLabel(ahead: number | null, lineName: string, onLine = false): { text: string; phrase: string; tone: 'up' | 'down' | '' } {
+  if (ahead == null) return { text: '—', phrase: '', tone: '' };
+  const abs = Math.abs(ahead);
+  const body = Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
+  if (ahead === 0) return { text: 'even', phrase: onLine ? `On the ${lineName}` : `Even with the ${lineName}`, tone: '' };
+  const games = abs === 1 ? 'game' : 'games';
+  if (ahead > 0) return { text: `${body} ahead`, phrase: `${body} ${games} ahead of the ${lineName}`, tone: 'up' };
+  return { text: `${body} back`, phrase: `${body} ${games} back of the ${lineName}`, tone: 'down' };
+}
 
 const PROJECTION_MISS = 15;
 
