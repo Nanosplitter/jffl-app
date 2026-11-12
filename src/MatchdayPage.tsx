@@ -448,7 +448,7 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
   const played = useFinishedSeriesGames();
   const history = match.right ? finalsNote(match.left.manager, match.right.manager, 'latest', played) : null;
   if (lineups) {
-    const startersFor = (slug: LeagueSlug, teamId: string) => (historicalStarters(lineups[slug], teamId, match.week) ?? []).map(player => withWeekRecord(player, players[slug], match.week));
+    const startersFor = (slug: LeagueSlug, teamId: string) => (historicalStarters(lineups[slug], teamId, match.week, players[slug]) ?? []).map(player => withWeekRecord(player, players[slug], match.week));
     const rightSide = match.right;
     const leftStarters = startersFor(match.left.slug, match.left.teamId);
     const rightStarters = rightSide ? startersFor(rightSide.slug, rightSide.teamId) : [];

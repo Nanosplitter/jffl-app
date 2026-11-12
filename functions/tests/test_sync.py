@@ -216,6 +216,33 @@ def test_week_lineups_keep_starters_and_leave_missing_points_blank():
     assert rows[0]["players"][1]["id"] == "-16016"
     assert rows[0]["players"][1]["points"] is None
     assert rows[0]["players"][2]["points"] == 0
+    assert [player["position"] for player in rows[0]["players"]] == ["QB", "D/ST", "K"]
+
+
+def test_week_lineups_use_the_player_position_not_the_flex_slot():
+    """defaultPositionId is not a lineup slot. Slot 3 is RB/WR, but position 3 is WR."""
+    def entry(slot, player_id, name, position_id, slots, team):
+        return {"lineupSlotId": slot, "playerPoolEntry": {"player": {
+            "id": player_id, "fullName": name, "defaultPositionId": position_id,
+            "eligibleSlots": slots, "proTeamId": team, "stats": [],
+        }}}
+
+    schedule = [{"home": {"teamId": 7, "rosterForCurrentScoringPeriod": {"entries": [
+        entry(0, 1, "Drake Maye", 1, [0, 20, 21], 17),
+        entry(3, 4701936, "Matthew Golden", 3, [3, 4, 23, 7, 20, 21], 9),
+        entry(5, 4242557, "Isaiah Likely", 4, [5, 6, 23, 7, 20, 21], 19),
+        entry(17, 4429013, "Will Reichard", 5, [17, 20, 21], 16),
+        entry(16, -16016, "Vikings D/ST", 16, [16, 20, 21], 16),
+        entry(4, 9, "Slots Missing", 3, None, 9),
+    ]}}, "away": {}}]
+    rows = week_lineups(schedule, 9)
+    found = {player["name"]: (player["position"], player["slot"]) for player in rows[0]["players"]}
+    assert found["Drake Maye"] == ("QB", "QB")
+    assert found["Matthew Golden"] == ("WR", "RB/WR")
+    assert found["Isaiah Likely"] == ("TE", "WR/TE")
+    assert found["Will Reichard"] == ("K", "K")
+    assert found["Vikings D/ST"] == ("D/ST", "D/ST")
+    assert found["Slots Missing"] == ("WR", "WR")
 
 
 def test_past_week_fetch_does_not_replace_the_season_schedule():

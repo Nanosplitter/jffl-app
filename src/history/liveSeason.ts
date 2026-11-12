@@ -1,5 +1,5 @@
 import { buildCup, matchupProjection, provisionalZone, type CupId, type SummaryMap } from '../competitions.ts';
-import { lineupWouldWin, rosterForWeek } from '../lineups.ts';
+import { lineupWouldWin, rosterForWeek, rosterPosition } from '../lineups.ts';
 import { injuryName } from '../injury.ts';
 import { projectedWinChance } from '../projections.ts';
 import { managerFor, type ManagerReference } from '../reference.ts';
@@ -229,7 +229,7 @@ function playerWeeks(slug: LeagueSlug, summary: LeagueSummary, roster: LeagueRos
     if (!shared) continue;
     for (const player of lineup.players) {
       const facts = lineup.week === roster.week ? rosterFacts(onRoster(lineup.teamId, player.id)) : blankPlayer;
-      add({ ...shared, ...facts, player: player.name, position: player.position, proTeam: player.proTeam, slot: player.slot, starter: isBench(player.slot) ? 0 : 1, points: player.points ?? null },
+      add({ ...shared, ...facts, player: player.name, position: rosterPosition(player.id, player.position, roster.players), proTeam: player.proTeam, slot: player.slot, starter: isBench(player.slot) ? 0 : 1, points: player.points ?? null },
         `${lineup.week}:${lineup.teamId}:${player.id}`);
     }
   }

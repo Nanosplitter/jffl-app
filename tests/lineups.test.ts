@@ -46,6 +46,21 @@ test('a roster follows ESPN order and the flex slot reads FLEX', () => {
   assert.equal(slotLabel('BE'), 'Bench');
 });
 
+test('a finished week keeps the roster position when the stored label is a flex slot', () => {
+  const roster = [{ id: '4701936', position: 'WR', eligibleSlots: ['WR', 'RB/WR', 'FLEX'] }];
+  const starters = historicalStarters([{
+    week: 9,
+    teamId: '7',
+    players: [
+      { id: '4701936', name: 'Matthew Golden', position: 'RB/WR', proTeam: 'GB', slot: 'WR', points: 11 },
+      { id: 'gone', name: 'Released', position: 'RB/WR', proTeam: 'GB', slot: 'WR', points: 4 },
+    ],
+  }], '7', 9, roster);
+  assert.equal(starters?.find(player => player.id === '4701936')?.position, 'WR');
+  assert.deepEqual(starters?.find(player => player.id === '4701936')?.eligibleSlots, ['WR', 'RB/WR', 'FLEX']);
+  assert.equal(starters?.find(player => player.id === 'gone')?.position, 'RB/WR');
+});
+
 test('a week the snapshot has not published yet stays unknown', () => {
   assert.equal(historicalStarters(lineups, '7', 5), null);
   assert.deepEqual(historicalStarters(lineups, '8', 2), []);

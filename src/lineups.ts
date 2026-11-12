@@ -24,28 +24,36 @@ export function compareByLineup<T extends { slot: string; position: string; name
   return rank(a) - rank(b) || a.name.localeCompare(b.name);
 }
 
+/** The roster's position when this player is still rostered. A stored flex label is the lineup slot, not the position. */
+export function rosterPosition(id: string, stored: string, roster?: readonly { id: string; position: string }[] | null) {
+  return roster?.find(player => player.id === id)?.position || stored;
+}
+
 /** Starters published for a finished week. Null means this snapshot has no lineup for that week yet. */
-export function historicalStarters(lineups: WeekLineup[] | undefined, teamId: string, week: number): RosteredPlayer[] | null {
+export function historicalStarters(lineups: WeekLineup[] | undefined, teamId: string, week: number, roster?: readonly Pick<RosteredPlayer, 'id' | 'position' | 'eligibleSlots'>[] | null): RosteredPlayer[] | null {
   if (!lineups?.some(lineup => lineup.week === week)) return null;
   const lineup = lineups.find(item => item.week === week && item.teamId === teamId);
   if (!lineup) return [];
-  return lineup.players.map(player => ({
-    id: player.id,
-    teamId,
-    name: player.name,
-    position: player.position,
-    proTeam: player.proTeam,
-    slot: player.slot,
-    group: 'starter' as const,
-    eligibleSlots: [],
-    injuryStatus: null,
-    weekPoints: player.points,
-    projectedPoints: null,
-    seasonPoints: null,
-    averagePoints: null,
-    weekStats: {},
-    seasonStats: {},
-  })).sort(compareByLineup);
+  return lineup.players.map(player => {
+    const current = roster?.find(item => item.id === player.id);
+    return {
+      id: player.id,
+      teamId,
+      name: player.name,
+      position: current?.position || player.position,
+      proTeam: player.proTeam,
+      slot: player.slot,
+      group: 'starter' as const,
+      eligibleSlots: current?.eligibleSlots ? [...current.eligibleSlots] : [],
+      injuryStatus: null,
+      weekPoints: player.points,
+      projectedPoints: null,
+      seasonPoints: null,
+      averagePoints: null,
+      weekStats: {},
+      seasonStats: {},
+    };
+  }).sort(compareByLineup);
 }
 
 /** Copy the saved week onto a historical starter so its score can explain itself. */
@@ -147,7 +155,7 @@ export function rosterForWeek(
   teamId: string,
   week: number,
 ): RosteredPlayer[] | null {
-  const starters = historicalStarters(lineups, teamId, week);
+  const starters = historicalStarters(lineups, teamId, week, players);
   if (!starters?.length) return starters;
   const onTeam = players.filter(player => player.teamId === teamId);
   const byId = new Map(onTeam.map(player => [player.id, player]));

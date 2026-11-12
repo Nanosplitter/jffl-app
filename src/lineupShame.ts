@@ -1,5 +1,5 @@
 import { byeWeek } from './byeWeeks.ts';
-import { compareByLineup } from './lineups.ts';
+import { compareByLineup, rosterPosition } from './lineups.ts';
 import { managerFor } from './reference.ts';
 import { LEAGUES, type LeagueSlug, type WeekLineup, type WeekLineupPlayer } from './types.ts';
 
@@ -61,7 +61,7 @@ function reasonFor(player: WeekLineupPlayer, week: number, byesLocked: boolean):
 
 /** Locked OUT and IR starters, plus bye starters once no later kickoff can replace them. */
 export function shameWall(
-  rosters: Partial<Record<LeagueSlug, { weeklyLineups?: WeekLineup[] } | null | undefined>>,
+  rosters: Partial<Record<LeagueSlug, { weeklyLineups?: WeekLineup[]; players?: readonly { id: string; position: string }[] } | null | undefined>>,
   week: number,
   currentWeek: number,
   games: Parameters<typeof lastKickoff>[0],
@@ -84,7 +84,7 @@ export function shameWall(
           teamId: lineup.teamId,
           id: player.id,
           name: player.name,
-          position: player.position,
+          position: rosterPosition(player.id, player.position, rosters[meta.slug]?.players),
           proTeam: player.proTeam,
           slot: player.slot,
           reason,

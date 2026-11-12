@@ -304,6 +304,30 @@ def weekly_matchups(boundary, current_week):
 
 BENCH_SLOTS = {"BE", "IR", ""}
 LINEUP_ORDER = ["QB", "RB", "WR", "TE", "RB/WR/TE", "FLEX", "D/ST", "K"]
+# ESPN player.defaultPositionId. These are not lineup slot ids: slot 3 is RB/WR, but position 3 is WR.
+DEFAULT_POSITION_IDS = {
+    1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 7: "P",
+    9: "DT", 10: "DE", 11: "LB", 12: "CB", 13: "S", 14: "HC", 15: "TQB", 16: "D/ST",
+}
+
+
+def player_position(raw, slot):
+    """The player's own position. A flex slot such as RB/WR is where they were started, not what they are."""
+    name = raw.get("fullName") or ""
+    for pos in raw.get("eligibleSlots") or []:
+        if pos == 25:
+            continue
+        label = POSITION_MAP.get(pos)
+        if not isinstance(label, str) or not label:
+            continue
+        if "/" not in label or "/" in name:
+            return label
+    mapped = DEFAULT_POSITION_IDS.get(raw.get("defaultPositionId"))
+    if mapped:
+        return mapped
+    if isinstance(slot, str) and slot not in BENCH_SLOTS and "/" not in slot:
+        return slot
+    return ""
 
 
 def matchup_period_map(boundary):
@@ -361,7 +385,7 @@ def week_lineups(schedule, week):
                 players.append({
                     "id": str(raw["id"]),
                     "name": raw["fullName"],
-                    "position": POSITION_MAP.get(raw.get("defaultPositionId"), slot),
+                    "position": player_position(raw, slot),
                     "proTeam": PRO_TEAM_MAP.get(raw.get("proTeamId"), "None"),
                     "slot": slot,
                     "points": number(actual.get("appliedTotal")),

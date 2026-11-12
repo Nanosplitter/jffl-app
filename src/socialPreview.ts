@@ -1016,7 +1016,7 @@ function chartForSides(match: { left: MatchdaySide; right: MatchdaySide | null }
   if (!leftSeries?.t.length || !rightSeries?.t.length) return null;
   const games = { ...data.timeline[left.slug]?.games, ...data.timeline[right.slug]?.games };
   const starters = (side: MatchdaySide) => {
-    const rows = historicalStarters(rosters[side.slug]?.weeklyLineups, side.teamId, week);
+    const rows = historicalStarters(rosters[side.slug]?.weeklyLineups, side.teamId, week, rosters[side.slug]?.players);
     if (!rows?.length) return [];
     return rows.map(row => toOddsStarter({ ...row, weekPoints: null }, week));
   };
