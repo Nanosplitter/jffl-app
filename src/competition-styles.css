@@ -614,7 +614,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
   .summary-controls { flex-wrap: wrap; gap: 10px; }
   .summary-controls .search-field { flex-basis: 100%; max-width: none; }
   .summary-controls select { flex: 1; min-width: 0; font-size: .72rem; }
-  .season-league .surface-heading > span { max-width: 125px; text-align: right; line-height: 1.6; font-size: .64rem; }
+  .season-league .surface-heading > span { max-width: 11rem; text-align: right; line-height: 1.6; font-size: .64rem; }
   .recap-metrics { grid-template-columns: 1fr 1fr; gap: 0 20px; }
   .recap-metrics > article { padding: 18px 0; }
   .recap-metrics strong { font-size: 1.55rem; }

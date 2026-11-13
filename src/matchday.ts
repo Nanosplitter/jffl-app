@@ -235,13 +235,12 @@ export function pointSpan(row: BoardRow): { low: number; high: number; center: n
   const open = row.status === 'playing' || row.status === 'yet';
   const progress = row.status === 'yet' ? 0 : row.progress;
   const width = open ? rangeStillLeft(row.player.position, row.spread, row.player.projectedPoints, progress, row.player.weekPoints) : row.spread;
-  if (width < 0.5) return null;
   const projected = row.player.projectedPoints;
   const scored = row.player.weekPoints;
   const center = open
     ? projected == null && scored == null ? null : (scored ?? 0) + (projected ?? 0) * (1 - progress)
     : projected ?? scored;
-  if (center == null) return null;
+  if (center == null || (!open && width < 0.5)) return null;
   return { low: rounded(center - width), high: rounded(center + width), center: rounded(center) };
 }
 

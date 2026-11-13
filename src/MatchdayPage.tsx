@@ -299,17 +299,20 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
 }
 
 function PlayerLine({ row, scoring }: { row: BoardRow; scoring: ScoringRule[] }) {
-  const gap = row.gap != null && Math.abs(row.gap) >= 1 ? row.gap : null;
+  const playing = row.status === 'playing';
+  const gap = playing ? row.gap : row.gap != null && Math.abs(row.gap) >= 1 ? row.gap : null;
   const waiting = row.status === 'yet' || row.status === 'bye';
   const shown = waiting ? row.player.projectedPoints : row.player.weekPoints;
   const pulse = useChangeFlash(shown == null ? '' : String(shown), row.player.id);
   const explain = !waiting && (row.player.weekPoints != null || row.player.scoreLines != null || Object.keys(row.player.weekStats).length > 0);
-  const pace = gap == null ? null : gap > 0 ? `${points(gap)} ahead` : `${points(Math.abs(gap))} behind`;
+  const pace = gap == null ? null : Math.abs(gap) < 0.05 ? 'even' : gap > 0 ? `${points(gap)} ahead` : `${points(Math.abs(gap))} behind`;
+  const projected = playing && row.player.projectedPoints != null ? `proj ${points(row.player.projectedPoints)}` : null;
   return <li className="matchday-player">
     <PlayerLink player={row.player} injury={row.player.injuryStatus} />
     <span className="matchday-player-score">
       <ScoreButton key={pulse} player={row.player} value={points(shown)} explain={explain} flash={pulse > 0} scoring={scoring} />
-      <small className={gap == null ? '' : gap > 0 ? 'up' : 'down'}>{waiting ? 'projected' : pace ?? (row.status === 'done' && row.player.projectedPoints != null ? 'on pace' : '')}</small>
+      <small className={gap == null ? '' : gap > 0 ? 'up' : gap < 0 ? 'down' : ''}>{waiting ? 'projected' : pace ?? (row.status === 'done' && row.player.projectedPoints != null ? 'on pace' : '')}</small>
+      {projected && <small>{projected}</small>}
     </span>
     {row.detail && <span className="matchday-chip">{row.detail}</span>}
     <RangeBar span={pointSpan(row)} quiet={row.status === 'done' || row.status === 'bye'} />

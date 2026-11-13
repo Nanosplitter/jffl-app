@@ -1,5 +1,7 @@
+import { RefreshCw } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { pointsBackLabel, type ScoringRole, type SeasonOutlook } from './competitions';
+import { requestRefresh } from './nudge';
 import type { Freshness, Team } from './types';
 
 export const points = (value: number | null | undefined) => value == null ? '—' : value.toLocaleString('en-US', { maximumFractionDigits: 2 });
@@ -22,8 +24,20 @@ export function PointsBack({ back, role, className = '' }: { back: number | null
 
 export function Fresh({ data, error = false }: { data: Freshness; error?: boolean }) {
   const [now, setNow] = useState(Date.now());
+  const [waitingOn, setWaitingOn] = useState<string | null>(null);
   useEffect(() => { const timer = window.setInterval(() => setNow(Date.now()), 30_000); return () => clearInterval(timer); }, []);
+  const pending = waitingOn === data.updatedAt;
+  useEffect(() => {
+    if (!pending) return;
+    const timer = window.setTimeout(() => setWaitingOn(null), 15_000);
+    return () => window.clearTimeout(timer);
+  }, [pending]);
   const stale = error || data.refreshStatus === 'error' || now - Date.parse(data.updatedAt) > 7 * 60_000;
   const time = new Date(data.updatedAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  return <span className={`fresh ${stale ? 'stale' : ''}`} title={new Date(data.updatedAt).toLocaleString()}>{stale ? 'Update delayed · ' : ''}Updated {time}</span>;
+  const refresh = () => {
+    if (pending) return;
+    setWaitingOn(data.updatedAt);
+    requestRefresh();
+  };
+  return <span className={`fresh ${stale ? 'stale' : ''}`} title={new Date(data.updatedAt).toLocaleString()}>{stale ? 'Update delayed · ' : ''}Updated {time}<button type="button" className={`fresh-refresh${pending ? ' pending' : ''}`} onClick={refresh} disabled={pending} aria-label="Update scores now"><RefreshCw size={12} aria-hidden="true" /></button></span>;
 }

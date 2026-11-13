@@ -159,6 +159,12 @@ test('a player range is a low and a high score, and points left use the same spa
   const left = pointsStillOut(board);
   assert.equal(left.count, 2);
   assert.ok(left.low != null && left.high != null && left.low < left.high);
+  const late = playerBoard([
+    player({ id: '1', name: 'Likely', position: 'TE', weekPoints: 6, projectedPoints: 9, kickoff: '2026-10-18T17:00:00Z' }),
+  ], { KC: { ...games.KC, detail: 'Q4 9:04', progress: 0.92 } }, now, 6);
+  const finish = pointSpan(late.playing[0]);
+  assert.equal(late.playing[0].gap, 6 - 9 * 0.92);
+  assert.ok(finish && finish.low < finish.center && finish.center < finish.high);
 });
 
 test('bench points ignore a player who has not scored', () => {

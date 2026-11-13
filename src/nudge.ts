@@ -4,7 +4,8 @@ import { NUDGE_INTERVAL_MS, tabIsActive } from './nudgeActivity';
 
 export { NUDGE_INTERVAL_MS, tabIsActive } from './nudgeActivity';
 
-function askForRefresh() {
+/** Ask the updater for a live tick. The server decides whether a fetch is due. */
+export function requestRefresh() {
   void fetch('/__refresh', { method: 'POST', keepalive: true, credentials: 'omit' }).catch(() => {});
 }
 
@@ -15,7 +16,7 @@ export function useRefreshNudge() {
     let lastInputAt = Date.now();
     const mark = () => { lastInputAt = Date.now(); };
     const pulse = () => {
-      if (tabIsActive(document.visibilityState === 'visible', lastInputAt, Date.now())) askForRefresh();
+      if (tabIsActive(document.visibilityState === 'visible', lastInputAt, Date.now())) requestRefresh();
     };
     const onVisible = () => { if (document.visibilityState === 'visible') pulse(); };
     window.addEventListener('pointerdown', mark);
