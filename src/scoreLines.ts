@@ -14,6 +14,44 @@ function bandLabel(label: string) {
   return /allowed$/i.test(label) && (/\d/.test(label) || /^under\b/i.test(label));
 }
 
+const EACH_STATS = new Set(['Sacks', 'Fumble recoveries', 'Safeties', 'Defensive INT', 'Defensive TD']);
+const SINGULAR: Record<string, string> = { Sacks: 'Sack', 'Fumble recoveries': 'Fumble recovery', Safeties: 'Safety' };
+
+/** A points or yards band, shown like the yard lines: the real total, then the tier that paid. */
+function bandPhrase(label: string, weekStats?: Record<string, number> | null): { text: string; note: string } | null {
+  let kind: 'Points allowed' | 'Yards allowed' | null = null;
+  let note: string | null = null;
+  const points = label.match(/^(0|\d+-\d+|\d+\+) points allowed$/i);
+  if (points) {
+    kind = 'Points allowed';
+    note = points[1] === '0' ? 'shutout' : points[1];
+  }
+  const under = label.match(/^under (\d+) yards allowed$/i);
+  if (under) {
+    kind = 'Yards allowed';
+    note = `under ${under[1]}`;
+  }
+  const yards = label.match(/^(\d+-\d+|\d+\+) yards allowed$/i);
+  if (yards) {
+    kind = 'Yards allowed';
+    note = yards[1];
+  }
+  if (!kind || !note) return null;
+  const actual = weekStats?.[kind];
+  if (typeof actual !== 'number') return null;
+  return { text: `${shown(actual)} ${kind}`, note };
+}
+
+function eachNote(label: string, count: number | undefined, points: number) {
+  if (!EACH_STATS.has(label) || typeof count !== 'number' || count === 0) return undefined;
+  const each = points / count;
+  return Number.isFinite(each) ? `${shown(each)} each` : undefined;
+}
+
+function countLabel(count: number, label: string) {
+  return `${shown(count)} ${count === 1 && SINGULAR[label] ? SINGULAR[label] : label}`;
+}
+
 /** "15 Every 10 rush yards" is 153 rush yards scored 1 point per 10. Show the yards. */
 function yardPhrase(label: string, count: number | undefined, points: number, weekStats?: Record<string, number> | null) {
   const bundle = label.match(/^Every (\d+) (pass|rush|rec) yards$/i);
@@ -62,9 +100,12 @@ export function scorePopupRows(player: { scoreLines?: ScoreLine[] | null; weekSt
       const points = line.points;
       const label = scoringLabel(line.label);
       const count = typeof line.count === 'number' ? line.count : undefined;
+      const band = bandPhrase(label, player.weekStats);
+      if (band) return [{ ...band, points: shown(points) }];
       const yards = yardPhrase(label, count, points, player.weekStats);
       if (yards) return [{ ...yards, points: shown(points) }];
-      return [{ text: count != null && !bandLabel(label) ? `${shown(count)} ${label}` : label, points: shown(points) }];
+      const text = count != null && !bandLabel(label) ? countLabel(count, label) : label;
+      return [{ text, note: eachNote(label, count, points), points: shown(points) }];
     });
   }
   const rank = (name: string) => {

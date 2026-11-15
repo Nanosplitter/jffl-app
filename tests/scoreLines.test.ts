@@ -57,10 +57,18 @@ test('counting stats use the league scoring rules until ESPN point lines arrive'
   }), ['250 Pass yards, 1 per 25 10']);
   assert.deepEqual(scorePopupText({
     scoreLines: [
+      { label: 'Defensive INT', points: 2, count: 1 },
       { label: 'Fumble recoveries', points: 2, count: 1 },
-      { label: 'Sacks', points: 1, count: 1 },
+      { label: 'Sacks', points: 3, count: 3 },
       { label: 'defensive0PointsAllowed', points: 5, count: 1 },
       { label: 'defensiveLessThan100YardsAllowed', points: 5, count: 1 },
     ],
-  }), ['1 Fumble recoveries 2', '1 Sacks 1', '0 points allowed 5', 'Under 100 yards allowed 5']);
+    weekStats: { 'Defensive INT': 1, 'Fumble recoveries': 1, Sacks: 3, 'Points allowed': 0, 'Yards allowed': 34 },
+  }), [
+    '1 Defensive INT, 2 each 2',
+    '1 Fumble recovery, 2 each 2',
+    '3 Sacks, 1 each 3',
+    '0 Points allowed, shutout 5',
+    '34 Yards allowed, under 100 5',
+  ]);
 });
