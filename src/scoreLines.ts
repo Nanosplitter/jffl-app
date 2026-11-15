@@ -57,12 +57,14 @@ export function scorePopupRows(player: { scoreLines?: ScoreLine[] | null; weekSt
   if (Array.isArray(player.scoreLines)) {
     const rows = player.scoreLines.filter(line => line && typeof line.points === 'number' && line.points !== 0 && line.label);
     if (!rows.length) return [{ text: 'No scoring stats yet.', points: null }];
-    return rows.map(line => {
+    return rows.flatMap(line => {
+      if (typeof line.points !== 'number' || typeof line.label !== 'string') return [];
+      const points = line.points;
       const label = scoringLabel(line.label);
-      const yards = yardPhrase(label, typeof line.count === 'number' ? line.count : undefined, line.points, player.weekStats);
-      if (yards) return { ...yards, points: shown(line.points) };
-      const counted = typeof line.count === 'number' && !bandLabel(label);
-      return { text: counted ? `${shown(line.count)} ${label}` : label, points: shown(line.points) };
+      const count = typeof line.count === 'number' ? line.count : undefined;
+      const yards = yardPhrase(label, count, points, player.weekStats);
+      if (yards) return [{ ...yards, points: shown(points) }];
+      return [{ text: count != null && !bandLabel(label) ? `${shown(count)} ${label}` : label, points: shown(points) }];
     });
   }
   const rank = (name: string) => {
