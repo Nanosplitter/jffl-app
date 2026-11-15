@@ -141,9 +141,65 @@ export function ArchiveChart({ option, summary, height = 380, onSelect, motionKe
       host.appendChild(band);
       let startX: number | null = null;
       let dragged = false;
+      const fingers = new Map<number, { x: number; y: number; clientX: number; clientY: number }>();
+      let gestureOpen = false;
       const localX = (event: PointerEvent) => event.clientX - host.getBoundingClientRect().left;
+      const touchPoint = (event: PointerEvent) => {
+        const bounds = host.getBoundingClientRect();
+        return { x: event.clientX - bounds.left, y: event.clientY - bounds.top, clientX: event.clientX, clientY: event.clientY };
+      };
+      const zrHandler = () => (chart?.getZr() as { handler?: {
+        mousemove: (event: { zrX: number; zrY: number; zrByTouch?: boolean }) => void;
+        mouseup: (event: { zrX: number; zrY: number; zrByTouch?: boolean }) => void;
+        mouseout: (event: { zrX: number; zrY: number; zrByTouch?: boolean; zrEventControl?: string }) => void;
+        processGesture: (event: { touches: { clientX: number; clientY: number }[]; zrX: number; zrY: number; preventDefault: () => void; stopPropagation: () => void }, stage: 'start' | 'change' | 'end') => void;
+      } } | undefined)?.handler;
+      const relayTouch = (stage: 'start' | 'change' | 'end') => {
+        const handler = zrHandler();
+        if (!handler) return;
+        const points = [...fingers.values()];
+        const first = points[0];
+        const payload = {
+          touches: points.map(point => ({ clientX: point.clientX, clientY: point.clientY })),
+          zrX: first?.x ?? 0,
+          zrY: first?.y ?? 0,
+          preventDefault() {},
+          stopPropagation() {},
+        };
+        if (gestureOpen || stage === 'start') handler.processGesture(payload, stage);
+        gestureOpen = stage !== 'end';
+        host.classList.toggle('is-pinching', fingers.size >= 2);
+        if (!first || stage === 'end') return;
+        if (fingers.size >= 2) return;
+        handler.mousemove({ zrX: first.x, zrY: first.y, zrByTouch: true });
+        chart?.dispatchAction({ type: 'updateAxisPointer', x: first.x, y: first.y });
+      };
+      const endTouch = (event: PointerEvent) => {
+        if (event.pointerType !== 'touch' || !fingers.has(event.pointerId)) return false;
+        const last = fingers.get(event.pointerId)!;
+        fingers.delete(event.pointerId);
+        zrHandler()?.mouseup({ zrX: last.x, zrY: last.y, zrByTouch: true });
+        if (fingers.size === 0) {
+          relayTouch('end');
+          zrHandler()?.mouseout({ zrX: last.x, zrY: last.y, zrByTouch: true });
+          chart?.dispatchAction({ type: 'hideTip' });
+          chart?.dispatchAction({ type: 'updateAxisPointer', currTrigger: 'leave' });
+        } else relayTouch('change');
+        return true;
+      };
       const hideBand = () => { band.classList.remove('is-on'); };
       const onDown = (event: PointerEvent) => {
+        if (event.pointerType === 'touch') {
+          if (!dragZoomRef.current || !chart) return;
+          if (fingers.size === 1) {
+            const point = touchPoint(event);
+            zrHandler()?.mouseup({ zrX: point.x, zrY: point.y, zrByTouch: true });
+          }
+          fingers.set(event.pointerId, touchPoint(event));
+          relayTouch(fingers.size === 1 ? 'start' : 'change');
+          if (fingers.size >= 2) event.preventDefault();
+          return;
+        }
         if (!dragZoomRef.current || event.button !== 0 || !chart) return;
         const bounds = host.getBoundingClientRect();
         const y = event.clientY - bounds.top;
@@ -154,6 +210,13 @@ export function ArchiveChart({ option, summary, height = 380, onSelect, motionKe
         try { host.setPointerCapture(event.pointerId); } catch { /* The drag still follows pointermove on the chart. */ }
       };
       const onMove = (event: PointerEvent) => {
+        if (event.pointerType === 'touch') {
+          if (!fingers.has(event.pointerId)) return;
+          fingers.set(event.pointerId, touchPoint(event));
+          relayTouch('change');
+          if (fingers.size >= 2) event.preventDefault();
+          return;
+        }
         if (startX == null || !chart) return;
         const x = localX(event);
         if (!dragged && Math.abs(x - startX) < 6) return;
@@ -180,8 +243,8 @@ export function ArchiveChart({ option, summary, height = 380, onSelect, motionKe
         if (a == null || b == null || a === b) return;
         chart.dispatchAction({ type: 'dataZoom', startValue: Math.min(a, b), endValue: Math.max(a, b) });
       };
-      const onUp = (event: PointerEvent) => finish(event, true);
-      const onCancel = (event: PointerEvent) => finish(event, false);
+      const onUp = (event: PointerEvent) => { if (!endTouch(event)) finish(event, true); };
+      const onCancel = (event: PointerEvent) => { if (!endTouch(event)) finish(event, false); };
       host.addEventListener('pointerdown', onDown);
       host.addEventListener('pointermove', onMove);
       host.addEventListener('pointerup', onUp);

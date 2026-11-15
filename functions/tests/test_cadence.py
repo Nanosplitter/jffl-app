@@ -153,6 +153,11 @@ class Store:
     def mark_audience(self, seen):
         self.seen = seen
 
+    def touch_freshness(self, slug, seen):
+        if slug in self.snapshots:
+            for snapshot in self.snapshots[slug]:
+                snapshot.update(updatedAt=seen, lastAttemptAt=seen, refreshStatus="ok")
+
     def mark_failed(self, slug, seen):
         if slug in self.snapshots:
             for snapshot in self.snapshots[slug]:
@@ -239,6 +244,7 @@ def test_nudge_on_a_quiet_slate_does_not_fetch_and_a_live_game_fetches_once():
     assert handle_nudge(store, T0, lambda *args: calls.append(args) or {"week": 6, "matchups": [], "players": []}) == "live"
     assert handle_nudge(store, T0 + timedelta(seconds=10), lambda *args: calls.append(args)) == "skip"
     assert calls == [("premier", 6, 6)]
+    assert store.snapshots["premier"][0]["updatedAt"] == at(timedelta(0))
 
 
 def test_a_scheduled_quiet_hour_does_not_fetch():

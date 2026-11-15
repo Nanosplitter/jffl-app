@@ -106,12 +106,16 @@ function RemainingSide({ out, align }: { out: { count: number; low: number | nul
   </span>;
 }
 
+const SLIDER_HEIGHT = 28;
+const SLIDER_BOTTOM = 4;
+
 function matchZoom(theme: Theme) {
   const range = { xAxisIndex: 0, filterMode: 'none' as const, minSpan: 4, showDetail: false };
   return [
     { ...range, type: 'inside' as const, zoomOnMouseWheel: true, moveOnMouseMove: false, moveOnMouseWheel: false },
     {
-      ...range, type: 'slider' as const, height: 12, bottom: 2,
+      ...range, type: 'slider' as const, height: SLIDER_HEIGHT, bottom: SLIDER_BOTTOM,
+      moveHandleSize: 0, brushSelect: false, handleSize: '100%',
       borderColor: theme.line, textStyle: { color: theme.muted },
       fillerColor: theme.dark ? 'rgba(74,168,221,0.25)' : 'rgba(0,118,182,0.18)',
     },
@@ -160,7 +164,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
       ...base,
       legend: undefined,
       dataZoom: matchZoom(theme),
-      grid: { ...base.grid, top: 8, bottom: 36 },
+      grid: { ...base.grid, top: 8, bottom: SLIDER_BOTTOM + SLIDER_HEIGHT + 14 },
       tooltip: { ...base.tooltip, trigger: 'axis' as const, axisPointer: { type: 'line' as const, lineStyle: { color: theme.muted, type: 'dashed' as const } }, formatter: (params: { axisValue?: number; data?: { value?: [number, number] } | [number, number]; seriesName?: string; marker?: string }[]) => {
         const axisTime = params.map(item => item.axisValue).find(value => value != null);
         if (axisTime == null) return '';
@@ -215,7 +219,7 @@ function chartOption(dark: boolean, mode: ChartMode, leftName: string, rightName
     ...base,
     legend: undefined,
     dataZoom: matchZoom(theme),
-    grid: { ...base.grid, bottom: 36 },
+    grid: { ...base.grid, bottom: SLIDER_BOTTOM + SLIDER_HEIGHT + 14 },
     tooltip: { ...baseOption(theme).tooltip, trigger: 'axis' as const, formatter: (params: { data?: { value?: [number, number]; point?: typeof pointsIn[number] } }[]) => {
       const item = params.find(entry => entry.data?.point);
       const point = item?.data?.point;
@@ -284,7 +288,7 @@ function ChanceChart({ match, seriesLeft, seriesRight, leftStarters, rightStarte
     {pulse > 0 && <span key={pulse} className="matchday-flash" aria-hidden="true" />}
     <h3 className="matchday-chart-title">{title}</h3>
     {ready
-      ? <ArchiveChart dragZoom option={chartOption(dark, mode, match.left.manager, match.right!.manager, points, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}. Drag across the chart to zoom in on that stretch. Scroll or use the slider too. Double-click to reset.`} height={height} motionKey={chartMotionKey(mode, points[points.length - 1])} />
+      ? <ArchiveChart dragZoom option={chartOption(dark, mode, match.left.manager, match.right!.manager, points, markers, outlook)} summary={`${match.left.manager} against ${match.right!.manager}: ${title}. Drag across the chart to zoom in on that stretch, or pinch on a phone. One finger reads the point under it. Use the slider too. Double-click to reset.`} height={height} motionKey={chartMotionKey(mode, points[points.length - 1])} />
       : <p className="matchday-empty">{mode === 'chance' && replay && scoreReady ? 'Win chance wasn\u2019t recorded for this week.' : empty}</p>}
     {mode === 'score' && replay && ready && <p className="source-note">Rebuilt from the play-by-play. The line ends on the official score.</p>}
     <div className="matchday-chart-names">

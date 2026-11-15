@@ -448,6 +448,10 @@ def sync_live(store, fetch=None, games_for=None, now=None, meta=None):
             summary, roster, changed = merged
             if changed:
                 store.publish(slug, summary, roster)
+            else:
+                touch = getattr(store, "touch_freshness", None)
+                if callable(touch):
+                    touch(slug, stamp(moment))
             try:
                 _record_live(store, summary, provider, cache, moment)
             except Exception as live_error:

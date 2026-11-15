@@ -53,6 +53,14 @@ class FirestoreStore:
         if folded:
             ref.set(folded)
 
+    def touch_freshness(self, slug, stamp):
+        """A live check found nothing new. The published time still moves, so a quiet stretch is not a delay."""
+        fields = {"updatedAt": stamp, "lastAttemptAt": stamp, "refreshStatus": "ok"}
+        batch = self.db.batch()
+        for collection in ("publicLeagues", "publicRosters"):
+            batch.update(self.db.collection(collection).document(slug), fields)
+        batch.commit()
+
     def mark_failed(self, slug, stamp):
         # Update only existing snapshots; no incomplete documents on first-run failure.
         batch = self.db.batch()
