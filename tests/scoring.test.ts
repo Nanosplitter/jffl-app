@@ -17,6 +17,9 @@ test('camelCase scoring names and the spaced form already on the site share one 
   assert.equal(scoringLabel('made Field Goals From Under40'), 'Field goals under 40');
   assert.equal(scoringLabel('made Field Goals From40To49'), 'Field goals 40-49');
   assert.equal(scoringLabel('madeFieldGoalsFrom60Plus'), 'Field goals 60+');
+  assert.equal(scoringLabel('defensive0PointsAllowed'), '0 points allowed');
+  assert.equal(scoringLabel('defensiveLessThan100YardsAllowed'), 'Under 100 yards allowed');
+  assert.equal(scoringLabel('defensive45PlusPointsAllowed'), '46+ points allowed');
 });
 
 test('a scoring name that already reads clearly is left alone aside from camelCase gaps', () => {

@@ -31,6 +31,12 @@ SCORING_STAT_NAMES = {
     "77": "Field goals 40-49", "80": "Field goals under 40",
     "198": "Field goals 50-59", "201": "Field goals 60+",
     "205": "Defensive 2-pt return", "206": "2-pt return", "209": "1-pt safety",
+    "89": "0 points allowed", "90": "1-6 points allowed", "91": "7-13 points allowed",
+    "92": "14-17 points allowed", "121": "18-21 points allowed", "122": "22-27 points allowed",
+    "123": "28-34 points allowed", "124": "35-45 points allowed", "125": "46+ points allowed",
+    "128": "Under 100 yards allowed", "129": "100-199 yards allowed", "130": "200-299 yards allowed",
+    "131": "300-349 yards allowed", "132": "350-399 yards allowed", "133": "400-449 yards allowed",
+    "134": "450-499 yards allowed", "135": "500-549 yards allowed", "136": "550+ yards allowed",
 }
 
 

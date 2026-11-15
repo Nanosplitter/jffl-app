@@ -44,4 +44,23 @@ test('counting stats use the league scoring rules until ESPN point lines arrive'
     scoreLines: [{ label: 'Rec yards', points: 16.4, count: 164 }],
     weekStats: { 'Rec yards': 164, Targets: 10 },
   }, rules), ['164 Rec yards 16.4']);
+  assert.deepEqual(scorePopupText({
+    scoreLines: [
+      { label: 'Rush TD', points: 12, count: 2 },
+      { label: 'Every 10 rush yards', points: 15, count: 15 },
+      { label: 'Every 10 rec yards', points: 9, count: 9 },
+    ],
+    weekStats: { 'Rush yards': 153, 'Rec yards': 99, Receptions: 7 },
+  }), ['2 Rush TD 12', '153 Rush yards, 1 per 10 15', '99 Rec yards, 1 per 10 9']);
+  assert.deepEqual(scorePopupText({
+    scoreLines: [{ label: 'Every 25 pass yards', points: 10, count: 10 }],
+  }), ['250 Pass yards, 1 per 25 10']);
+  assert.deepEqual(scorePopupText({
+    scoreLines: [
+      { label: 'Fumble recoveries', points: 2, count: 1 },
+      { label: 'Sacks', points: 1, count: 1 },
+      { label: 'defensive0PointsAllowed', points: 5, count: 1 },
+      { label: 'defensiveLessThan100YardsAllowed', points: 5, count: 1 },
+    ],
+  }), ['1 Fumble recoveries 2', '1 Sacks 1', '0 points allowed 5', 'Under 100 yards allowed 5']);
 });

@@ -85,7 +85,7 @@ export function ScoreButton({ player, value, explain, flash = false, align = 'ri
     <button type="button" className={`score-figure${flash ? ' score-flash' : ''}`} ref={button} aria-expanded={open} aria-controls={panelId} aria-label={`Scoring for ${player.name}`} onClick={event => { event.stopPropagation(); toggle(); }}>{value}</button>
     {open && place && createPortal(
       <div id={panelId} className="score-popover" role="dialog" aria-label={`Why ${player.name} scored ${value}`} ref={panel} style={place}>
-        <ul>{rows.map(row => <li key={row.text}><span>{row.text}</span>{row.points != null && <strong>{row.points}</strong>}</li>)}</ul>
+        <ul>{rows.map(row => <li key={row.text}><span>{row.text}{row.note && <small>{row.note}</small>}</span>{row.points != null && <strong>{row.points}</strong>}</li>)}</ul>
       </div>,
       document.body,
     )}

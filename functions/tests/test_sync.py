@@ -302,6 +302,23 @@ def test_score_lines_keep_paid_stats_and_drop_zeros():
     assert result["weeklyStats"][1]["scoreLines"] == result["scoreLines"]
 
 
+def test_defense_score_lines_name_the_points_and_yards_bands():
+    player = SimpleNamespace(playerId=1, name="Vikings D/ST", position="D/ST", proTeam="MIN",
+                             eligibleSlots=["D/ST"], lineupSlot="D/ST")
+    raw = {"stats": [
+        {"seasonId": 2026, "scoringPeriodId": 11, "statSourceId": 0, "statSplitTypeId": 0,
+         "appliedTotal": 13, "stats": {"96": 1, "99": 1, "89": 1, "128": 1},
+         "appliedStats": {"96": 2, "99": 1, "89": 5, "128": 5}},
+    ]}
+    result = normalize_player(player, 1, 11, raw)
+    assert result["scoreLines"] == [
+        {"label": "Fumble recoveries", "points": 2, "count": 1},
+        {"label": "Sacks", "points": 1, "count": 1},
+        {"label": "0 points allowed", "points": 5, "count": 1},
+        {"label": "Under 100 yards allowed", "points": 5, "count": 1},
+    ]
+
+
 def test_live_view_keeps_applied_point_lines():
     schedule = [{"home": {"teamId": 1, "rosterForCurrentScoringPeriod": {"entries": [
         {"playerPoolEntry": {"player": {"id": 9, "stats": [{

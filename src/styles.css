@@ -363,8 +363,10 @@ select {
 .score-popover { position: fixed; z-index: 30; width: min(240px, calc(100vw - 16px)); padding: 8px 10px; background: #fff; color: var(--text); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 24px color-mix(in srgb, #000 28%, transparent); text-align: left; }
 :root[data-theme=dark] .score-popover { background: #2a2a2a; }
 .score-popover ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-.score-popover li { display: flex; justify-content: space-between; gap: 12px; font-size: .78rem; font-weight: 500; font-variant-numeric: tabular-nums; }
-.score-popover li strong { font-weight: 650; }
+.score-popover li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; font-size: .78rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.score-popover li span { min-width: 0; }
+.score-popover li small { display: block; margin-top: 1px; color: var(--muted); font-size: .68rem; font-weight: 500; }
+.score-popover li strong { flex: none; font-weight: 650; }
 .directory-rosters { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
 .directory-roster { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .directory-table .directory-roster small { display: inline; margin: 0; width: 1.6rem; flex: 0 0 1.6rem; font-size: .68rem; }
