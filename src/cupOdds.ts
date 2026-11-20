@@ -43,6 +43,17 @@ export function playerSpread(position: string, weeklyPoints: readonly number[]):
   return Math.sqrt(blended);
 }
 
+/**
+ * Weekly range around this week's projection.
+ * A player projected at zero, such as someone ruled out, keeps none of the
+ * range from weeks they actually played.
+ */
+export function openSpread(position: string, weeklyPoints: readonly number[], projected: number | null): number {
+  const spread = playerSpread(position, weeklyPoints);
+  if (projected != null && Number.isFinite(projected) && projected <= 0) return 0;
+  return spread;
+}
+
 function priceStarters(starters: readonly PricedStarter[] | null): { mean: number; variance: number } | null {
   if (!starters?.length) return null;
   let mean = 0;
@@ -55,7 +66,7 @@ function priceStarters(starters: readonly PricedStarter[] | null): { mean: numbe
     }
     if (player.projectedPoints == null || !Number.isFinite(player.projectedPoints)) return null;
     mean += player.projectedPoints;
-    const spread = playerSpread(player.position, player.previousPoints);
+    const spread = openSpread(player.position, player.previousPoints, player.projectedPoints);
     variance += spread * spread;
   }
   return { mean, variance };

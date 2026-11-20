@@ -125,11 +125,13 @@ const DROPS = new Set(['D/ST', 'DST', 'DEF']);
 
 /**
  * How wide this finish still is. `spread` is the player's own full-week range.
+ * A projection of zero keeps none of it: an out player is not still due a normal week.
  * Before kickoff the whole range applies. After that it shrinks with the clock.
  * Points already posted shrink it further when the score does not fall; a defense
  * keeps at least half of that, because it can still drop.
  */
 export function rangeStillLeft(position: string, spread: number, projected: number | null, progress: number, scored: number | null): number {
+  if (projected != null && Number.isFinite(projected) && projected <= 0) return 0;
   if (!(progress > 0)) return spread;
   if (progress >= 1) return 0;
   const clock = 1 - progress;

@@ -230,6 +230,9 @@ function rounded(value: number) {
   return Math.round(value * 100) / 100;
 }
 
+/** Usual bad week. A defense can finish negative. A skill player or kicker does not. */
+const FINISH_FLOOR: Record<string, number> = { 'D/ST': -5, DST: -5, DEF: -5 };
+
 /** Low and high finish for one starter. Playing and yet-to-play use the range still left. */
 export function pointSpan(row: BoardRow): { low: number; high: number; center: number } | null {
   const open = row.status === 'playing' || row.status === 'yet';
@@ -240,8 +243,9 @@ export function pointSpan(row: BoardRow): { low: number; high: number; center: n
   const center = open
     ? projected == null && scored == null ? null : (scored ?? 0) + (projected ?? 0) * (1 - progress)
     : projected ?? scored;
-  if (center == null || (!open && width < 0.5)) return null;
-  return { low: rounded(center - width), high: rounded(center + width), center: rounded(center) };
+  if (center == null || width <= 0 || (!open && width < 0.5)) return null;
+  const low = open ? Math.max(FINISH_FLOOR[row.player.position] ?? 0, center - width) : center - width;
+  return { low: rounded(low), high: rounded(center + width), center: rounded(center) };
 }
 
 /** Points still to come, as a low and a high around the projection. */
@@ -260,7 +264,7 @@ export function pointsStillOut(board: PlayerBoard): { count: number; low: number
   }
   if (!any) return { count: open.length, low: null, high: null };
   const sd = Math.sqrt(variance);
-  return { count: open.length, low: rounded(total - sd), high: rounded(total + sd) };
+  return { count: open.length, low: rounded(Math.max(0, total - sd)), high: rounded(total + sd) };
 }
 
 export function benchPoints(players: readonly RosteredPlayer[], teamId: string): number | null {
@@ -328,10 +332,13 @@ export function matchFacts(input: {
     const board = playerBoard(players.filter(player => player.group === 'starter'), input.games, input.now, input.week);
     return [...board.playing, ...board.yet.flatMap(group => group.players)];
   };
-  const swingRow = [...openRows(input.leftPlayers), ...(input.rightTeamId ? openRows(input.rightPlayers) : [])]
-    .sort((a, b) => b.spread - a.spread)[0];
-  const swingSpan = swingRow ? pointSpan(swingRow) : null;
-  const swing = swingRow && swingSpan ? { name: swingRow.player.name, spread: swingRow.spread, low: swingSpan.low, high: swingSpan.high } : null;
+  const swingPick = [...openRows(input.leftPlayers), ...(input.rightTeamId ? openRows(input.rightPlayers) : [])]
+    .flatMap(row => {
+      const span = pointSpan(row);
+      return span ? [{ row, span }] : [];
+    })
+    .sort((a, b) => (b.span.high - b.span.low) - (a.span.high - a.span.low))[0];
+  const swing = swingPick ? { name: swingPick.row.player.name, spread: swingPick.row.spread, low: swingPick.span.low, high: swingPick.span.high } : null;
   const leftBench = benchPoints(input.leftPlayers, input.leftTeamId);
   const rightBench = input.rightTeamId ? benchPoints(input.rightPlayers, input.rightTeamId) : null;
   const leftPlayersOnBench = benchRoster(input.leftPlayers, input.leftTeamId);

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cupWinChance, playerSpread, type CupSideOutlook, type PricedStarter } from '../src/cupOdds.ts';
+import { cupWinChance, openSpread, playerSpread, type CupSideOutlook, type PricedStarter } from '../src/cupOdds.ts';
 import { standardNormalCdf } from '../src/projections.ts';
 
 function starter(partial: Partial<PricedStarter> & Pick<PricedStarter, 'projectedPoints' | 'weekPoints'>): PricedStarter {
@@ -16,6 +16,16 @@ test('a player with fewer than two weeks keeps the position range', () => {
   assert.equal(playerSpread('QB', [22]), 7.5);
   assert.equal(playerSpread('K', []), 3.5);
   assert.equal(playerSpread('P', []), 7);
+});
+
+test('a projection of zero keeps none of a wild weekly range', () => {
+  const weeks = [2, 22, 0, 18, 25];
+  const usual = playerSpread('RB', weeks);
+  assert.ok(usual > 8);
+  assert.equal(openSpread('RB', weeks, 0), 0);
+  assert.equal(openSpread('RB', weeks, null), usual);
+  assert.equal(openSpread('RB', weeks, 12), usual);
+  assert.equal(openSpread('RB', weeks, 2), usual);
 });
 
 test('a wider weekly history stays wider after shrinking toward the position', () => {

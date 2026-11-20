@@ -167,6 +167,32 @@ test('a player range is a low and a high score, and points left use the same spa
   assert.ok(finish && finish.low < finish.center && finish.center < finish.high);
 });
 
+test('a player projected at zero is not a negative ten-point swing', () => {
+  const weeks = [1, 2, 3, 4].map(week => ({ week, points: week % 2 === 0 ? 2 : 22, stats: {} }));
+  const board = playerBoard([
+    player({ id: '1', name: 'Kenneth Walker III', position: 'RB', proTeam: 'BUF', projectedPoints: 0, weeklyStats: weeks, kickoff: '2026-10-20T00:15:00Z' }),
+    player({ id: '2', name: 'Later', position: 'WR', projectedPoints: 12, proTeam: 'BUF', kickoff: '2026-10-20T00:15:00Z' }),
+  ], games, now, 6);
+  const walker = board.yet.flatMap(group => group.players).find(row => row.player.name === 'Kenneth Walker III');
+  assert.ok(walker && walker.spread > 8);
+  assert.equal(pointSpan(walker), null);
+  const notes = matchNotes({
+    leftName: 'RonniColin', rightName: 'Reggie', leftProjected: 100, rightProjected: 80,
+    leftTeamId: '16', rightTeamId: '34', games, now, week: 6, final: false,
+    leftScore: 10, rightScore: 12, leftTotal: 10, rightTotal: 12,
+    leftPlayers: [player({ id: '2', name: 'Later', position: 'WR', projectedPoints: 12, proTeam: 'BUF', kickoff: '2026-10-20T00:15:00Z' })],
+    rightPlayers: [player({ id: '1', name: 'Kenneth Walker III', teamId: '34', position: 'RB', proTeam: 'BUF', projectedPoints: 0, weeklyStats: weeks, kickoff: '2026-10-20T00:15:00Z' })],
+  });
+  assert.equal(notes[1], 'Biggest swing left: Later (±8).');
+});
+
+test('a skill player still to play does not show a negative finish', () => {
+  const board = playerBoard([
+    player({ id: '1', name: 'Mitchell', position: 'WR', projectedPoints: 6, proTeam: 'BUF', kickoff: '2026-10-20T00:15:00Z' }),
+  ], games, now, 6);
+  assert.deepEqual(pointSpan(board.yet[0].players[0]), { low: 0, high: 14, center: 6 });
+});
+
 test('bench points ignore a player who has not scored', () => {
   assert.equal(benchPoints([player({ id: '1', name: 'A', group: 'bench', slot: 'BE', weekPoints: null }), player({ id: '2', name: 'B', group: 'bench', slot: 'BE', weekPoints: 0 })], '16'), 0);
   assert.equal(benchPoints([player({ id: '1', name: 'A', group: 'bench', slot: 'BE', weekPoints: null })], '16'), null);

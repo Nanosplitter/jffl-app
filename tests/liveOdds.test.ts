@@ -52,6 +52,11 @@ test('game progress uses the live slate now and kickoff otherwise', () => {
   assert.equal(gameProgress(final, kickoff, ended, ended + 1000), 1);
 });
 
+test('a zero projection keeps none of the weekly range', () => {
+  assert.equal(rangeStillLeft('RB', 10.73, 0, 0, null), 0);
+  assert.equal(rangeStillLeft('RB', 10.73, 12, 0, null), 10.73);
+});
+
 test('variance follows the game clock, not whether a score has been posted', () => {
   const now = start;
   const games = { KC: { kickoff, state: 'pre' as const, detail: '', progress: 0 } };
