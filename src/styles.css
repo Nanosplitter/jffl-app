@@ -489,6 +489,11 @@ a.home-cup-line:hover { text-decoration: underline; text-underline-offset: 3px; 
   .site-footer { margin: 0 40px; flex-wrap: wrap; }
   .site-footer > span:last-child { margin-left: 0; }
 }
+@media(max-width:1000px) {
+  .header-inner { flex-wrap: wrap; min-height: 0; row-gap: 0; }
+  .header-tools { margin-left: auto; }
+  .header-inner nav { order: 3; flex: 1 1 100%; min-width: 0; margin-left: 0; justify-content: space-between; gap: 12px; }
+}
 @media(max-width:850px) {
   .header-inner, .league-strip > div { padding-left: 24px; padding-right: 24px; }
   .header-inner { gap: 22px; }
