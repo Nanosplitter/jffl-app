@@ -20,7 +20,7 @@ import type { ScoringRule } from './scoreLines.ts';
 import { MANAGERS, leagueInk, managerFor } from './reference';
 import { RankMark } from './RankMark';
 import { LEAGUES, type LeagueSlug, type LiveGame, type RosteredPlayer, type Team, type WeekLineup } from './types';
-import { Fresh, points } from './ui';
+import { Fresh, points, record } from './ui';
 import type { SummaryMap } from './competitions';
 
 type SideFilter = 'left' | 'right' | 'both';
@@ -51,11 +51,13 @@ function projectedTotal(projected: number | null, offset: number) {
   return Math.round((projected + offset) * 100) / 100;
 }
 
-function Scoreboard({ match, chance, leftRank, rightRank, leftLogo, rightLogo, leftOut, rightOut }: {
+function Scoreboard({ match, chance, leftRank, rightRank, leftRecord, rightRecord, leftLogo, rightLogo, leftOut, rightOut }: {
   match: MatchdayMatch;
   chance: { left: number; right: number } | 'level' | null;
   leftRank: number | null;
   rightRank: number | null;
+  leftRecord: string | null;
+  rightRecord: string | null;
   leftLogo?: string | null;
   rightLogo?: string | null;
   leftOut: { count: number; low: number | null; high: number | null };
@@ -67,17 +69,18 @@ function Scoreboard({ match, chance, leftRank, rightRank, leftLogo, rightLogo, l
   const rightProjected = match.right ? projectedTotal(match.right.projected, match.right.offset) : null;
   const odds = chance === 'level' ? { left: 50, right: 50 } : chance;
   const status = match.status === 'final' ? 'Final' : match.status === 'upcoming' ? 'Upcoming' : 'Live';
-  const identity = (name: string, slug: LeagueSlug, rank: number | null, logo: string | null | undefined, align: 'left' | 'right', href: string) => <div className={`match-id ${align}`}>
+  const identity = (name: string, slug: LeagueSlug, rank: number | null, season: string | null, logo: string | null | undefined, align: 'left' | 'right', href: string) => <div className={`match-id ${align}`}>
     {logo && <img className="matchup-logo" src={logo} alt="" loading="lazy" decoding="async" referrerPolicy="no-referrer" onError={event => { event.currentTarget.hidden = true; }} />}
     <div className="match-id-copy">
       <Link className={`cup-manager ${leagueInk(slug)}`} to={href}><span><RankMark value={rank} />{name}</span></Link>
+      {season && <small className="match-record">{season}</small>}
     </div>
   </div>;
   return <article className="match-board" aria-label={`${match.left.manager} vs ${match.right?.manager ?? 'bye'}`}>
     <div className="match-board-row">
-      {identity(match.left.manager, match.left.slug, leftRank, leftLogo, 'left', `/league/${match.left.slug}/team/${match.left.teamId}`)}
+      {identity(match.left.manager, match.left.slug, leftRank, leftRecord, leftLogo, 'left', `/league/${match.left.slug}/team/${match.left.teamId}`)}
       <div className="match-center-score"><strong className={leftTotal != null && rightTotal != null && leftTotal > rightTotal ? 'leading' : ''}>{points(leftTotal)}</strong><span aria-hidden="true">–</span><strong className={leftTotal != null && rightTotal != null && rightTotal > leftTotal ? 'leading' : ''}>{match.right ? points(rightTotal) : 'Bye'}</strong></div>
-      {match.right ? identity(match.right.manager, match.right.slug, rightRank, rightLogo, 'right', `/league/${match.right.slug}/team/${match.right.teamId}`) : <div className="match-id right"><span className="muted">Bye</span></div>}
+      {match.right ? identity(match.right.manager, match.right.slug, rightRank, rightRecord, rightLogo, 'right', `/league/${match.right.slug}/team/${match.right.teamId}`) : <div className="match-id right"><span className="muted">Bye</span></div>}
     </div>
     <p className="matchday-proj">
       <ProjectionSide current={leftProjected} />
@@ -383,8 +386,8 @@ function Board({ left, right, showLeft, showRight, leftName, rightName, leftScor
   </div>;
 }
 
-function MatchInsights({ facts, rosters = true }: { facts: MatchFacts; rosters?: boolean }) {
-  if (!facts.catchup && !facts.swing && !facts.bench && !facts.lineup) return null;
+function MatchInsights({ facts }: { facts: MatchFacts }) {
+  if (!facts.catchup && !facts.swing && !facts.lineup) return null;
   return <div className="matchday-insights">
     {facts.catchup && <article className="matchday-insight">
       <p className="eyebrow">{facts.catchup === 'level' ? 'Projection' : `What ${facts.catchup.name} needs to win`}</p>
@@ -397,23 +400,27 @@ function MatchInsights({ facts, rosters = true }: { facts: MatchFacts; rosters?:
       <div className="matchday-range" aria-label={`${facts.swing.name} can finish between ${points(facts.swing.low)} and ${points(facts.swing.high)}`}><span>{points(facts.swing.low)}</span><span className="track" /><span>{points(facts.swing.high)}</span></div>
       <p>Where this player can still finish.</p>
     </article>}
-    {facts.bench && <article className="matchday-insight">
-      <p className="eyebrow">Bench points</p>
-      <div className="matchday-bench"><span>{facts.bench.leftName}<strong>{facts.bench.left == null ? '—' : points(facts.bench.left)}</strong></span>{facts.bench.rightName && <span>{facts.bench.rightName}<strong>{facts.bench.right == null ? '—' : points(facts.bench.right)}</strong></span>}</div>
-      <p>Points scored by players who are not starting.</p>
-      {rosters && <div className={`matchday-bench-rosters${facts.bench.rightName ? '' : ' single'}`}>
-        <BenchList name={facts.bench.leftName} players={facts.bench.leftPlayers} />
-        {facts.bench.rightName && <BenchList name={facts.bench.rightName} players={facts.bench.rightPlayers} />}
-      </div>}
-    </article>}
     {facts.lineup && <article className="matchday-insight"><p className="eyebrow">A lineup that would have won</p><p>{facts.lineup}</p></article>}
   </div>;
 }
 
+function seasonRecord(team: Team | null) {
+  if (!team || team.wins == null || team.losses == null) return null;
+  return record(team);
+}
+
+function scoredBench(players: { points: number | null }[]) {
+  const scored = players.filter(player => player.points != null && Number.isFinite(player.points));
+  if (!scored.length) return null;
+  return Math.round(scored.reduce((total, player) => total + (player.points ?? 0), 0) * 100) / 100;
+}
+
 function BenchRosters({ bench }: { bench: NonNullable<MatchFacts['bench']> }) {
   if (!bench.leftPlayers.length && !bench.rightPlayers.length) return null;
+  const total = (value: number | null) => value == null ? '—' : points(value);
   return <article className="matchday-insight matchday-side-bench">
-    <p className="eyebrow">Bench</p>
+    <p className="eyebrow">Bench points</p>
+    <div className="matchday-bench"><span>{bench.leftName}<strong>{total(bench.left)}</strong></span>{bench.rightName && <span>{bench.rightName}<strong>{total(bench.right)}</strong></span>}</div>
     <div className={`matchday-bench-rosters${bench.rightName ? '' : ' single'}`}>
       <BenchList name={bench.leftName} players={bench.leftPlayers} />
       {bench.rightName && <BenchList name={bench.rightName} players={bench.rightPlayers} />}
@@ -459,23 +466,26 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
     const rightSide = match.right;
     const leftStarters = startersFor(match.left.slug, match.left.teamId);
     const rightStarters = rightSide ? startersFor(rightSide.slug, rightSide.teamId) : [];
+    const pastRightTeam = rightSide ? teamFor(rightSide.slug, rightSide.teamId) : null;
     const noOut = { count: 0, low: null, high: null };
     const unscored = (rows: RosteredPlayer[]) => rows.map(row => toOddsStarter({ ...row, weekPoints: null }, match.week));
     const pastMarkers = windowMarkers([...leftStarters, ...rightStarters].map(player => ({ kickoff: games[player.proTeam]?.kickoff })));
     const benchSide = (slug: LeagueSlug, teamId: string) => benchRoster(rosterForWeek(lineups[slug], players[slug] ?? [], teamId, match.week) ?? [], teamId);
+    const pastLeftBench = benchSide(match.left.slug, match.left.teamId);
+    const pastRightBench = rightSide ? benchSide(rightSide.slug, rightSide.teamId) : [];
     const pastBench = {
       leftName: match.left.manager,
       rightName: rightSide?.manager ?? '',
-      left: null,
-      right: null,
-      leftPlayers: benchSide(match.left.slug, match.left.teamId),
-      rightPlayers: rightSide ? benchSide(rightSide.slug, rightSide.teamId) : [],
+      left: scoredBench(pastLeftBench),
+      right: rightSide ? scoredBench(pastRightBench) : null,
+      leftPlayers: pastLeftBench,
+      rightPlayers: pastRightBench,
     };
     return <section className="matchday-match" id={`matchday-${match.id}`}>
       <header className="matchday-match-head"><p className="eyebrow">FINAL <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{rightSide ? ` vs ${rightSide.manager}` : ' · Bye'}</p>{history && <Link className="finals-note" to={history.href}>{history.text}</Link>}</header>
       <div className="matchday-layout">
         <div className="matchday-main">
-          <Scoreboard match={{ ...match, left: { ...match.left, projected: null }, right: rightSide && { ...rightSide, projected: null } }} chance={null} leftRank={leftTeam?.rank ?? null} rightRank={(rightSide ? teamFor(rightSide.slug, rightSide.teamId) : null)?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightSide ? teamFor(rightSide.slug, rightSide.teamId)?.logoUrl : null} leftOut={noOut} rightOut={noOut} />
+          <Scoreboard match={{ ...match, left: { ...match.left, projected: null }, right: rightSide && { ...rightSide, projected: null } }} chance={null} leftRank={leftTeam?.rank ?? null} rightRank={pastRightTeam?.rank ?? null} leftRecord={seasonRecord(leftTeam)} rightRecord={seasonRecord(pastRightTeam)} leftLogo={leftTeam?.logoUrl} rightLogo={pastRightTeam?.logoUrl} leftOut={noOut} rightOut={noOut} />
           <ChanceChart final match={match} seriesLeft={liveSeries(match.left.slug, match.left.teamId)} seriesRight={rightSide ? liveSeries(rightSide.slug, rightSide.teamId) : null} leftStarters={unscored(leftStarters)} rightStarters={unscored(rightStarters)} games={games} now={now} markers={pastMarkers} />
         </div>
         <div className="matchday-side">
@@ -517,9 +527,9 @@ function MatchSection({ match, players, games, liveSeries, now, filter, narrow, 
     <header className="matchday-match-head"><p className="eyebrow">{match.status === 'final' ? 'FINAL' : match.status === 'upcoming' ? 'UPCOMING' : 'LIVE'} <span>/</span> WEEK {match.week}</p><h2><Link to={match.href}>{match.label}</Link></h2><p>{match.left.manager}{match.right ? ` vs ${match.right.manager}` : ' · Bye'}</p>{history && <Link className="finals-note" to={history.href}>{history.text}</Link>}</header>
     <div className="matchday-layout">
       <div className="matchday-main">
-        <Scoreboard match={match} chance={chance} leftRank={leftTeam?.rank ?? null} rightRank={rightTeam?.rank ?? null} leftLogo={leftTeam?.logoUrl} rightLogo={rightTeam?.logoUrl} leftOut={pointsStillOut(leftBoard)} rightOut={pointsStillOut(rightBoard ?? { playing: [], above: [], below: [], yet: [], bye: [], done: [] })} />
+        <Scoreboard match={match} chance={chance} leftRank={leftTeam?.rank ?? null} rightRank={rightTeam?.rank ?? null} leftRecord={seasonRecord(leftTeam)} rightRecord={seasonRecord(rightTeam)} leftLogo={leftTeam?.logoUrl} rightLogo={rightTeam?.logoUrl} leftOut={pointsStillOut(leftBoard)} rightOut={pointsStillOut(rightBoard ?? { playing: [], above: [], below: [], yet: [], bye: [], done: [] })} />
         <ChanceChart match={match} seriesLeft={seriesLeft} seriesRight={seriesRight} leftStarters={leftStarters.map(player => toOddsStarter(player, match.week))} rightStarters={rightStarters.map(player => toOddsStarter(player, match.week))} games={games} now={now} markers={markers} />
-        <MatchInsights facts={facts} rosters={false} />
+        <MatchInsights facts={facts} />
       </div>
       <div className="matchday-side">
         <Board left={leftBoard} right={rightBoard} showLeft={showLeft} showRight={showRight && !!match.right} leftName={match.left.manager} rightName={match.right?.manager ?? 'Bye'} leftScoring={scoring[match.left.slug] ?? []} rightScoring={match.right ? scoring[match.right.slug] ?? [] : []} />

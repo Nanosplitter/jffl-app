@@ -97,6 +97,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .match-id.right .cup-manager { flex-direction: row-reverse; }
 .match-id .matchup-logo { width: 48px; height: 48px; flex: 0 0 48px; }
 .match-id-copy { min-width: 0; }
+.match-record { display: block; margin-top: 1px; color: var(--muted); font-size: .72rem; font-weight: 550; font-variant-numeric: tabular-nums; line-height: 1.2; }
 .match-center-score { display: flex; align-items: baseline; justify-content: center; gap: 16px; font-family: 'Barlow Condensed', sans-serif; font-size: 3rem; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
 .match-center-score span { color: var(--muted); font-size: 1.5rem; }
 .match-center-score .leading { color: var(--accent-ink); }
@@ -876,7 +877,9 @@ a:hover .league-ink.jffl,
 .matchday-range-mid { color: var(--muted); font-size: .68rem; line-height: 1; }
 .matchday-bench { display: flex; justify-content: space-between; gap: 12px; }
 .matchday-bench span { display: grid; gap: 2px; color: var(--muted); font-size: .75rem; }
+.matchday-bench span:last-child:not(:only-child) { text-align: right; justify-items: end; }
 .matchday-bench strong { font-size: 1.2rem; color: var(--text); }
+.matchday-side-bench .matchday-bench strong { font-size: 1.05rem; }
 .matchday-insight:has(.matchday-bench-rosters) { flex-basis: 100%; }
 .matchday-bench-rosters { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; margin-top: 6px; }
 .matchday-bench-rosters.single { grid-template-columns: 1fr; }
