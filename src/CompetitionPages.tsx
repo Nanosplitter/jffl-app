@@ -258,10 +258,14 @@ function StarterCompare({ sides, week }: { sides: { title: string; mark?: number
         const a = left.players[index];
         const b = right.players[index];
         return <div className="starter-row" key={a?.id ?? b?.id ?? index}>
-          <div className="starter-id">{a && <PlayerLink player={a} injury={a.injuryStatus} />}</div>
-          <StarterScore player={a} align="left" week={week} scoring={left.scoring} />
-          <StarterScore player={b} align="right" week={week} scoring={right.scoring} />
-          <div className="starter-id right">{b && <PlayerLink player={b} injury={b.injuryStatus} />}</div>
+          <div className="starter-side">
+            <div className="starter-id">{a && <PlayerLink player={a} injury={a.injuryStatus} />}</div>
+            <StarterScore player={a} align="left" week={week} scoring={left.scoring} />
+          </div>
+          <div className="starter-side right">
+            <StarterScore player={b} align="right" week={week} scoring={right.scoring} />
+            <div className="starter-id right">{b && <PlayerLink player={b} injury={b.injuryStatus} />}</div>
+          </div>
         </div>;
       })}
     </div>

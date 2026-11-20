@@ -150,6 +150,7 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
 .starter-head p { margin: 0; font-size: .85rem; font-weight: 600; }
 .starter-head p:last-child, .starter-status p:last-child { text-align: right; }
 .starter-row { border-top: 1px solid var(--line); padding: 9px 0; }
+.starter-side { display: contents; }
 .starter-id { min-width: 0; }
 .starter-id.right { justify-self: end; }
 .starter-id.right .player-identity { flex-direction: row-reverse; text-align: right; }
@@ -590,15 +591,25 @@ a.cup-match:hover .cup-manager, a.bracket-node:hover .bracket-name { text-decora
   .tile-link svg { width: 22px; height: 22px; }
   .featured-cup-matches > .cup-match { flex-basis: 100%; width: 100%; max-width: none; }
   .single-round .round-matches { grid-template-columns: 1fr; }
-  .starter-head, .starter-row { grid-template-columns: minmax(0, 1fr) 4.4rem 4.4rem minmax(0, 1fr); column-gap: 8px; }
-  .starter-score.left { padding-right: 8px; }
-  .starter-score.right { padding-left: 8px; }
-  .starter-score .yet-label { display: none; }
-  .starter-score .yet-label.kickoff, .starter-score .yet-label.bye { display: block; font-size: .55rem; white-space: nowrap; }
-  .starter-score .kickoff .yet-sep, .starter-score .bye .yet-sep { display: none; }
-  .match-lineups .injury { display: none; }
-  .match-lineups .player-headshot, .match-lineups .nfl-portrait { display: none; }
-  .match-lineups .player-name { display: block; font-size: .74rem; line-height: 1.2; }
+  .starter-head, .starter-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 18px; align-items: start; }
+  .starter-head > span, .starter-status > span { display: none; }
+  .starter-side { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; row-gap: 1px; align-items: center; min-width: 0; }
+  .starter-side.right { grid-template-columns: auto minmax(0, 1fr); }
+  .starter-score { display: contents; }
+  .starter-id { grid-column: 1; grid-row: 1; }
+  .starter-side.right .starter-id { grid-column: 2; }
+  .starter-score strong, .starter-score .score-popover-anchor { grid-column: 2; grid-row: 1; line-height: 1; }
+  .starter-side.right .starter-score strong, .starter-side.right .starter-score .score-popover-anchor { grid-column: 1; }
+  .starter-score small { grid-column: 1 / -1; grid-row: 2; margin-top: 0; text-align: left; white-space: normal; }
+  .starter-side.right .starter-score small { text-align: right; }
+  .starter-score.yet small { color: var(--muted); }
+  .starter-score.left, .starter-score.right { padding: 0; }
+  .starter-score .yet-label, .starter-score .yet-label.kickoff, .starter-score .yet-label.bye { display: inline; white-space: normal; font-size: inherit; }
+  .starter-score .kickoff .yet-sep, .starter-score .bye .yet-sep { display: inline; }
+  .match-lineups .player-headshot, .match-lineups .nfl-portrait { width: 28px; height: 28px; flex-basis: 28px; }
+  .match-lineups .player-name { display: block; font-size: .78rem; line-height: 1.2; }
+  .match-lineups .player-name .injury { margin-left: 6px; }
+  .starter-score strong, .starter-score .score-figure { font-size: 1.2rem; }
   .match-lineups .player-meta { display: flex; flex-wrap: wrap; margin-top: 2px; font-size: .58rem; line-height: 1.2; }
   .match-lineups .player-meta .nfl-logo { width: 12px; height: 12px; flex-basis: 12px; }
   .match-board-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "score score" "left right"; gap: 12px 16px; }
@@ -799,12 +810,6 @@ a:hover .league-ink.jffl,
 :root[data-theme=dark] a:hover .league-ink.jffl,
 :root[data-theme=dark] .league-label.jffl { color: #3ec0f0; }
 
-@media(max-width:400px) {
-  .starter-head, .starter-row { grid-template-columns: minmax(0, 1fr) 3.5rem 3.5rem minmax(0, 1fr); column-gap: 6px; }
-  .starter-score.left { padding-right: 6px; }
-  .starter-score.right { padding-left: 6px; }
-  .starter-score strong, .starter-score .score-figure { font-size: 1rem; }
-}
 
 .matchday { display: grid; gap: 18px; }
 .matchday-selectors { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; justify-content: flex-end; }
