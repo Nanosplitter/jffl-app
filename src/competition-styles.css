@@ -917,6 +917,7 @@ a:hover .league-ink.jffl,
 .matchday-player .player-identity { width: 100%; align-items: flex-start; }
 .matchday-player .player-identity-copy { min-width: 0; }
 .matchday-player .player-name { display: block; min-width: 0; overflow-wrap: anywhere; }
+.matchday-player .player-name .injury { margin-left: 8px; }
 .matchday-player .player-meta { min-width: 0; max-width: 100%; flex-wrap: wrap; }
 @container (max-width: 250px) {
   .matchday-player .player-identity { gap: 6px; }
